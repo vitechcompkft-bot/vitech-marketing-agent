@@ -46,7 +46,7 @@ export async function runMonitorCycle(): Promise<{
 
   // 2) Pillanatkép mentése
   if (metrics.length) {
-    await sb.from("metric_snapshots").insert(
+    const { error: snapErr } = await sb.from("metric_snapshots").insert(
       metrics.map((m) => ({
         channel: m.channel,
         campaign_id: m.campaign_id,
@@ -63,6 +63,7 @@ export async function runMonitorCycle(): Promise<{
         budget_huf: m.budget_huf,
       }))
     );
+    if (snapErr) console.error("[agent] snapshot insert HIBA:", snapErr.message);
   }
 
   // Vész-leállító: csak mérünk, nem nyúlunk semmihez

@@ -12,5 +12,10 @@ export function supabaseAdmin() {
   }
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
+    // Fontos: a Next.js ne cache-elje a Supabase-olvasásokat (különben elavult adatot mutat).
+    global: {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, cache: "no-store" }),
+    },
   });
 }
