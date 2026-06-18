@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram } from "@/lib/telegram";
 import { chatWithAgent } from "@/lib/claude";
 import { execute, getConfig } from "@/lib/agent";
-import { buildContext } from "@/app/api/chat/route";
+import { buildContext } from "@/lib/context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
