@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: #0b1f3a;
+  color: #e9eef6;
+}
+
+.card {
+  @apply rounded-xl border border-white/10 bg-white/5 p-5;
+}
+.btn {
+  @apply rounded-lg px-4 py-2 text-sm font-medium transition;
+}
+.btn-primary {
+  @apply bg-brand text-white hover:bg-blue-600;
+}
+.btn-ghost {
+  @apply border border-white/15 text-white/90 hover:bg-white/10;
+}
+.btn-danger {
+  @apply bg-brand-red text-white hover:bg-red-600;
+}
+.badge {
+  @apply rounded-full px-2 py-0.5 text-xs font-medium;
+}

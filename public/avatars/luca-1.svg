@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+  <defs><linearGradient id="b1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e86ff"/><stop offset="1" stop-color="#1a4fb0"/></linearGradient></defs>
+  <circle cx="120" cy="120" r="120" fill="url(#b1)"/>
+  <g>
+    <!-- haj hátul -->
+    <path d="M70 120 Q70 60 120 60 Q170 60 170 120 L170 175 Q150 165 150 140 L150 110 Q120 100 90 110 L90 140 Q90 165 70 175 Z" fill="#5b3a29"/>
+    <!-- nyak -->
+    <rect x="108" y="150" width="24" height="30" rx="10" fill="#f1c9a8"/>
+    <!-- arc -->
+    <ellipse cx="120" cy="125" rx="42" ry="46" fill="#f6d3b2"/>
+    <!-- frufru -->
+    <path d="M78 118 Q80 72 120 72 Q160 72 162 118 Q150 96 120 96 Q90 96 78 118 Z" fill="#5b3a29"/>
+    <!-- szemek -->
+    <circle cx="104" cy="124" r="5" fill="#3a2a20"/>
+    <circle cx="136" cy="124" r="5" fill="#3a2a20"/>
+    <!-- mosoly -->
+    <path d="M106 142 Q120 154 134 142" stroke="#b86b52" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- headset (marketinges) -->
+    <path d="M78 122 Q78 86 120 86 Q162 86 162 122" stroke="#0d2540" stroke-width="7" fill="none"/>
+    <rect x="70" y="118" width="12" height="22" rx="6" fill="#0d2540"/>
+    <rect x="158" y="118" width="12" height="22" rx="6" fill="#0d2540"/>
+    <path d="M76 140 Q70 158 96 160" stroke="#0d2540" stroke-width="5" fill="none"/>
+    <circle cx="98" cy="160" r="5" fill="#E8232F"/>
+    <!-- váll/ruha -->
+    <path d="M70 240 Q70 188 120 188 Q170 188 170 240 Z" fill="#0d2540"/>
+  </g>
+</svg>
