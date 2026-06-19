@@ -139,12 +139,64 @@ export async function runMonitorCycle(): Promise<{
     }
   }
 
-  // 5) Telegram értesítés (csak ha történt valami érdemi, vagy mindig — itt: ha van akció vagy fontos)
-  if (executed + proposed > 0) {
-    await sendTelegram(tgLines.join("\n"), config.telegram_chat_id || undefined);
+  // 5) Telegram értesítés — NEM óránként! Csak napi 1×, a napi összegzo órában
+  //    (alap: 19:00, Europe/Budapest; DAILY_REPORT_HOUR env-vel állítható).
+  //    A többi órában Luca csak figyel + (korlátokon belül) cselekszik, csendben — minden a naplóban.
+  const reportHour = Number(process.env.DAILY_REPORT_HOUR ?? "19");
+  if (budapestHour() === reportHour) {
+    await sendDailyReport(sb, config, summary);
   }
 
   return { ran: true, summary, executed, proposed, blocked };
+}
+
+/** Aktuális óra (0–23) magyar ido szerint, nyári/téli idoszámítást is kezelve. */
+function budapestHour(): number {
+  const h = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Budapest",
+    hour: "2-digit",
+    hour12: false,
+  }).format(new Date());
+  return Number(h);
+}
+
+/** Napi összegzo Telegram-üzenet: az elmúlt 24 óra eseményei + aktuális helyzet. */
+async function sendDailyReport(
+  sb: ReturnType<typeof supabaseAdmin>,
+  config: AgentConfig,
+  analysisSummary: string
+): Promise<void> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: acts } = await sb
+    .from("actions")
+    .select("id, type, status, params")
+    .gte("created_at", since)
+    .order("id", { ascending: false });
+
+  const all = acts || [];
+  const executed = all.filter((a) => a.status === "executed");
+  const proposed = all.filter((a) => a.status === "proposed");
+  const blocked = all.filter((a) => a.status === "blocked");
+
+  const lines: string[] = [
+    "📊 <b>Luca — napi összegzés</b>",
+    "",
+    analysisSummary,
+    "",
+    `Elmúlt 24 óra: ✅ ${executed.length} beavatkozás · 💡 ${proposed.length} javaslat · 🚫 ${blocked.length} korlátozva.`,
+  ];
+
+  if (executed.length) {
+    lines.push("", "<b>Beavatkozások:</b>");
+    for (const a of executed.slice(0, 10)) lines.push(`• ${humanize(a.type, a.params || {})}`);
+  }
+  if (proposed.length) {
+    lines.push("", "<b>Jóváhagyásra vár:</b>");
+    for (const a of proposed.slice(0, 10)) lines.push(`• ${humanize(a.type, a.params || {})} — /approve_${a.id}`);
+  }
+  lines.push("", "Részletek a dashboardon. Bármit kérdezhetsz tolem itt is! 💬");
+
+  await sendTelegram(lines.join("\n"), config.telegram_chat_id || undefined);
 }
 
 /** Egy konkrét akció tényleges végrehajtása a Google Ads-ben (vagy mockban). */
