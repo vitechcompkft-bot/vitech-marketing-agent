@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Hiányzik a TELEGRAM_BOT_TOKEN env." }, { status: 400 });
   }
 
+  const noCache = { "Cache-Control": "no-store, max-age=0" };
+
   // ── 1. eset: még nincs chat ID → derítsük ki a botnak küldött üzenetbol ──
   if (!chatId) {
     // A getUpdates csak akkor muködik, ha NINCS aktív webhook → elobb töröljük.
@@ -36,27 +38,39 @@ export async function GET(req: NextRequest) {
     const upRes = await fetch(`https://api.telegram.org/bot${token}/getUpdates`);
     const upJson = await upRes.json().catch(() => ({} as any));
     const updates: any[] = upJson?.result || [];
-    const last = [...updates].reverse().find((u) => u?.message?.chat?.id);
-    const foundId = last?.message?.chat?.id;
-    const foundName = last?.message?.chat?.first_name || last?.message?.chat?.title || "";
+    // Bármilyen update-bol kibányásszuk a chat id-t (üzenet, szerkesztett üzenet, tagság-változás).
+    const pickChat = (u: any) =>
+      u?.message?.chat || u?.edited_message?.chat || u?.my_chat_member?.chat || u?.channel_post?.chat;
+    const last = [...updates].reverse().map(pickChat).find((c) => c?.id);
+    const foundId = last?.id;
+    const foundName = last?.first_name || last?.title || last?.username || "";
 
     if (!foundId) {
-      return NextResponse.json({
-        ok: false,
-        step: "chat-id-keresés",
-        teendo:
-          "Nyisd meg Telegramban a botodat, és küldj neki egy üzenetet (pl. „szia”), majd töltsd újra ezt az oldalt.",
-      });
+      return NextResponse.json(
+        {
+          ok: false,
+          step: "chat-id-keresés",
+          updatesTalalt: updates.length,
+          telegramOk: upJson?.ok ?? null,
+          telegramHiba: upJson?.description ?? null,
+          teendo:
+            "Nyisd meg Telegramban a botodat, küldj neki egy szöveges üzenetet (pl. „szia”), majd töltsd újra ezt az oldalt egy MÁS &n= számmal.",
+        },
+        { headers: noCache },
+      );
     }
 
-    return NextResponse.json({
-      ok: true,
-      step: "chat-id-megvan",
-      chatId: String(foundId),
-      kinek: foundName,
-      kovetkezo:
-        "Másold ezt a chatId-t a Vercelbe TELEGRAM_CHAT_ID néven (mind3 környezet), majd újradeploy után töltsd újra ezt az oldalt a webhook beállításához.",
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        step: "chat-id-megvan",
+        chatId: String(foundId),
+        kinek: foundName,
+        kovetkezo:
+          "Másold ezt a chatId-t a Vercelbe TELEGRAM_CHAT_ID néven (mind3 környezet), majd újradeploy után töltsd újra ezt az oldalt a webhook beállításához.",
+      },
+      { headers: noCache },
+    );
   }
 
   // ── 2. eset: van chat ID → webhook beállítása + teszt-üzenet ──
