@@ -46,6 +46,10 @@ export async function GET(req: NextRequest) {
     const foundName = last?.first_name || last?.title || last?.username || "";
 
     if (!foundId) {
+      // Derítsük ki, MELYIK bothoz tartozik a Vercelen lévo token.
+      const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+      const meJson = await meRes.json().catch(() => ({} as any));
+      const botUsername = meJson?.result?.username;
       return NextResponse.json(
         {
           ok: false,
@@ -53,8 +57,9 @@ export async function GET(req: NextRequest) {
           updatesTalalt: updates.length,
           telegramOk: upJson?.ok ?? null,
           telegramHiba: upJson?.description ?? null,
+          ehhezABothozIrj: botUsername ? `@${botUsername}` : "(ismeretlen — hibás token?)",
           teendo:
-            "Nyisd meg Telegramban a botodat, küldj neki egy szöveges üzenetet (pl. „szia”), majd töltsd újra ezt az oldalt egy MÁS &n= számmal.",
+            "FONTOS: pontosan a fenti @bot-nak küldj egy szöveges üzenetet (Start + „szia”), majd töltsd újra ezt az oldalt MÁS &n= számmal.",
         },
         { headers: noCache },
       );
