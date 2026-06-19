@@ -33,6 +33,12 @@ export async function POST(req: NextRequest) {
   const sb = supabaseAdmin();
 
   try {
+    // Minden bejövo üzenetnél eltároljuk a chat ID-t (proaktív értesítésekhez).
+    await sb
+      .from("agent_config")
+      .update({ telegram_chat_id: chatId, updated_at: new Date().toISOString() })
+      .eq("id", 1);
+
     // ── Parancsok ──
     if (text === "/start" || text === "/resume") {
       await sb.from("agent_config").update({ agent_enabled: true, telegram_chat_id: chatId, updated_at: new Date().toISOString() }).eq("id", 1);
