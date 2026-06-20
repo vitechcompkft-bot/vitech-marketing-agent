@@ -1,10 +1,9 @@
--- ════════════════════════════════════════════════════════════════
---  Migráció 03 — VALÓS adatok fogadása Google Ads Scriptbol
---  Futtasd a Supabase SQL Editorban (a 01 és 02 után).
--- ════════════════════════════════════════════════════════════════
+-- Migracio 03 - VALOS adatok fogadasa Google Ads Scriptbol
+-- Futtasd a Supabase SQL Editorban (a 01 es 02 utan).
+--
+-- A Google Ads szkript orankent ide tolti a kampanyok AKTUALIS (mai) szamait.
+-- Kampanyonkent egy sor (campaign_id = kulcs), minden futaskor felulirva.
 
--- A Google Ads szkript óránként ide tölti a kampányok AKTUÁLIS (mai) számait.
--- Kampányonként egy sor (campaign_id = kulcs), minden futáskor felülírva.
 create table if not exists live_metrics (
   campaign_id    text primary key,
   channel        text not null default 'google',
