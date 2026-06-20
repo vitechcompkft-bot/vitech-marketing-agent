@@ -13,11 +13,10 @@ export async function getConfig(): Promise<AgentConfig> {
 }
 
 function autoExecute(action: string, autonomy: AgentConfig["autonomy_level"]): boolean {
-  // Script módban (valós figyelés, de még nincs valós írás) Luca CSAK javasol.
-  if (process.env.DATA_SOURCE === "script") return false;
-  if (autonomy === "suggest") return false;
-  if (autonomy === "auto_small") return action === "pause_ad" || action === "budget_change";
-  return true; // auto_guardrails: minden engedélyezettet végrehajt
+  if (autonomy === "suggest") return false; // csak javaslat
+  if (autonomy === "auto_small")
+    return action === "pause_ad" || action === "budget_change";
+  return true; // auto_guardrails: minden engedélyezettet magától végrehajt
 }
 
 async function recentTrend(sb: ReturnType<typeof supabaseAdmin>): Promise<string> {
@@ -37,6 +36,7 @@ export async function runMonitorCycle(): Promise<{
   ran: boolean;
   summary: string;
   executed: number;
+  queued: number;
   proposed: number;
   blocked: number;
 }> {
@@ -70,7 +70,7 @@ export async function runMonitorCycle(): Promise<{
 
   // Vész-leállító: csak mérünk, nem nyúlunk semmihez
   if (!config.agent_enabled) {
-    return { ran: false, summary: "Az Agent ki van kapcsolva — csak mértem, nem avatkoztam be.", executed: 0, proposed: 0, blocked: 0 };
+    return { ran: false, summary: "Az Agent ki van kapcsolva — csak mértem, nem avatkoztam be.", executed: 0, queued: 0, proposed: 0, blocked: 0 };
   }
 
   // 3) Elemzés (Claude)
@@ -78,6 +78,7 @@ export async function runMonitorCycle(): Promise<{
   const { summary, decisions } = await analyzeMetrics(metrics, config, trend);
 
   let executed = 0,
+    queued = 0,
     proposed = 0,
     blocked = 0;
   const tgLines: string[] = [`🤖 <b>AI Marketinges — óránkénti jelentés</b>`, summary, ""];
@@ -134,7 +135,20 @@ export async function runMonitorCycle(): Promise<{
       continue;
     }
 
-    // 4) Végrehajtás (autonóm, korlátokon belül)
+    // 4) Autonóm végrehajtás (a korlátokon belül)
+    const scriptMode = process.env.DATA_SOURCE === "script";
+    const scriptExecutable = ["budget_change", "pause_ad", "enable_ad", "add_sitelinks", "add_callouts"].includes(
+      d.action
+    );
+
+    if (scriptMode && scriptExecutable) {
+      // Luca autonóm döntése: sorba tesszük, a Google Ads szkript hajtja végre a következo futáskor.
+      await sb.from("actions").insert({ ...base, autonomous: true, status: "approved" });
+      queued++;
+      tgLines.push(`🤖 <b>Autonóm döntés:</b> ${humanize(d.action, gr.params)} — végrehajtás folyamatban.`);
+      continue;
+    }
+
     const res = await execute(d.action, base.campaign_id, gr.params, config);
     await sb.from("actions").insert({
       ...base,
@@ -160,7 +174,7 @@ export async function runMonitorCycle(): Promise<{
     await sendDailyReport(sb, config, summary);
   }
 
-  return { ran: true, summary, executed, proposed, blocked };
+  return { ran: true, summary, executed, queued, proposed, blocked };
 }
 
 /** Aktuális óra (0–23) magyar ido szerint, nyári/téli idoszámítást is kezelve. */
@@ -187,7 +201,8 @@ async function sendDailyReport(
     .order("id", { ascending: false });
 
   const all = acts || [];
-  const executed = all.filter((a) => a.status === "executed");
+  // Az autonóm lépések: már végrehajtva (executed) VAGY sorban a szkriptnél (approved/executing).
+  const done = all.filter((a) => ["executed", "approved", "executing"].includes(a.status));
   const proposed = all.filter((a) => a.status === "proposed");
   const blocked = all.filter((a) => a.status === "blocked");
 
@@ -196,15 +211,15 @@ async function sendDailyReport(
     "",
     analysisSummary,
     "",
-    `Elmúlt 24 óra: ✅ ${executed.length} beavatkozás · 💡 ${proposed.length} javaslat · 🚫 ${blocked.length} korlátozva.`,
+    `Elmúlt 24 óra: 🤖 ${done.length} autonóm lépés · 💡 ${proposed.length} jóváhagyásra vár · 🚫 ${blocked.length} korlátozva.`,
   ];
 
-  if (executed.length) {
-    lines.push("", "<b>Beavatkozások:</b>");
-    for (const a of executed.slice(0, 10)) lines.push(`• ${humanize(a.type, a.params || {})}`);
+  if (done.length) {
+    lines.push("", "<b>Amit magamtól elintéztem:</b>");
+    for (const a of done.slice(0, 10)) lines.push(`• ${humanize(a.type, a.params || {})}`);
   }
   if (proposed.length) {
-    lines.push("", "<b>Jóváhagyásra vár:</b>");
+    lines.push("", "<b>Vezetői döntést kérek (jóváhagyás):</b>");
     for (const a of proposed.slice(0, 10)) lines.push(`• ${humanize(a.type, a.params || {})} — /approve_${a.id}`);
   }
   lines.push("", "Részletek a dashboardon. Bármit kérdezhetsz tolem itt is! 💬");
