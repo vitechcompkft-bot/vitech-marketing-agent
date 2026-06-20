@@ -18,8 +18,17 @@ export async function GET(req: NextRequest) {
   try {
     const token = await unasLogin();
     const xml = await unasGetProductsRaw(token, { limitNum: 1, contentType: "full" });
+    // A nagy blokkokat kivágjuk, hogy a SEO/Meta mezok láthatóak legyenek.
+    const trimmed = xml
+      .replace(/<Description>[\s\S]*?<\/Description>/g, "<Description>…</Description>")
+      .replace(/<Params>[\s\S]*?<\/Params>/g, "<Params>…</Params>")
+      .replace(/<Images>[\s\S]*?<\/Images>/g, "<Images>…</Images>")
+      .replace(/<History>[\s\S]*?<\/History>/g, "<History>…</History>")
+      .replace(/<Stocks>[\s\S]*?<\/Stocks>/g, "<Stocks>…</Stocks>");
+    // A SEO-szempontból érdekes tag-neveket is kigyujtjük.
+    const tagNames = Array.from(new Set((trimmed.match(/<([A-Za-z_]+)>/g) || []).map((t) => t.replace(/[<>]/g, ""))));
     return NextResponse.json(
-      { ok: true, tokenLen: token.length, sample: xml.slice(0, 6000) },
+      { ok: true, tokenLen: token.length, tags: tagNames, sample: trimmed.slice(0, 7000) },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (e: any) {
