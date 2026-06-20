@@ -1,15 +1,19 @@
 import type { CampaignMetric } from "./types";
-
-const USE_MOCK = process.env.USE_MOCK_DATA !== "false";
+import { supabaseAdmin } from "./supabase";
 
 /**
- * Google Ads adatforrás.
- *  - USE_MOCK_DATA=true  → reális mock adatok (token nélkül is fut, fejlesztéshez)
- *  - USE_MOCK_DATA=false → valódi Google Ads API (google-ads-api csomag)
+ * Google Ads adatforrás — három mód (DATA_SOURCE env):
+ *  - "mock"   → reális mock adatok (token nélkül is fut, fejlesztéshez)  [ALAP]
+ *  - "script" → VALÓS adat a Google Ads Scriptbol (live_metrics tábla). Nem kell developer token!
+ *  - "api"    → valódi Google Ads API (google-ads-api csomag, developer tokennel)
  *
- * A valódi rész csak akkor töltődik be, ha tényleg kell — így a mock mód
- * a fejlesztői token megléte nélkül is hibátlanul fut.
+ * Visszafelé kompatibilis: ha DATA_SOURCE nincs, de USE_MOCK_DATA=false → "api".
  */
+const SOURCE: "mock" | "script" | "api" =
+  (process.env.DATA_SOURCE as any) ||
+  (process.env.USE_MOCK_DATA === "false" ? "api" : "mock");
+
+const USE_MOCK = SOURCE === "mock";
 
 // ─────────────────────────── MOCK ───────────────────────────
 function jitter(base: number, pct = 0.18) {
@@ -61,8 +65,36 @@ async function realClient() {
 
 // ─────────────────────────── API ────────────────────────────
 export async function getCampaignMetrics(): Promise<CampaignMetric[]> {
-  if (USE_MOCK) return buildMock();
+  if (SOURCE === "mock") return buildMock();
 
+  // VALÓS adat a Google Ads Scriptbol (live_metrics tábla).
+  if (SOURCE === "script") {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb.from("live_metrics").select("*").neq("status", "REMOVED");
+    if (error) {
+      console.error("[googleAds] live_metrics olvasási hiba:", error.message);
+      return [];
+    }
+    return (data || []).map(
+      (r): CampaignMetric => ({
+        channel: "google",
+        campaign_id: String(r.campaign_id),
+        campaign_name: r.campaign_name ?? "",
+        status: r.status ?? "",
+        impressions: Number(r.impressions ?? 0),
+        clicks: Number(r.clicks ?? 0),
+        cost_huf: Number(r.cost_huf ?? 0),
+        conversions: Number(r.conversions ?? 0),
+        conv_value_huf: Number(r.conv_value_huf ?? 0),
+        ctr: Number(r.ctr ?? 0),
+        avg_cpc_huf: Number(r.avg_cpc_huf ?? 0),
+        roas: Number(r.roas ?? 0),
+        budget_huf: Number(r.budget_huf ?? 0),
+      })
+    );
+  }
+
+  // SOURCE === "api"
   const customer = await realClient();
   // Mai napi összesítés kampányonként (GAQL)
   const rows = await customer.query(`
@@ -106,6 +138,9 @@ export async function applyBudgetChange(
   if (USE_MOCK) {
     return { ok: true, message: `[MOCK] ${campaignId} napi kerete -> ${newBudgetHuf} Ft` };
   }
+  if (SOURCE === "script") {
+    return { ok: false, message: "Script módban a valós keret-módosítás még nincs bekötve (csak figyelés/javaslat)." };
+  }
   try {
     const customer = await realClient();
     // megkeressük a kampány budget erőforrását
@@ -131,6 +166,9 @@ export async function setCampaignStatus(
 ): Promise<{ ok: boolean; message: string }> {
   if (USE_MOCK) {
     return { ok: true, message: `[MOCK] ${campaignId} -> ${status}` };
+  }
+  if (SOURCE === "script") {
+    return { ok: false, message: "Script módban a valós állapot-váltás még nincs bekötve (csak figyelés/javaslat)." };
   }
   try {
     const customer = await realClient();

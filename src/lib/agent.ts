@@ -13,6 +13,8 @@ export async function getConfig(): Promise<AgentConfig> {
 }
 
 function autoExecute(action: string, autonomy: AgentConfig["autonomy_level"]): boolean {
+  // Script módban (valós figyelés, de még nincs valós írás) Luca CSAK javasol.
+  if (process.env.DATA_SOURCE === "script") return false;
   if (autonomy === "suggest") return false;
   if (autonomy === "auto_small") return action === "pause_ad" || action === "budget_change";
   return true; // auto_guardrails: minden engedélyezettet végrehajt

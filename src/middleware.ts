@@ -18,7 +18,11 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Automatizált végpontok kihagyása — saját titkos kulcsuk védi őket.
-  if (pathname.startsWith("/api/cron") || pathname.startsWith("/api/telegram")) {
+  if (
+    pathname.startsWith("/api/cron") ||
+    pathname.startsWith("/api/telegram") ||
+    pathname.startsWith("/api/ingest")
+  ) {
     return NextResponse.next();
   }
 
