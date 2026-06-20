@@ -97,6 +97,17 @@ export async function runMonitorCycle(): Promise<{
       continue;
     }
 
+    // Asset-javaslatokból (sitelink/kiemelo) ne halmozzunk fel duplikátumot.
+    if (d.action === "add_sitelinks" || d.action === "add_callouts") {
+      const { data: dup } = await sb
+        .from("actions")
+        .select("id")
+        .eq("type", d.action)
+        .in("status", ["proposed", "approved", "executing"])
+        .limit(1);
+      if (dup && dup.length) continue;
+    }
+
     const gr = enforceGuardrails(d, metric, config);
 
     // alap akció-rekord
@@ -238,7 +249,47 @@ function humanize(action: string, p: Record<string, unknown>): string {
       return "Kampány újraindítása";
     case "set_target_roas":
       return `ROAS-cél = ${p.to}`;
+    case "add_sitelinks": {
+      const n = Array.isArray(p.sitelinks) ? (p.sitelinks as any[]).length : 0;
+      const names = Array.isArray(p.sitelinks)
+        ? (p.sitelinks as any[]).map((s) => s?.text).filter(Boolean).join(", ")
+        : "";
+      return `${n} sitelink hozzáadása${names ? ` (${names})` : ""}`;
+    }
+    case "add_callouts": {
+      const list = Array.isArray(p.callouts) ? (p.callouts as any[]).join(", ") : "";
+      return `Kiemelők hozzáadása${list ? ` (${list})` : ""}`;
+    }
     default:
       return action;
   }
+}
+
+/**
+ * Egy javaslat jóváhagyása (Telegram /approve_ vagy dashboard gomb).
+ * Script módban a tényleges végrehajtást a Google Ads szkript végzi → "approved" sorba tesszük.
+ * (A set_target_roas belso beállítás, azt azonnal elvégezzük.)
+ */
+export async function approveAction(
+  id: number
+): Promise<{ ok: boolean; status: string; message: string }> {
+  const sb = supabaseAdmin();
+  const { data: action } = await sb.from("actions").select("*").eq("id", id).single();
+  if (!action) return { ok: false, status: "missing", message: "Nem találom ezt a javaslatot." };
+  if (action.status !== "proposed")
+    return { ok: false, status: action.status, message: `Ez a javaslat már „${action.status}" állapotú.` };
+
+  const viaScript = process.env.DATA_SOURCE === "script" && action.type !== "set_target_roas";
+  if (viaScript) {
+    await sb.from("actions").update({ status: "approved" }).eq("id", id);
+    return { ok: true, status: "approved", message: "Jóváhagyva — a Google Ads szkript hamarosan végrehajtja." };
+  }
+
+  const config = await getConfig();
+  const res = await execute(action.type, action.campaign_id, action.params, config);
+  await sb
+    .from("actions")
+    .update({ status: res.ok ? "executed" : "failed", result: res.message, executed_at: new Date().toISOString() })
+    .eq("id", id);
+  return { ok: res.ok, status: res.ok ? "executed" : "failed", message: res.message };
 }

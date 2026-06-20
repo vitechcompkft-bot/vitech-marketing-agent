@@ -77,10 +77,29 @@ export function enforceGuardrails(
       return { permitted: true, params: decision.params, note: "Szüneteltetés engedélyezett." };
     }
 
+    case "enable_ad": {
+      if (!config.allow_pause_ads)
+        return { permitted: false, params: decision.params, note: "Kampány-állapot váltás tiltva a beállításokban." };
+      return { permitted: true, params: decision.params, note: "Újraindítás engedélyezett." };
+    }
+
     case "set_target_roas": {
       const to = Number(decision.params?.to ?? 0);
       if (to <= 0) return { permitted: false, params: decision.params, note: "Érvénytelen ROAS-cél." };
       return { permitted: true, params: { to }, note: "ROAS-cél beállítható." };
+    }
+
+    case "add_sitelinks": {
+      const arr = Array.isArray(decision.params?.sitelinks) ? (decision.params.sitelinks as any[]) : [];
+      if (!arr.length) return { permitted: false, params: decision.params, note: "Nincs sitelink tartalom." };
+      // Alacsony kockázat (nincs költséghatás), de jóváhagyás után a szkript teszi be.
+      return { permitted: true, params: decision.params, note: `Sitelink-javaslat (${arr.length} db) — alacsony kockázat.` };
+    }
+
+    case "add_callouts": {
+      const arr = Array.isArray(decision.params?.callouts) ? (decision.params.callouts as any[]) : [];
+      if (!arr.length) return { permitted: false, params: decision.params, note: "Nincs kiemelo tartalom." };
+      return { permitted: true, params: decision.params, note: `Kiemelo-javaslat (${arr.length} db) — alacsony kockázat.` };
     }
 
     default:

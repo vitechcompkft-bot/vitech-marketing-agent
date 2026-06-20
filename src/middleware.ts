@@ -21,7 +21,8 @@ export function middleware(req: NextRequest) {
   if (
     pathname.startsWith("/api/cron") ||
     pathname.startsWith("/api/telegram") ||
-    pathname.startsWith("/api/ingest")
+    pathname.startsWith("/api/ingest") ||
+    pathname.startsWith("/api/commands")
   ) {
     return NextResponse.next();
   }

@@ -66,19 +66,29 @@ mindenféle extra szöveg nélkül:
   "summary": "1-3 mondatos, magyar összefoglaló a helyzetről (számokkal).",
   "decisions": [
     {
-      "action": "budget_change | pause_ad | set_target_roas | note",
+      "action": "budget_change | pause_ad | enable_ad | set_target_roas | add_sitelinks | add_callouts | note",
       "campaign_id": "a kampány id-ja vagy null",
       "campaign_name": "a kampány neve vagy null",
-      "params": { "to": 6000 },        // budget_change-nél az új napi keret Ft-ban (to). set_target_roas-nál {"to": 3.5}.
+      "params": { },
       "reasoning": "rövid indoklás számokkal",
       "severity": "info | warning | critical"
     }
   ]
 }
 
+A params mezo akciónként:
+- budget_change:  { "to": 6000 }                      // új napi keret Ft-ban
+- set_target_roas:{ "to": 3.5 }
+- pause_ad / enable_ad: { }                            // a campaign_id azonosítja a kampányt
+- add_sitelinks:  { "sitelinks": [ { "text": "Lenovo laptopok", "description1": "Felújított ThinkPad", "description2": "12 hó garancia", "url": "https://vitechcompkft.hu/lenovo" } ] }   // 4 db, magyar, ütős
+- add_callouts:   { "callouts": ["12 hónap garancia", "Bevizsgált gépek", "Gyors szállítás", "14 nap elállás"] }   // 4-6 db, rövid
+
 Szabályok:
-- Ha minden rendben / kevés az adat: adj egyetlen "note" döntést "info" súllyal, a megfigyeléssel.
+- Ha minden rendben / kevés az adat: adj egy "note" döntést "info" súllyal.
 - budget_change csak akkor, ha a ROAS és a költés indokolja, és tartsd a max_keret_valtozas_pct lépésközt.
+- OPTIMALIZÁLÁS: ha a CTR alacsony vagy a hirdetés gyenge lehet, javasolj add_sitelinks ÉS add_callouts akciókat
+  KÉSZ, magyar szöveggel (a Vitech profiljához illoen: felújított Lenovo/HP/Dell üzleti laptopok). A sitelink URL-ek
+  a vitechcompkft.hu alá mutassanak. Ezeket elég EGYSZER javasolni (ne ismételd, ha már van ilyen folyamatban).
 - Ne javasolj olyat, amit a korlátok tiltanak.
 
 ADATOK:

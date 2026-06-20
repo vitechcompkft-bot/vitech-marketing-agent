@@ -39,6 +39,8 @@ export type ActionType =
   | "pause_ad"
   | "enable_ad"
   | "set_target_roas"
+  | "add_sitelinks"
+  | "add_callouts"
   | "note";
 
 export type ActionStatus =

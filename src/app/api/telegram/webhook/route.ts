@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram } from "@/lib/telegram";
 import { chatWithAgent } from "@/lib/claude";
-import { execute, getConfig } from "@/lib/agent";
+import { approveAction, getConfig } from "@/lib/agent";
 import { buildContext } from "@/lib/context";
 
 export const runtime = "nodejs";
@@ -59,23 +59,9 @@ export async function POST(req: NextRequest) {
     }
     if (text.startsWith("/approve_")) {
       const id = Number(text.replace("/approve_", ""));
-      const { data: action } = await sb.from("actions").select("*").eq("id", id).single();
-      if (!action) {
-        await sendTelegram("Nem találom ezt a javaslatot.", chatId);
-        return NextResponse.json({ ok: true });
-      }
-      if (action.status !== "proposed") {
-        await sendTelegram(`Ez a javaslat már „${action.status}" állapotú.`, chatId);
-        return NextResponse.json({ ok: true });
-      }
-      const config = await getConfig();
-      const res = await execute(action.type, action.campaign_id, action.params, config);
-      await sb.from("actions").update({
-        status: res.ok ? "executed" : "failed",
-        result: res.message,
-        executed_at: new Date().toISOString(),
-      }).eq("id", id);
-      await sendTelegram(res.ok ? `✅ Jóváhagyva és végrehajtva: ${res.message}` : `⚠️ Hiba: ${res.message}`, chatId);
+      const res = await approveAction(id);
+      const prefix = res.status === "approved" ? "✅ " : res.ok ? "✅ Végrehajtva: " : "⚠️ ";
+      await sendTelegram(prefix + res.message, chatId);
       return NextResponse.json({ ok: true });
     }
 
