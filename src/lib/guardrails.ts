@@ -102,6 +102,11 @@ export function enforceGuardrails(
       return { permitted: true, params: decision.params, note: `Kiemelo-javaslat (${arr.length} db) — alacsony kockázat.` };
     }
 
+    case "seo_update": {
+      if (!decision.params?.product_id) return { permitted: false, params: decision.params, note: "Hiányzó termék-id." };
+      return { permitted: true, params: decision.params, note: "SEO-frissítés — alacsony kockázat." };
+    }
+
     default:
       return { permitted: false, params: decision.params, note: "Ismeretlen vagy tiltott akciótípus." };
   }

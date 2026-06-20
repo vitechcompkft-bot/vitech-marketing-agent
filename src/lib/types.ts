@@ -41,6 +41,7 @@ export type ActionType =
   | "set_target_roas"
   | "add_sitelinks"
   | "add_callouts"
+  | "seo_update"
   | "note";
 
 export type ActionStatus =

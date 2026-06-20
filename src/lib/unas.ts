@@ -26,6 +26,85 @@ export async function unasLogin(): Promise<string> {
   return token;
 }
 
+export interface UnasProduct {
+  id: string;
+  sku?: string;
+  name: string;
+  url?: string;
+  priceGross?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  metaKeywords?: string;
+}
+
+/** CDATA-t és sima szöveget is kezelo mezo-kiolvasás egy XML blokkból. */
+function field(block: string, tag: string): string | undefined {
+  const m = block.match(new RegExp(`<${tag}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${tag}>`));
+  return m ? m[1].trim() : undefined;
+}
+
+function cdata(s: string | undefined): string {
+  return `<![CDATA[${s ?? ""}]]>`;
+}
+
+/** Termékek lekérése értelmezett formában (SEO-mezokkel együtt). */
+export async function unasGetProducts(
+  token: string,
+  opts?: { limitNum?: number; limitStart?: number }
+): Promise<UnasProduct[]> {
+  const xml = await unasGetProductsRaw(token, {
+    limitNum: opts?.limitNum ?? 30,
+    limitStart: opts?.limitStart ?? 0,
+    contentType: "full",
+  });
+  const blocks = xml.match(/<Product>[\s\S]*?<\/Product>/g) || [];
+  return blocks
+    .map((b): UnasProduct => {
+      const meta = (b.match(/<Meta>([\s\S]*?)<\/Meta>/) || [])[1] || "";
+      const priceBlock = (b.match(/<Price>([\s\S]*?)<\/Price>/) || [])[1] || "";
+      return {
+        id: (b.match(/<Id>(\d+)<\/Id>/) || [])[1] || "",
+        sku: field(b, "Sku"),
+        name: field(b, "Name") || "",
+        url: field(b, "Url"),
+        priceGross: field(priceBlock, "Gross"),
+        metaTitle: field(meta, "Title"),
+        metaDescription: field(meta, "Description"),
+        metaKeywords: field(meta, "Keywords"),
+      };
+    })
+    .filter((p) => p.id);
+}
+
+/** Egy termék SEO-mezoinek (Meta Title/Description/Keywords) frissítése. */
+export async function unasSetProductSeo(
+  token: string,
+  id: string,
+  seo: { title?: string; description?: string; keywords?: string }
+): Promise<{ ok: boolean; message: string }> {
+  const fields: string[] = [];
+  if (seo.title !== undefined) fields.push(`<Title>${cdata(seo.title)}</Title>`);
+  if (seo.description !== undefined) fields.push(`<Description>${cdata(seo.description)}</Description>`);
+  if (seo.keywords !== undefined) fields.push(`<Keywords>${cdata(seo.keywords)}</Keywords>`);
+
+  const body =
+    `<?xml version="1.0" encoding="UTF-8" ?>\n` +
+    `<Products><Product><Action>modify</Action><Id>${id}</Id>` +
+    `<Meta>${fields.join("")}</Meta>` +
+    `</Product></Products>`;
+
+  const res = await fetch(`${API_BASE}/setProduct`, {
+    method: "POST",
+    headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+    body,
+  });
+  const text = await res.text();
+  if (/<Error/i.test(text) || /hiba/i.test(text)) {
+    return { ok: false, message: "Unas setProduct hiba: " + text.slice(0, 300) };
+  }
+  return { ok: true, message: "SEO frissítve az Unasban." };
+}
+
 /** Nyers termék-XML lekérés (a SEO-mezok felderítéséhez / olvasáshoz). */
 export async function unasGetProductsRaw(
   token: string,

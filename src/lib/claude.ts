@@ -189,4 +189,50 @@ Válaszolj PONTOSAN ebben a JSON-ban, semmi mással:
   }
 }
 
+/** Egy termékhez jobb, eladásra optimalizált SEO-t javasol (csak ha érdemben jobb). */
+export async function generateSeo(
+  p: { name: string; priceGross?: string; currentTitle?: string; currentDescription?: string; currentKeywords?: string },
+  persona: { name: string; persona: string }
+): Promise<{ improve: boolean; title: string; description: string; keywords: string; reason: string }> {
+  const anthropic = client();
+  const msg = await anthropic.messages.create({
+    model: SMART,
+    max_tokens: 600,
+    system: buildSystem(persona.name, persona.persona),
+    messages: [
+      {
+        role: "user",
+        content: `Egy felújított laptop/számítógép termék SEO-ját nézzük a vitechcompkft.hu webshopon.
+Termék: ${p.name}
+${p.priceGross ? "Ár: " + p.priceGross + " Ft\n" : ""}Jelenlegi SEO oldalcím: ${p.currentTitle || "(nincs)"}
+Jelenlegi meta leírás: ${p.currentDescription || "(nincs)"}
+Jelenlegi kulcsszavak: ${p.currentKeywords || "(nincs)"}
+
+Készíts JOBB, eladásra optimalizált magyar SEO-t. CSAK akkor jelezz javítást (improve=true), ha érdemben jobb a jelenleginél.
+- title: max ~60 karakter, a fo terméknév + 1 ütos elem (pl. "12 hó garancia").
+- description: max ~155 karakter, vonzó, vásárlásra ösztönzo, tartalmazza a kulcs-elonyt (bevizsgált, garancia, gyors szállítás).
+- keywords: 8-15 releváns magyar kulcsszó, vesszovel elválasztva.
+Válaszolj PONTOSAN ebben a JSON-ban, semmi mással:
+{ "improve": true, "title": "...", "description": "...", "keywords": "...", "reason": "rövid indok magyarul" }`,
+      },
+    ],
+  });
+  const text = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  try {
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return {
+      improve: !!j.improve,
+      title: j.title || "",
+      description: j.description || "",
+      keywords: j.keywords || "",
+      reason: j.reason || "",
+    };
+  } catch {
+    return { improve: false, title: "", description: "", keywords: "", reason: "az elemzés nem értelmezheto" };
+  }
+}
+
 export { SMART, FAST };

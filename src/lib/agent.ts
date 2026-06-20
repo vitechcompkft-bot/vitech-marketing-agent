@@ -237,6 +237,18 @@ export async function execute(
       await sb.from("agent_config").update({ target_roas: Number(params.to), updated_at: new Date().toISOString() }).eq("id", 1);
       return { ok: true, message: `ROAS-cél beállítva: ${params.to}` };
     }
+    case "seo_update": {
+      // Szerveroldali végrehajtás az Unas API-n (NEM a Google Ads szkript).
+      const { unasLogin, unasSetProductSeo } = await import("./unas");
+      const pid = String(params.product_id ?? "");
+      if (!pid) return { ok: false, message: "Hiányzó termék-id a SEO-frissítéshez." };
+      const token = await unasLogin();
+      return unasSetProductSeo(token, pid, {
+        title: params.title as string | undefined,
+        description: params.description as string | undefined,
+        keywords: params.keywords as string | undefined,
+      });
+    }
     default:
       return { ok: false, message: "Ismeretlen akció." };
   }
@@ -263,6 +275,8 @@ function humanize(action: string, p: Record<string, unknown>): string {
       const list = Array.isArray(p.callouts) ? (p.callouts as any[]).join(", ") : "";
       return `Kiemelők hozzáadása${list ? ` (${list})` : ""}`;
     }
+    case "seo_update":
+      return `SEO frissítés: ${p.product_name ?? p.product_id ?? "termék"}`;
     default:
       return action;
   }
@@ -282,7 +296,10 @@ export async function approveAction(
   if (action.status !== "proposed")
     return { ok: false, status: action.status, message: `Ez a javaslat már „${action.status}" állapotú.` };
 
-  const viaScript = process.env.DATA_SOURCE === "script" && action.type !== "set_target_roas";
+  // A szerveroldali akciókat (belso ROAS-cél, Unas SEO) mindig azonnal végrehajtjuk,
+  // a Google Ads-eseket script módban a szkriptnek adjuk át.
+  const serverSide = action.type === "set_target_roas" || action.type === "seo_update";
+  const viaScript = process.env.DATA_SOURCE === "script" && !serverSide;
   if (viaScript) {
     await sb.from("actions").update({ status: "approved" }).eq("id", id);
     return { ok: true, status: "approved", message: "Jóváhagyva — a Google Ads szkript hamarosan végrehajtja." };
