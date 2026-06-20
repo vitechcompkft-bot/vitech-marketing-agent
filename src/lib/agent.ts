@@ -32,7 +32,7 @@ async function recentTrend(sb: ReturnType<typeof supabaseAdmin>): Promise<string
 }
 
 /** Egy teljes figyelési ciklus: mérés → elemzés → (korlátozott) cselekvés → értesítés. */
-export async function runMonitorCycle(): Promise<{
+export async function runMonitorCycle(opts?: { sendReport?: boolean }): Promise<{
   ran: boolean;
   summary: string;
   executed: number;
@@ -166,25 +166,13 @@ export async function runMonitorCycle(): Promise<{
     }
   }
 
-  // 5) Telegram értesítés — NEM óránként! Csak napi 1×, a napi összegzo órában
-  //    (alap: 19:00, Europe/Budapest; DAILY_REPORT_HOUR env-vel állítható).
-  //    A többi órában Luca csak figyel + (korlátokon belül) cselekszik, csendben — minden a naplóban.
-  const reportHour = Number(process.env.DAILY_REPORT_HOUR ?? "19");
-  if (budapestHour() === reportHour) {
+  // 5) Telegram napi összegzo — CSAK a dedikált napi cron kéri (sendReport).
+  //    Az óránkénti adatküldés (szkript) NEM küld jelentést, csak figyel + cselekszik csendben.
+  if (opts?.sendReport) {
     await sendDailyReport(sb, config, summary);
   }
 
   return { ran: true, summary, executed, queued, proposed, blocked };
-}
-
-/** Aktuális óra (0–23) magyar ido szerint, nyári/téli idoszámítást is kezelve. */
-function budapestHour(): number {
-  const h = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Budapest",
-    hour: "2-digit",
-    hour12: false,
-  }).format(new Date());
-  return Number(h);
 }
 
 /** Napi összegzo Telegram-üzenet: az elmúlt 24 óra eseményei + aktuális helyzet. */

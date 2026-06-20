@@ -18,7 +18,8 @@ async function handle(req: NextRequest) {
     }
   }
   try {
-    const result = await runMonitorCycle();
+    // A dedikált napi cron ezt hívja → kérje a napi Telegram-összegzot is.
+    const result = await runMonitorCycle({ sendReport: true });
     return NextResponse.json({ ok: true, ...result });
   } catch (e: any) {
     console.error("[cron/monitor] hiba:", e);
