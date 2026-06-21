@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
  * A visszaadott elemeket egyben "executing" állapotba teszi, hogy ne hajtódjanak végre kétszer.
  * Védelem: Authorization: Bearer <CRON_SECRET>.
  */
-const SCRIPT_TYPES = ["budget_change", "pause_ad", "enable_ad", "add_sitelinks", "add_callouts"];
+// PMax-en a sitelink/kiemelo a szkriptbol nem alkalmazható → csak ezeket adjuk át a szkriptnek.
+const SCRIPT_TYPES = ["budget_change", "pause_ad", "enable_ad"];
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;

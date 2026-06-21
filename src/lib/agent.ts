@@ -13,6 +13,8 @@ export async function getConfig(): Promise<AgentConfig> {
 }
 
 function autoExecute(action: string, autonomy: AgentConfig["autonomy_level"]): boolean {
+  // Sitelink/kiemelo PMax-kampányon a szkriptbol nem alkalmazható → CSAK javaslat (nem fut, nem hibázik).
+  if (action === "add_sitelinks" || action === "add_callouts") return false;
   if (autonomy === "suggest") return false; // csak javaslat
   if (autonomy === "auto_small")
     return action === "pause_ad" || action === "budget_change";
@@ -98,13 +100,14 @@ export async function runMonitorCycle(opts?: { sendReport?: boolean }): Promise<
       continue;
     }
 
-    // Asset-javaslatokból (sitelink/kiemelo) ne halmozzunk fel duplikátumot.
+    // Asset-javaslatokból (sitelink/kiemelo) hetente max egyszer — bármilyen állapot.
     if (d.action === "add_sitelinks" || d.action === "add_callouts") {
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const { data: dup } = await sb
         .from("actions")
         .select("id")
         .eq("type", d.action)
-        .in("status", ["proposed", "approved", "executing"])
+        .gte("created_at", weekAgo)
         .limit(1);
       if (dup && dup.length) continue;
     }
