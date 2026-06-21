@@ -109,6 +109,29 @@ export async function unasSetProductSeo(
   return { ok: true, message: "SEO frissítve az Unasban." };
 }
 
+export interface UnasOrder {
+  key: string;
+  date: string; // "2026.06.04 18:07:59"
+  status: string;
+  statusType: string;
+  sumGross: number;
+}
+
+/** Rendelések értelmezett formában (minden státusz, a lezártakat is). */
+export async function unasGetOrders(token: string, opts?: { limitNum?: number }): Promise<UnasOrder[]> {
+  const xml = await unasGetOrdersRaw(token, { limitNum: opts?.limitNum ?? 1000 });
+  const blocks = xml.match(/<Order>[\s\S]*?<\/Order>/g) || [];
+  return blocks
+    .map((b): UnasOrder => ({
+      key: field(b, "Key") || "",
+      date: field(b, "Date") || "",
+      status: field(b, "Status") || "",
+      statusType: field(b, "StatusType") || "",
+      sumGross: Number(field(b, "SumPriceGross") || 0),
+    }))
+    .filter((o) => o.key);
+}
+
 /** Nyers rendelés-XML lekérés (a mezok felderítéséhez / bevétel-statisztikához). */
 export async function unasGetOrdersRaw(
   token: string,

@@ -23,7 +23,7 @@ function humanize(type: string, p: any): string {
 }
 
 export default async function Overview() {
-  const { metrics, actions, alerts, config, klari, agents, supabaseReady, mock } = await loadDashboard();
+  const { metrics, actions, alerts, config, klari, agents, orders, supabaseReady, mock } = await loadDashboard();
   const erika = agents.find((a) => a.key === "erika");
   const gyula = agents.find((a) => a.key === "gyula");
   const proposed = actions.filter((a) => a.status === "proposed");
@@ -112,12 +112,48 @@ export default async function Overview() {
         </section>
       )}
 
-      {/* Összesített KPI-k */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Kpi title="Mai költés" value={ft(totalCost)} />
-        <Kpi title="Árbevétel (konv. érték)" value={ft(totalVal)} />
-        <Kpi title="ROAS" value={totalRoas ? `${totalRoas}×` : "—"} accent={totalRoas >= 3 ? "good" : totalRoas > 0 ? "warn" : undefined} />
-        <Kpi title="Konverziók" value={num(totalConv)} />
+      {/* Valós eladások (webshop, minden csatorna) */}
+      {orders.ok && (
+        <section>
+          <h2 className="section-title">💰 Valós eladások (webshop · minden csatorna)</h2>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Kpi title="Mai bevétel" value={ft(orders.todayRevenue)} accent={orders.todayRevenue > 0 ? "good" : undefined} />
+            <Kpi title="Mai rendelés" value={num(orders.todayCount)} />
+            <Kpi title="Havi bevétel" value={ft(orders.monthRevenue)} accent={orders.monthRevenue > 0 ? "good" : undefined} />
+            <Kpi title="Havi rendelés" value={num(orders.monthCount)} />
+          </div>
+          {orders.recent.length > 0 && (
+            <div className="card mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-white/50">
+                  <tr><th className="py-1">Rendelés</th><th>Dátum</th><th>Állapot</th><th className="text-right">Végösszeg</th></tr>
+                </thead>
+                <tbody>
+                  {orders.recent.map((o) => (
+                    <tr key={o.key} className="border-t border-white/5">
+                      <td className="py-2 pr-3 text-white/70">{o.key}</td>
+                      <td className="pr-3 text-white/60">{o.date}</td>
+                      <td className="pr-3"><span className="badge bg-green-500/20 text-green-300">{o.status}</span></td>
+                      <td className="text-right font-semibold">{ft(o.sumGross)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="mt-2 text-xs text-white/40">A „Valós eladások" minden csatornát tartalmaz. A lenti Google Ads blokk csak a hirdetésből származó részt mutatja.</div>
+        </section>
+      )}
+
+      {/* Google Ads összesített KPI-k */}
+      <div>
+        <h2 className="section-title">📣 Google Ads (csak a hirdetésből)</h2>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <Kpi title="Mai költés" value={ft(totalCost)} />
+          <Kpi title="Hirdetésből bevétel" value={ft(totalVal)} />
+          <Kpi title="ROAS" value={totalRoas ? `${totalRoas}×` : "—"} accent={totalRoas >= 3 ? "good" : totalRoas > 0 ? "warn" : undefined} />
+          <Kpi title="Konverziók" value={num(totalConv)} />
+        </div>
       </div>
 
       {/* Kampányok */}

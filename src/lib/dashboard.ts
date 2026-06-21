@@ -1,5 +1,6 @@
 import { getCampaignMetrics, isMock } from "./googleAds";
 import { supabaseAdmin } from "./supabase";
+import { getOrderStats, type OrderStats } from "./orders";
 import type { AgentAction, AgentConfig, Alert, CampaignMetric } from "./types";
 
 export interface KlariPost {
@@ -33,6 +34,7 @@ export interface DashboardData {
   config: AgentConfig | null;
   klari: KlariPost[];
   agents: OrgAgent[];
+  orders: OrderStats;
   supabaseReady: boolean;
   mock: boolean;
 }
@@ -45,6 +47,8 @@ export async function loadDashboard(): Promise<DashboardData> {
   } catch {
     metrics = [];
   }
+
+  const orders = await getOrderStats();
 
   let actions: AgentAction[] = [];
   let alerts: Alert[] = [];
@@ -72,5 +76,5 @@ export async function loadDashboard(): Promise<DashboardData> {
     supabaseReady = false;
   }
 
-  return { metrics, actions, alerts, config, klari, agents, supabaseReady, mock: isMock };
+  return { metrics, actions, alerts, config, klari, agents, orders, supabaseReady, mock: isMock };
 }
