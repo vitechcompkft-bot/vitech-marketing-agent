@@ -1,6 +1,7 @@
 import { loadDashboard } from "@/lib/dashboard";
 import RunNowButton from "@/components/RunNowButton";
 import ProposedAction from "@/components/ProposedAction";
+import KlariDeal from "@/components/KlariDeal";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +14,15 @@ function humanize(type: string, p: any): string {
     case "pause_ad": return "Kampány szüneteltetése";
     case "enable_ad": return "Kampány újraindítása";
     case "set_target_roas": return `ROAS-cél = ${p?.to}`;
+    case "add_sitelinks": return `Sitelinkek hozzáadása`;
+    case "add_callouts": return `Kiemelők hozzáadása`;
+    case "seo_update": return `SEO frissítés: ${p?.product_name ?? "termék"}`;
     default: return type;
   }
 }
 
 export default async function Overview() {
-  const { metrics, actions, alerts, config, supabaseReady, mock } = await loadDashboard();
+  const { metrics, actions, alerts, config, klari, supabaseReady, mock } = await loadDashboard();
   const proposed = actions.filter((a) => a.status === "proposed");
   const log = actions.filter((a) => a.status !== "proposed").slice(0, 12);
 
@@ -52,6 +56,55 @@ export default async function Overview() {
         </div>
         <RunNowButton />
       </div>
+
+      {/* Csapat */}
+      <section>
+        <h2 className="section-title">👥 Marketing csapat</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="card card-hover flex items-center gap-3">
+            <div className="mono h-12 w-12 text-lg" style={{ background: "linear-gradient(135deg,#1A73E8,#0a2a5e)" }}>
+              {(config?.agent_name ?? "L").charAt(0)}
+            </div>
+            <div>
+              <div className="font-semibold">{config?.agent_name ?? "Luca"} <span className="badge ml-1 bg-brand/20 text-brand">főnök</span></div>
+              <div className="text-xs text-white/60">Hirdetések + SEO · önállóan dönt a korlátokon belül</div>
+            </div>
+          </div>
+          <div className="card card-hover flex items-center gap-3">
+            <div className="mono h-12 w-12 text-lg" style={{ background: "linear-gradient(135deg,#e84393,#a02060)" }}>
+              K
+            </div>
+            <div>
+              <div className="font-semibold">Klári <span className="badge ml-1 bg-white/10 text-white/60">beosztott</span></div>
+              <div className="text-xs text-white/60">Napi ajánlat-kutatás + plakát · Lucának jelent</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Klári napi ajánlata */}
+      {klari.length > 0 && (
+        <section>
+          <h2 className="section-title">🖼️ Klári napi ajánlata</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {klari.slice(0, 2).map((k) => (
+              <KlariDeal
+                key={k.id}
+                id={k.id}
+                productName={k.product_name}
+                productUrl={k.product_url}
+                priceHuf={k.price_huf}
+                marketNote={k.market_note}
+                caption={k.caption}
+                posterSvg={k.poster_svg}
+                lucaVerdict={k.luca_verdict}
+                status={k.status}
+                createdAt={k.created_at}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Összesített KPI-k */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

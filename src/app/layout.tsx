@@ -25,11 +25,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <div className="mx-auto max-w-6xl px-4 py-6">
           <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={persona.avatar} alt={persona.name} className="h-11 w-11 rounded-full border border-white/20 bg-white/10 object-cover" />
+              <div className="mono h-11 w-11 shrink-0 text-xl" style={{ background: "linear-gradient(135deg,#1A73E8,#0a2a5e)" }}>
+                V
+              </div>
               <div>
-                <div className="text-lg font-bold leading-tight">{persona.name}</div>
-                <div className="text-xs text-white/60">AI marketinges · Vitech Comp Kft.</div>
+                <div className="text-lg font-bold leading-tight">
+                  Vitech <span className="text-brand">Marketing</span>
+                </div>
+                <div className="text-xs text-white/55">{persona.name} & csapata · AI marketing · Vitech Comp Kft.</div>
               </div>
             </div>
             <nav className="flex flex-wrap gap-1 text-sm">
@@ -41,7 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </header>
           {children}
           <footer className="mt-12 text-center text-xs text-white/40">
-            {persona.name} · csak engedéllyel, korlátok között avatkozik be · minden lépés naplózva
+            {persona.name} & csapata · csak korlátok között avatkozik be · minden lépés naplózva
           </footer>
         </div>
       </body>
