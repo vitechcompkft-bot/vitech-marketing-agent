@@ -16,6 +16,8 @@ export interface KlariResult {
   verdict?: string;
   posterUrl?: string | null;
   cutoutOk?: boolean;
+  posterSource?: string;
+  falNote?: string;
 }
 
 /**
@@ -87,15 +89,29 @@ export async function runKlariDaily(): Promise<KlariResult> {
   let posterSvg: string | null = null;
   let posterUrl: string | null = null;
   let cutoutOk = false;
+  let posterSource = "template";
+  let falNote = "";
   if (judge.approve) {
     const priceTxt = priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(priceHuf)) + " Ft" : "";
 
     // 4a) Elsodleges: TELJES AI-hirdetés (fal.ai/Recraft) + Luca vizuális ellenorzése.
-    if (process.env.FAL_KEY) {
-      const adUrl = await generateAdImage(buildAdPrompt(product.name, deal.headline, priceTxt)).catch(() => null);
-      if (adUrl) {
-        const v = await lucaVerifyAd(adUrl, { headline: deal.headline, price: priceTxt, brand: "VITECH COMP" }).catch(() => ({ ok: false, issue: "" }));
-        if (v.ok) posterUrl = adUrl;
+    if (!process.env.FAL_KEY) {
+      falNote = "nincs FAL_KEY";
+    } else {
+      const adUrl = await generateAdImage(buildAdPrompt(product.name, deal.headline, priceTxt)).catch((e) => {
+        falNote = "fal hiba: " + (e?.message || "?");
+        return null;
+      });
+      if (!adUrl) {
+        falNote = falNote || "fal generálás üres";
+      } else {
+        const v = await lucaVerifyAd(adUrl, { headline: deal.headline, price: priceTxt, brand: "VITECH COMP" }).catch(() => ({ ok: false, issue: "verify hiba" }));
+        if (v.ok) {
+          posterUrl = adUrl;
+          posterSource = "fal";
+        } else {
+          falNote = "Luca elvetette: " + (v.issue || "torz szöveg");
+        }
       }
     }
 
@@ -161,5 +177,7 @@ export async function runKlariDaily(): Promise<KlariResult> {
     verdict: judge.verdict,
     posterUrl,
     cutoutOk,
+    posterSource,
+    falNote,
   };
 }
