@@ -104,7 +104,7 @@ export default async function Overview() {
                     <span className="text-sm font-medium">{e.subject}</span>
                     {e.department && <span className="badge bg-brand/15 text-brand">{e.department}</span>}
                   </div>
-                  <div className="text-xs text-white/55">{e.from_addr}{e.date ? ` · ${new Date(e.date).toLocaleString("hu-HU")}` : ""}</div>
+                  <div className="text-xs text-white/55">{e.from_addr}{e.mailbox ? ` → ${e.mailbox}` : ""}{e.date ? ` · ${new Date(e.date).toLocaleString("hu-HU")}` : ""}</div>
                   {e.summary && <div className="mt-0.5 text-sm text-white/75">{e.summary}</div>}
                 </div>
               </div>

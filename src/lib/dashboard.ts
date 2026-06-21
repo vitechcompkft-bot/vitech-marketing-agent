@@ -21,6 +21,7 @@ export interface KlariPost {
 
 export interface EmailRow {
   id: number;
+  mailbox: string | null;
   from_addr: string | null;
   subject: string | null;
   date: string | null;
@@ -81,7 +82,7 @@ export async function loadDashboard(): Promise<DashboardData> {
       sb.from("klari_posts").select("*").order("created_at", { ascending: false }).limit(4),
       sb.from("agents").select("key,name,role,department,avatar,is_lead").eq("active", true).order("sort", { ascending: true }),
       sb.from("agent_status").select("*"),
-      sb.from("emails").select("id,from_addr,subject,date,summary,department,urgency").order("date", { ascending: false }).limit(8),
+      sb.from("emails").select("id,mailbox,from_addr,subject,date,summary,department,urgency").order("date", { ascending: false }).limit(10),
     ]);
     actions = (a.data as AgentAction[]) || [];
     alerts = (al.data as Alert[]) || [];
