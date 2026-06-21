@@ -30,13 +30,18 @@ async function genOne(prompt: string): Promise<{ buf: Buffer | null; err?: strin
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: "dall-e-3", prompt, size: "1792x1024", quality: "hd", n: 1, response_format: "b64_json" }),
+      body: JSON.stringify({ model: "dall-e-3", prompt, size: "1792x1024", quality: "hd", n: 1 }),
     });
     const j = await res.json();
     if (j?.error) return { buf: null, err: "openai: " + (j.error.message || JSON.stringify(j.error)).slice(0, 160) };
-    const b64 = j?.data?.[0]?.b64_json;
-    if (!b64) return { buf: null, err: "openai: nincs b64 a válaszban" };
-    return { buf: Buffer.from(b64, "base64") };
+    const d = j?.data?.[0];
+    if (d?.b64_json) return { buf: Buffer.from(d.b64_json, "base64") };
+    if (d?.url) {
+      const img = await fetch(d.url);
+      if (!img.ok) return { buf: null, err: "kép letöltés hiba: " + img.status };
+      return { buf: Buffer.from(await img.arrayBuffer()) };
+    }
+    return { buf: null, err: "openai: nincs kép a válaszban" };
   } catch (e: any) {
     return { buf: null, err: "openai fetch hiba: " + (e?.message || "ismeretlen") };
   }
