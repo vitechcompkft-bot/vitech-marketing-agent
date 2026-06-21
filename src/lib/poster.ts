@@ -105,8 +105,8 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
     font-weight:800; font-size:17px; letter-spacing:.3px; padding:10px 16px; border-radius:24px;
     color:#06122b; background:linear-gradient(135deg,#5cc8ff,#2f8cff); box-shadow:0 6px 20px rgba(47,140,255,.5);
   }
-  .headline { position:absolute; top:208px; left:48px; right:540px; font-weight:900; font-size:46px; line-height:1.06;
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; max-height:100px; }
+  .headline { position:absolute; top:208px; left:48px; right:650px; font-weight:900; font-size:40px; line-height:1.08;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; max-height:92px; }
   .accent { position:absolute; top:320px; left:50px; width:120px; height:7px; border-radius:4px; background:linear-gradient(90deg,#5cc8ff,#2f8cff); }
   .body { position:absolute; top:360px; left:48px; right:44px; display:flex; }
   .specs { list-style:none; width:560px; }

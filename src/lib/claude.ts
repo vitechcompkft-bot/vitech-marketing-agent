@@ -519,7 +519,7 @@ SZABÁLYOK:
 - A specs mezoket a termék nevébol töltsd ki, magyarul.
 
 Válaszolj PONTOSAN ebben a JSON-ban, utána semmi:
-{ "product_id":"a lista szerinti id", "headline":"rövid, ütos cím MAX ~32 karakter (max 2 sor, ár NÉLKÜL)", "badge":"rövid kiemelés", "market_note":"1-2 mondat számokkal", "caption":"FB poszt 2-4 mondat emojikkal, vitechcompkft.hu-ra hívva", "reason":"miért ez", "specs":{"cpu":"","ram":"","storage":"","display":"","ports":"","os":"","condition":"","warranty":""}, "badges":["FELÚJÍTVA","12 HÓ GARANCIA"], "features":["Magyar billentyűzet","Bevizsgálva","Windows 11 Pro"] }`,
+{ "product_id":"a lista szerinti id", "headline":"NAGYON rövid, ütos cím MAX ~26 karakter (1-2 szó + 1 elony, ár NÉLKÜL)", "badge":"rövid kiemelés", "market_note":"1-2 mondat számokkal", "caption":"FB poszt 2-4 mondat emojikkal, vitechcompkft.hu-ra hívva", "reason":"miért ez", "specs":{"cpu":"","ram":"","storage":"","display":"","ports":"","os":"","condition":"","warranty":""}, "badges":["FELÚJÍTVA","12 HÓ GARANCIA"], "features":["Magyar billentyűzet","Bevizsgálva","Windows 11 Pro"] }`,
       },
     ],
   });
