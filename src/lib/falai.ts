@@ -3,24 +3,15 @@ import { ensureBucket } from "./sceneBg";
 
 const BUCKET = "poster-bg";
 
-/** Hirdetés-prompt összeállítása a termékbol (Recraft V4-hez). */
-export function buildAdPrompt(productName: string, headline: string, priceTxt: string): string {
-  const kind = /workstation/i.test(productName)
-    ? "workstation computer"
-    : /\b(pc|asztali|tower|számítógép)\b/i.test(productName)
-    ? "desktop PC"
-    : "business laptop";
+/** HÁTTÉR-jelenet prompt (a valódi logót + termékfotót + szöveget a sablon teszi rá → NINCS benne logó/laptop/szöveg). */
+export function buildScenePrompt(): string {
   return [
-    `Professional advertising poster for a refurbished ${kind}, premium modern corporate design.`,
-    `A sleek ${kind} on a clean desk in a bright modern office with soft daylight and a plant, shallow depth of field.`,
-    `Big bold headline text in Hungarian "${headline}", smaller subtext "Bevizsgálva, felújítva, garanciával",`,
-    priceTxt ? `a clear price badge "${priceTxt}",` : "",
-    `and a clean logo-style wordmark "VITECH COMP" in the top-left corner.`,
-    `Deep navy blue and bright blue color scheme, white accents, high-end, sharp, realistic, well composed, lots of clean negative space, advertising quality.`,
-    `Correct, flawless Hungarian spelling with accents.`,
-  ]
-    .filter(Boolean)
-    .join(" ");
+    "Premium modern office background for an advertising poster.",
+    "A clean, elegant empty desk surface in the foreground with soft natural daylight from a large window, a subtle plant and blurred bokeh in the background, shallow depth of field.",
+    "Deep navy blue and bright blue tones with white accents, high-end corporate mood, lots of clean empty negative space.",
+    "IMPORTANT: NO laptop, NO computer, NO devices, NO people, NO text, NO letters, NO numbers, NO logos, NO watermarks. Just an empty premium office scene.",
+    "Professional advertising background photo, sharp, realistic.",
+  ].join(" ");
 }
 
 /**

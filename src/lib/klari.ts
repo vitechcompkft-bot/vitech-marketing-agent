@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
-import { klariResearch, klariCompose, lucaJudgeDeal, lucaVerifyAd } from "./claude";
-import { generateAdImage, buildAdPrompt } from "./falai";
+import { klariResearch, klariCompose, lucaJudgeDeal } from "./claude";
+import { generateAdImage, buildScenePrompt } from "./falai";
 import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
 import { removeBg } from "./removebg";
@@ -92,59 +92,36 @@ export async function runKlariDaily(): Promise<KlariResult> {
   let posterSource = "template";
   let falNote = "";
   if (judge.approve) {
-    const priceTxt = priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(priceHuf)) + " Ft" : "";
-
-    // 4a) Elsodleges: TELJES AI-hirdetés (fal.ai/Recraft) + Luca vizuális ellenorzése.
-    if (!process.env.FAL_KEY) {
-      falNote = "nincs FAL_KEY";
-    } else {
-      const adUrl = await generateAdImage(buildAdPrompt(product.name, deal.headline, priceTxt)).catch((e) => {
+    // HIBRID: a HÁTTÉR fal.ai (Recraft) prémium jelenet; a VALÓDI Vitech logó + termékfotó +
+    // pontos spec + ár a sablonból kerül rá (mindig pontos, a saját logóddal).
+    let bgUrl: string | null = null;
+    if (process.env.FAL_KEY) {
+      bgUrl = await generateAdImage(buildScenePrompt()).catch((e) => {
         falNote = "fal hiba: " + (e?.message || "?");
         return null;
       });
-      if (!adUrl) {
-        falNote = falNote || "fal generálás üres";
-      } else {
-        const v = await lucaVerifyAd(adUrl, { headline: deal.headline, price: priceTxt, brand: "VITECH COMP" }).catch(() => ({ ok: false, issue: "verify hiba" }));
-        if (v.ok) {
-          posterUrl = adUrl;
-          posterSource = "fal";
-        } else {
-          falNote = "Luca elvetette: " + (v.issue || "torz szöveg");
-        }
-      }
+      if (bgUrl) posterSource = "fal-bg";
     }
+    // Ha nincs fal háttér → OpenAI készlet, különben CSS-háttér (sablon-fallback).
+    if (!bgUrl) bgUrl = await getRandomBackgroundUrl().catch(() => null);
 
-    if (posterUrl) {
-      // AI-hirdetés rendben → SVG csak biztonsági másolat.
-      posterSvg = buildDealPoster({
-        imageUrl: product.imageUrl,
-        productName: product.name,
-        headline: deal.headline,
-        priceHuf,
-        badges: deal.badges,
-        features: deal.features,
-        specs: deal.specs,
-      });
-    } else {
-      // 4b) Visszaesés (nincs fal kulcs, vagy Luca elvetette a szöveget): kivágott termék + megbízható sablon.
-      const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
-      cutoutOk = !!cutout;
-      const bgUrl = await getRandomBackgroundUrl().catch(() => null);
-      const pdata = {
-        imageUrl: product.imageUrl,
-        cutout: cutout || undefined,
-        bgUrl: bgUrl || undefined,
-        productName: product.name,
-        headline: deal.headline,
-        priceHuf,
-        badges: deal.badges,
-        features: deal.features,
-        specs: deal.specs,
-      };
-      posterUrl = await renderPosterPng(pdata).catch(() => null);
-      posterSvg = buildDealPoster(pdata);
-    }
+    // Valódi termékfotó kivágva (háttér nélkül).
+    const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
+    cutoutOk = !!cutout;
+
+    const pdata = {
+      imageUrl: product.imageUrl,
+      cutout: cutout || undefined,
+      bgUrl: bgUrl || undefined,
+      productName: product.name,
+      headline: deal.headline,
+      priceHuf,
+      badges: deal.badges,
+      features: deal.features,
+      specs: deal.specs,
+    };
+    posterUrl = await renderPosterPng(pdata).catch(() => null);
+    posterSvg = buildDealPoster(pdata);
   }
 
   await sb.from("klari_posts").insert({
