@@ -113,12 +113,14 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   .specs li { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
   .specs li i { font-size:26px; font-style:normal; width:34px; text-align:center; }
   .specs li span { font-size:25px; font-weight:600; color:#e9f2ff; }
-  .product { position:absolute; right:10px; top:-10px; width:560px; height:430px; }
-  /* háttér nélküli (kivágott) termék: nincs fehér doboz, csak lágy árnyék az "asztalon" */
-  .product .cut { position:relative; max-width:560px; max-height:400px; display:block; margin:0 auto;
-    filter:drop-shadow(0 30px 34px rgba(0,0,0,.55)); }
-  .product .shadow { position:absolute; left:50%; bottom:14px; width:430px; height:54px; transform:translateX(-50%);
-    background:radial-gradient(ellipse at center, rgba(0,0,0,.55) 0%, transparent 70%); filter:blur(6px); }
+  /* a termék az ASZTALON ül (aljához igazítva), nem a levegoben lóg */
+  .product { position:absolute; right:40px; bottom:150px; width:560px; height:400px;
+    display:flex; align-items:flex-end; justify-content:center; }
+  .product .cut { position:relative; max-width:540px; max-height:380px; display:block;
+    filter:drop-shadow(0 12px 12px rgba(0,0,0,.45)); }
+  /* kontakt-árnyék közvetlenül a termék talpa alatt → "rajta van a felületen" */
+  .product .shadow { position:absolute; left:50%; bottom:-10px; width:430px; height:44px; transform:translateX(-50%);
+    background:radial-gradient(ellipse at center, rgba(0,0,0,.62) 0%, rgba(0,0,0,.28) 45%, transparent 72%); filter:blur(9px); }
   /* fallback (ha nincs kivágás): light pedestal a fehér hátteru fotóhoz */
   .pedestal { position:absolute; left:50%; top:50%; width:520px; height:300px; transform:translate(-50%,-45%);
     background:radial-gradient(ellipse at center, rgba(220,235,255,.95) 0%, rgba(220,235,255,.35) 42%, transparent 70%); filter:blur(2px); }

@@ -74,15 +74,15 @@ export default async function Overview() {
 
         {/* Osztályok */}
         <div className="grid gap-3 md:grid-cols-3">
-          <Dept title="Marketing">
+          <Dept title="Marketing" accent="#1a73e8">
             <Member avatar={config?.agent_avatar || "/avatars/luca-1.svg"} name={config?.agent_name ?? "Luca"} role="osztályvezető · hirdetés + SEO" lead />
             <Member avatar={config?.klari_avatar} name="Klári" role="napi ajánlat + plakát" />
           </Dept>
-          <Dept title="Informatika">
+          <Dept title="Informatika" accent="#22d3ee">
             <Member avatar={gyula?.avatar} name={gyula?.name ?? "Gyula"} role={gyula?.role ?? "IT vezető · automatizálás"} lead />
           </Dept>
-          <Dept title="Gazdasági">
-            <div className="text-xs text-white/40">Vezető hamarosan…</div>
+          <Dept title="Gazdasági" accent="#22c55e">
+            <div className="text-xs text-white/45">Vezető hamarosan…</div>
           </Dept>
         </div>
       </section>
@@ -219,10 +219,19 @@ function Person({ avatar, name, fallback }: { avatar?: string | null; name: stri
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={avatar || FALLBACK_AVATAR(fallback)} alt={name} className="h-12 w-12 rounded-full border border-white/20 bg-white/10 object-cover" />;
 }
-function Dept({ title, children }: { title: string; children: ReactNode }) {
+function Dept({ title, accent, children }: { title: string; accent: string; children: ReactNode }) {
   return (
-    <div className="card flex flex-col gap-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-white/40">{title}</div>
+    <div
+      className="flex flex-col gap-3 rounded-2xl border p-5"
+      style={{
+        background: `linear-gradient(180deg, ${accent}26, rgba(255,255,255,0.03))`,
+        borderColor: `${accent}66`,
+        boxShadow: `0 10px 30px -18px ${accent}88`,
+      }}
+    >
+      <div className="text-xs font-bold uppercase tracking-wider" style={{ color: accent }}>
+        {title}
+      </div>
       {children}
     </div>
   );
