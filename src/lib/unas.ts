@@ -109,6 +109,28 @@ export async function unasSetProductSeo(
   return { ok: true, message: "SEO frissítve az Unasban." };
 }
 
+/** Nyers rendelés-XML lekérés (a mezok felderítéséhez / bevétel-statisztikához). */
+export async function unasGetOrdersRaw(
+  token: string,
+  opts?: { limitNum?: number; dateStart?: string; dateEnd?: string }
+): Promise<string> {
+  const body =
+    `<?xml version="1.0" encoding="UTF-8" ?>\n` +
+    `<Params>` +
+    `<Format>xml</Format>` +
+    `<ContentType>full</ContentType>` +
+    (opts?.dateStart ? `<DateStart>${opts.dateStart}</DateStart>` : "") +
+    (opts?.dateEnd ? `<DateEnd>${opts.dateEnd}</DateEnd>` : "") +
+    `<LimitNum>${opts?.limitNum ?? 5}</LimitNum>` +
+    `</Params>`;
+  const res = await fetch(`${API_BASE}/getOrder`, {
+    method: "POST",
+    headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+    body,
+  });
+  return await res.text();
+}
+
 /** Nyers termék-XML lekérés (a SEO-mezok felderítéséhez / olvasáshoz). */
 export async function unasGetProductsRaw(
   token: string,
