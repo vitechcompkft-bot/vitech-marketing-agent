@@ -2,6 +2,7 @@ import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
 import { klariResearch, klariCompose, lucaJudgeDeal } from "./claude";
 import { buildDealPoster } from "./creatives";
+import { renderPosterPng } from "./poster";
 
 export interface KlariResult {
   ran: boolean;
@@ -56,18 +57,23 @@ export async function runKlariDaily(): Promise<KlariResult> {
     lucaPersona
   );
 
-  // 4) Jóváhagyás esetén gazdag plakát (logó + spec + fotó + ár)
-  const posterSvg = judge.approve
-    ? buildDealPoster({
-        imageUrl: product.imageUrl,
-        productName: product.name,
-        headline: deal.headline,
-        priceHuf,
-        badges: deal.badges,
-        features: deal.features,
-        specs: deal.specs,
-      })
-    : null;
+  // 4) Jóváhagyás esetén plakát: elsodlegesen PROFI renderelt PNG (htmlcsstoimage),
+  //    SVG mindig fallbacknek (ha nincs HCTI kulcs).
+  let posterSvg: string | null = null;
+  let posterUrl: string | null = null;
+  if (judge.approve) {
+    const pdata = {
+      imageUrl: product.imageUrl,
+      productName: product.name,
+      headline: deal.headline,
+      priceHuf,
+      badges: deal.badges,
+      features: deal.features,
+      specs: deal.specs,
+    };
+    posterUrl = await renderPosterPng(pdata).catch(() => null);
+    posterSvg = buildDealPoster(pdata);
+  }
 
   await sb.from("klari_posts").insert({
     product_id: product.id,
@@ -79,6 +85,7 @@ export async function runKlariDaily(): Promise<KlariResult> {
     headline: deal.headline,
     caption: deal.caption,
     poster_svg: posterSvg,
+    poster_url: posterUrl,
     luca_verdict: judge.verdict,
     status: judge.approve ? "approved" : "rejected",
   });

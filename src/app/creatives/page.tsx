@@ -128,9 +128,12 @@ export default function CreativesPage() {
                   </div>
                 </div>
 
-                {k.poster_svg && k.status !== "rejected" && (
+                {k.status !== "rejected" && (k.poster_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={k.poster_url} alt={k.headline || "plakát"} className="w-full rounded-xl" />
+                ) : k.poster_svg ? (
                   <div className="overflow-hidden rounded-xl bg-black/10 [&_svg]:block [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: k.poster_svg }} />
-                )}
+                ) : null)}
 
                 {k.price_huf ? <div className="font-bold text-emerald-300">{ft(k.price_huf)}</div> : null}
                 {k.market_note && <div className="text-sm text-white/70">📊 {k.market_note}</div>}
@@ -148,11 +151,17 @@ export default function CreativesPage() {
                   </div>
                 )}
 
-                {k.poster_svg && k.status !== "rejected" && (
+                {(k.poster_url || k.poster_svg) && k.status !== "rejected" && (
                   <div className="flex flex-wrap gap-2">
                     <button className="btn btn-primary" onClick={() => copyCaption(k.id, k.caption || "")}>{copied === k.id ? "✓ Másolva" : "Szöveg másolása"}</button>
-                    <button className="btn btn-ghost" onClick={() => downloadPng(k.poster_svg, `vitech_klari_${k.id}`)}>⬇ Plakát PNG</button>
-                    <button className="btn btn-ghost" onClick={() => downloadSvg(k.poster_svg, `vitech_klari_${k.id}`)}>SVG</button>
+                    {k.poster_url ? (
+                      <a className="btn btn-ghost" href={k.poster_url} target="_blank" rel="noreferrer">⬇ Plakát (PNG)</a>
+                    ) : (
+                      <>
+                        <button className="btn btn-ghost" onClick={() => downloadPng(k.poster_svg, `vitech_klari_${k.id}`)}>⬇ Plakát PNG</button>
+                        <button className="btn btn-ghost" onClick={() => downloadSvg(k.poster_svg, `vitech_klari_${k.id}`)}>SVG</button>
+                      </>
+                    )}
                     {k.product_url && <a className="btn btn-ghost" href={k.product_url} target="_blank" rel="noreferrer">Termék</a>}
                   </div>
                 )}

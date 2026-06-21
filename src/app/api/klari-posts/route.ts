@@ -24,7 +24,7 @@ export async function GET() {
     const sb = supabaseAdmin();
     const { data } = await sb
       .from("klari_posts")
-      .select("id, created_at, product_name, product_url, price_huf, market_note, headline, caption, poster_svg, luca_verdict, status")
+      .select("id, created_at, product_name, product_url, price_huf, market_note, headline, caption, poster_svg, poster_url, luca_verdict, status")
       .order("created_at", { ascending: false })
       .limit(20);
     return NextResponse.json({ posts: data || [] });
