@@ -139,11 +139,11 @@ export function buildDealPoster(o: {
   const w = 1200,
     h = 800;
   const ff = `'Segoe UI','Helvetica Neue',Arial,sans-serif`;
-  const NAVY = "#11243f",
-    BLUE = "#1a73e8";
+  const LIGHT = "#eaf1fb",
+    BLUE = "#3b9cff";
   const priceTxt = o.priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(o.priceHuf)) + " Ft" : "";
 
-  // Spec-sorok (csak a kitöltöttek)
+  // Spec-sorok (csak a kitöltöttek) — világos szöveg a sötét háttéren
   const specRows = [
     ["🧠", o.specs?.cpu],
     ["📊", o.specs?.ram],
@@ -162,11 +162,11 @@ export function buildDealPoster(o: {
     .map(
       ([ic, txt], i) =>
         `<text x="56" y="${specStartY + i * specGap}" font-family="${ff}" font-size="25">${ic}</text>` +
-        `<text x="100" y="${specStartY + i * specGap}" font-family="${ff}" font-weight="600" font-size="25" fill="${NAVY}">${esc(txt).slice(0, 42)}</text>`
+        `<text x="100" y="${specStartY + i * specGap}" font-family="${ff}" font-weight="600" font-size="25" fill="${LIGHT}">${esc(txt).slice(0, 42)}</text>`
     )
     .join("");
 
-  // Felso jelvény-chipek (jobb felül, a fejlécben)
+  // Felso jelvény-chipek (jobb felül)
   const badges = (o.badges && o.badges.length ? o.badges : ["FELÚJÍTVA", "GARANCIA"]).slice(0, 3);
   let bx = w - 40;
   const badgeSvg = badges
@@ -175,39 +175,50 @@ export function buildDealPoster(o: {
     .map((b) => {
       const bw = esc(b).length * 12 + 34;
       bx -= bw + 10;
-      return `<g transform="translate(${bx},44)"><rect width="${bw}" height="38" rx="19" fill="${BLUE}"/><text x="${bw / 2}" y="25" text-anchor="middle" font-family="${ff}" font-weight="800" font-size="17" fill="#ffffff">${esc(b)}</text></g>`;
+      return `<g transform="translate(${bx},44)"><rect width="${bw}" height="38" rx="19" fill="${BLUE}"/><text x="${bw / 2}" y="25" text-anchor="middle" font-family="${ff}" font-weight="800" font-size="17" fill="#06122b">${esc(b)}</text></g>`;
     })
     .join("");
 
-  // Cím a fejléc ALATT (nincs átfedés), max 2 sor
+  // Cím a fejléc ALATT — fehér szöveg
   const hlLines = wrap(o.headline, 40).slice(0, 2);
-  const hlStartY = 250;
+  const hlStartY = 270;
 
-  // Termékfotó tiszta FEHÉR háttéren (a fehér hátteru termékkép így "háttér nélkülinek" hat)
+  // Termékfotó FEHÉR "termék-csempén" (a fehér hátteru fotó így elegánsan ül a színes háttéren)
+  const tileX = 645,
+    tileY = 300,
+    tileW = 510,
+    tileH = 380;
   const photo = o.imageUrl
-    ? `<image href="${esc(o.imageUrl)}" x="650" y="330" width="500" height="360" preserveAspectRatio="xMidYMid meet"/>`
+    ? `<rect x="${tileX}" y="${tileY}" width="${tileW}" height="${tileH}" rx="24" fill="#ffffff"/>` +
+      `<image href="${esc(o.imageUrl)}" x="${tileX + 24}" y="${tileY + 24}" width="${tileW - 48}" height="${tileH - 48}" preserveAspectRatio="xMidYMid meet"/>`
     : "";
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
   <defs>
-    <linearGradient id="navybar" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#0a1b34"/>
-      <stop offset="1" stop-color="#15315c"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1b3e"/>
+      <stop offset="0.55" stop-color="#11305f"/>
+      <stop offset="1" stop-color="#1a4a8c"/>
     </linearGradient>
+    <radialGradient id="glow" cx="22%" cy="20%" r="55%">
+      <stop offset="0" stop-color="#3b9cff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#3b9cff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <!-- TISZTA FEHÉR háttér → a termékfotó fehér háttere belesimul -->
-  <rect width="${w}" height="${h}" fill="#ffffff"/>
+  <!-- ELEGÁNS SZÍNES (Vitech navy-kék) háttér -->
+  <rect width="${w}" height="${h}" fill="url(#bg)"/>
+  <rect width="${w}" height="${h}" fill="url(#glow)"/>
 
-  <!-- fejléc: nagy logó + jelvények -->
-  <image href="${LOGO_URL}" x="40" y="34" width="250" height="150" preserveAspectRatio="xMidYMid meet"/>
+  <!-- fejléc: logó fehér pasztillán + jelvények -->
+  <rect x="40" y="34" width="270" height="132" rx="18" fill="#ffffff"/>
+  <image href="${LOGO_URL}" x="56" y="44" width="238" height="112" preserveAspectRatio="xMidYMid meet"/>
   ${badgeSvg}
-  <rect x="0" y="196" width="${w}" height="3" fill="#e3e9f2"/>
 
-  <!-- cím (a fejléc alatt, átfedés nélkül) -->
+  <!-- cím (fehér) -->
   ${hlLines
     .map(
       (ln, i) =>
-        `<text x="50" y="${hlStartY + i * 50}" font-family="${ff}" font-weight="800" font-size="42" fill="${NAVY}">${esc(ln)}</text>`
+        `<text x="50" y="${hlStartY + i * 50}" font-family="${ff}" font-weight="800" font-size="42" fill="#ffffff">${esc(ln)}</text>`
     )
     .join("")}
   <rect x="52" y="${hlStartY + hlLines.length * 50 - 4}" width="110" height="6" rx="3" fill="${BLUE}"/>
@@ -215,11 +226,11 @@ export function buildDealPoster(o: {
   <!-- spec-lista -->
   ${specSvg}
 
-  <!-- termékfotó -->
+  <!-- termékfotó fehér csempén -->
   ${photo}
 
   <!-- alsó sáv: ár + elérhetoség -->
-  <rect x="0" y="${h - 96}" width="${w}" height="96" fill="url(#navybar)"/>
+  <rect x="0" y="${h - 96}" width="${w}" height="96" fill="#06122b" fill-opacity="0.55"/>
   <text x="40" y="${h - 54}" font-family="${ff}" font-weight="700" font-size="23" fill="#ffffff">${esc(o.productName).slice(0, 50)}</text>
   <text x="40" y="${h - 26}" font-family="${ff}" font-size="17" fill="#aecbff">vitechcompkft.hu · Bevizsgált, felújított gépek — garanciával</text>
   ${priceTxt ? `<text x="${w - 40}" y="${h - 34}" text-anchor="end" font-family="${ff}" font-weight="900" font-size="58" fill="#ffffff">${priceTxt}</text>` : ""}

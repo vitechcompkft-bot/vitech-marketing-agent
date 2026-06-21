@@ -45,6 +45,11 @@ export default function CreativesPage() {
       setTimeout(() => setCopied(null), 1800);
     } catch {}
   }
+  async function deletePost(id: number) {
+    if (!confirm("Biztosan törlöd ezt az ajánlatot?")) return;
+    setKlari((arr) => arr.filter((x) => x.id !== id)); // azonnali UI
+    await fetch(`/api/klari-posts?id=${id}`, { method: "DELETE" }).catch(() => {});
+  }
 
   async function generate() {
     if (!topic.trim() || loading) return;
@@ -115,9 +120,12 @@ export default function CreativesPage() {
                     <div className="mono h-7 w-7 text-xs" style={{ background: "linear-gradient(135deg,#1a73e8,#0a2a5e)" }}>K</div>
                     <span className="text-sm font-semibold">{k.product_name?.slice(0, 40)}</span>
                   </div>
-                  <span className={`badge ${k.status === "approved" ? "bg-green-500/20 text-green-300" : k.status === "posted" ? "bg-blue-500/20 text-blue-300" : "bg-white/10 text-white/50"}`}>
-                    {k.status === "approved" ? "Luca jóváhagyta" : k.status === "posted" ? "kiposztolva" : k.status === "rejected" ? "elvetve" : k.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`badge ${k.status === "approved" ? "bg-green-500/20 text-green-300" : k.status === "posted" ? "bg-blue-500/20 text-blue-300" : "bg-white/10 text-white/50"}`}>
+                      {k.status === "approved" ? "Luca jóváhagyta" : k.status === "posted" ? "kiposztolva" : k.status === "rejected" ? "elvetve" : k.status}
+                    </span>
+                    <button onClick={() => deletePost(k.id)} title="Törlés" className="rounded-lg border border-white/15 px-2 py-1 text-xs text-white/60 hover:bg-red-500/20 hover:text-red-200">🗑</button>
+                  </div>
                 </div>
 
                 {k.poster_svg && k.status !== "rejected" && (
