@@ -255,12 +255,12 @@ export async function klariFindDeal(
   const anthropic = client();
   const list = products.map((p) => `- [${p.id}] ${p.name} — ${p.priceGross || "?"} Ft`).join("\n");
   const msg = await anthropic.messages.create({
-    model: SMART,
-    max_tokens: 2000,
+    model: FAST,
+    max_tokens: 1500,
     system:
       buildSystem(persona.name, persona.persona) +
       "\n\nMOST KLÁRI vagy: Luca lelkes, megbízható marketinges beosztottja. Feladatod a legjobb áru ajánlat megtalálása piaci összevetéssel.",
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 } as any],
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 } as any],
     messages: [
       {
         role: "user",
@@ -324,7 +324,7 @@ export async function klariRevise(
 ): Promise<KlariDealOut> {
   const anthropic = client();
   const msg = await anthropic.messages.create({
-    model: SMART,
+    model: FAST,
     max_tokens: 1200,
     system:
       buildSystem(persona.name, persona.persona) +
