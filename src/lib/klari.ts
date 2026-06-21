@@ -12,6 +12,8 @@ export interface KlariResult {
   status?: "approved" | "rejected";
   product?: string;
   verdict?: string;
+  posterUrl?: string | null;
+  cutoutOk?: boolean;
 }
 
 /**
@@ -73,9 +75,11 @@ export async function runKlariDaily(): Promise<KlariResult> {
   //    SVG mindig fallbacknek (ha nincs HCTI kulcs).
   let posterSvg: string | null = null;
   let posterUrl: string | null = null;
+  let cutoutOk = false;
   if (judge.approve) {
     // Háttér eltávolítása a termékfotóról (remove.bg) → átlátszó, fehér keret nélkül.
     const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
+    cutoutOk = !!cutout;
     // AI-generált iroda-jelenet háttér a készletbol (ha van).
     const bgUrl = await getRandomBackgroundUrl().catch(() => null);
     const pdata = {
@@ -113,5 +117,7 @@ export async function runKlariDaily(): Promise<KlariResult> {
     status: judge.approve ? "approved" : "rejected",
     product: product.name,
     verdict: judge.verdict,
+    posterUrl,
+    cutoutOk,
   };
 }
