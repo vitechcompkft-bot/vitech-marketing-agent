@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
-import { klariFindDeal, klariRevise, lucaJudgeDeal } from "./claude";
+import { klariFindDeal, klariPolish, lucaJudgeDeal } from "./claude";
 import { buildDealPoster } from "./creatives";
 
 export interface KlariResult {
@@ -40,30 +40,25 @@ export async function runKlariDaily(): Promise<KlariResult> {
     klariPersona
   );
   if (!found) return { ran: false, reason: "Klári most nem talált megfelelo ajánlatot." };
-  let deal = found; // nem-null
 
-  const product = live.find((p) => p.id === deal.product_id) || live[0];
+  const product = live.find((p) => p.id === found.product_id) || live[0];
   const priceHuf = product.priceGross ? Number(product.priceGross) : undefined;
 
-  const judgeDeal = () =>
-    lucaJudgeDeal(
-      {
-        name: product.name,
-        price: product.priceGross,
-        headline: deal.headline,
-        market_note: deal.market_note,
-        caption: deal.caption,
-        reason: deal.reason,
-      },
-      lucaPersona
-    );
+  // 2b) Klári eros modellel KIFOGÁSTALANRA csiszolja (hibátlan magyar + pontos állítások), web-keresés nélkül.
+  const deal = await klariPolish(found, product.name, klariPersona);
 
-  // 3) Luca (kritikusan) elbírálja — ha elutasítja, Klári EGYSZER javít a visszajelzés alapján.
-  let judge = await judgeDeal();
-  if (!judge.approve) {
-    deal = await klariRevise(deal, product.name, judge.verdict, klariPersona);
-    judge = await judgeDeal();
-  }
+  // 3) Luca (kritikusan) elbírálja.
+  const judge = await lucaJudgeDeal(
+    {
+      name: product.name,
+      price: product.priceGross,
+      headline: deal.headline,
+      market_note: deal.market_note,
+      caption: deal.caption,
+      reason: deal.reason,
+    },
+    lucaPersona
+  );
 
   // 4) Jóváhagyás esetén gazdag plakát (logó + spec + fotó + ár)
   const posterSvg = judge.approve

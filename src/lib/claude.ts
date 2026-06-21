@@ -260,7 +260,7 @@ export async function klariFindDeal(
     system:
       buildSystem(persona.name, persona.persona) +
       "\n\nMOST KLÁRI vagy: Luca lelkes, megbízható marketinges beosztottja. Feladatod a legjobb áru ajánlat megtalálása piaci összevetéssel.",
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 } as any],
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 } as any],
     messages: [
       {
         role: "user",
@@ -315,11 +315,10 @@ A VÉGÉN válaszolj PONTOSAN ebben a JSON-ban (utána semmi). A specs mezoket a
   }
 }
 
-/** KLÁRI: Luca elutasítása után javít a tartalmon (új keresés nélkül), ugyanazon termékre. */
-export async function klariRevise(
+/** KLÁRI csiszolás (eros modell, web-keresés NÉLKÜL): hibátlan magyar + pontos, túlzásmentes állítások, mielott Luca elé kerül. */
+export async function klariPolish(
   prev: KlariDealOut,
   productName: string,
-  lucaVerdict: string,
   persona: { name: string; persona: string }
 ): Promise<KlariDealOut> {
   const anthropic = client();
@@ -328,17 +327,19 @@ export async function klariRevise(
     max_tokens: 1200,
     system:
       buildSystem(persona.name, persona.persona) +
-      "\n\nMOST KLÁRI vagy. Luca (a fonököd) visszaküldte a javaslatod javításra. Fogadd meg a kritikáját és javíts — pontos, nem túlzó, a felújított/garanciás értéket hangsúlyozó szöveggel.",
+      "\n\nMOST KLÁRI vagy, és a fonököd, Luca NAGYON kritikus. Csiszold a plakát-tartalmat KIFOGÁSTALANRA, mieltt beadod neki.",
     messages: [
       {
         role: "user",
         content: `Termék: ${productName}
-A korábbi (elutasított) tartalom JSON-ban:
+A nyers tartalom JSON-ban:
 ${JSON.stringify({ headline: prev.headline, badge: prev.badge, market_note: prev.market_note, caption: prev.caption, badges: prev.badges, features: prev.features }, null, 2)}
 
-LUCA KRITIKÁJA: ${lucaVerdict}
-
-Javítsd ki ennek megfeleloen. A product_id és a specs MARADJON ugyanaz. Válaszolj PONTOSAN ugyanabban a JSON-formátumban, mint korábban (product_id, headline, badge, market_note, caption, reason, specs, badges, features), utána semmi.`,
+Csiszold profivá:
+- HIBÁTLAN magyar nyelv, helyes ékezetek, NULLA elgépelés vagy magyartalan szó (pl. "billentyuzet"/"törtöpáron" tilos).
+- PONTOS, túlzásmentes ár-állítás: ha a megtakarítás szerény, ne túlozz; a "piaci átlaghoz/legolcsóbbhoz képest" legyen egyértelmu, ne félrevezeto.
+- Hangsúlyozd: bevizsgált, felújított, garanciás. Fiatalos, profi hangnem.
+A product_id és a specs MARADJON ugyanaz. Válaszolj PONTOSAN ugyanabban a JSON-formátumban (product_id, headline, badge, market_note, caption, reason, specs, badges, features), utána semmi.`,
       },
     ],
   });
