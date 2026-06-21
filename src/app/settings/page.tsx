@@ -38,15 +38,20 @@ type Cfg = {
 
 export default function SettingsPage() {
   const [cfg, setCfg] = useState<Cfg | null>(null);
+  const [agents, setAgents] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/config").then((r) => r.json()).then((d) => setCfg(d)).catch(() => setMsg("Nem sikerült betölteni (Supabase?)."));
+    fetch("/api/agents").then((r) => r.json()).then((d) => setAgents(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   function set<K extends keyof Cfg>(k: K, v: Cfg[K]) {
     if (cfg) setCfg({ ...cfg, [k]: v });
+  }
+  function setAgent(key: string, field: string, value: string) {
+    setAgents((arr) => arr.map((a) => (a.key === key ? { ...a, [field]: value } : a)));
   }
 
   async function save() {
@@ -59,6 +64,13 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cfg),
       });
+      for (const a of agents) {
+        await fetch("/api/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: a.key, avatar: a.avatar, persona: a.persona }),
+        });
+      }
       if (res.ok) setMsg("Mentve ✅"); else setMsg("Hiba a mentéskor.");
     } finally {
       setSaving(false);
@@ -127,6 +139,26 @@ export default function SettingsPage() {
           <textarea rows={3} className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm" value={cfg.klari_persona} onChange={(e) => set("klari_persona", e.target.value)} />
         </div>
       </div>
+
+      {/* További munkatársak (Erika, Gyula) */}
+      {agents.map((a) => (
+        <div key={a.key} className="card flex flex-col gap-4">
+          <div className="font-semibold">
+            {a.key === "erika" ? "🗂️" : "🖥️"} {a.name} — {a.department} ({a.role})
+          </div>
+          <div className="flex items-center gap-4">
+            <img src={a.avatar} alt={a.name} className="h-16 w-16 rounded-full border border-white/20 bg-white/10 object-cover" />
+            <div className="flex-1">
+              <label className="text-sm text-white/70">Arckép (avatar) URL</label>
+              <input className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs" value={a.avatar || ""} onChange={(e) => setAgent(a.key, "avatar", e.target.value)} placeholder="kép URL…" />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm text-white/70">Személyiség</label>
+            <textarea rows={3} className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm" value={a.persona || ""} onChange={(e) => setAgent(a.key, "persona", e.target.value)} />
+          </div>
+        </div>
+      ))}
 
       <div className="card flex items-center justify-between">
         <div>

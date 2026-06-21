@@ -405,4 +405,58 @@ Szigorúan bíráld el. Csak akkor approve=true, ha kiváló és Vitech-arculatb
   }
 }
 
+/** ERIKA (titkárság): eldönti, melyik osztály/vezeto kezelje a kérést. */
+export async function officeRoute(
+  message: string,
+  erikaPersona: string,
+  heads: { key: string; name: string; department: string; role: string }[]
+): Promise<{ head_key: string; reason: string }> {
+  const anthropic = client();
+  const list = heads.map((h) => `- ${h.key}: ${h.name} (${h.department} — ${h.role})`).join("\n");
+  const msg = await anthropic.messages.create({
+    model: FAST,
+    max_tokens: 300,
+    system: `Te vagy Erika, a Vitech Comp Kft. titkárnoje. ${erikaPersona}\nA tulajdonos üzenetét a megfelelo osztályvezetohöz irányítod.`,
+    messages: [
+      {
+        role: "user",
+        content: `Választható osztályvezetok:
+${list}
+- erika: te magad (általános, adminisztratív, idopont, üzenetrendezés — ha egyik osztály sem illik jobban)
+
+A tulajdonos üzenete: "${message}"
+
+Melyikhez tartozik? Válaszolj PONTOSAN ebben a JSON-ban:
+{ "head_key": "a fenti kulcsok egyike", "reason": "1 rövid mondat, miért oda" }`,
+      },
+    ],
+  });
+  const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+  try {
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return { head_key: String(j.head_key || "erika"), reason: j.reason || "" };
+  } catch {
+    return { head_key: "erika", reason: "" };
+  }
+}
+
+/** Egy munkatárs (osztályvezeto vagy Erika) válasza a kérésre. */
+export async function agentReply(
+  who: { name: string; role: string; department: string; persona: string },
+  message: string,
+  context: string
+): Promise<string> {
+  const anthropic = client();
+  const msg = await anthropic.messages.create({
+    model: SMART,
+    max_tokens: 900,
+    system: `Te vagy ${who.name}, a Vitech Comp Kft. ${who.department} osztályának munkatársa (${who.role}). ${who.persona}
+Magyarul, szakszeruen, lényegre töroen válaszolsz a tulajdonos kérésére. A válaszodat a titkárságnak (Erikának) adod, aki továbbítja.${
+      context ? "\n\nHASZNOS KONTEXTUS:\n" + context : ""
+    }`,
+    messages: [{ role: "user", content: message }],
+  });
+  return msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
+}
+
 export { SMART, FAST };

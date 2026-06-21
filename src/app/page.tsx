@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { loadDashboard } from "@/lib/dashboard";
 import RunNowButton from "@/components/RunNowButton";
 import ProposedAction from "@/components/ProposedAction";
@@ -22,7 +23,9 @@ function humanize(type: string, p: any): string {
 }
 
 export default async function Overview() {
-  const { metrics, actions, alerts, config, klari, supabaseReady, mock } = await loadDashboard();
+  const { metrics, actions, alerts, config, klari, agents, supabaseReady, mock } = await loadDashboard();
+  const erika = agents.find((a) => a.key === "erika");
+  const gyula = agents.find((a) => a.key === "gyula");
   const proposed = actions.filter((a) => a.status === "proposed");
   const log = actions.filter((a) => a.status !== "proposed").slice(0, 12);
 
@@ -57,26 +60,31 @@ export default async function Overview() {
         <RunNowButton />
       </div>
 
-      {/* Csapat */}
+      {/* Szervezet */}
       <section>
-        <h2 className="section-title">👥 Marketing csapat</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="card card-hover flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={config?.agent_avatar || "/avatars/luca-1.svg"} alt={config?.agent_name ?? "Luca"} className="h-12 w-12 rounded-full border border-white/20 bg-white/10 object-cover" />
-            <div>
-              <div className="font-semibold">{config?.agent_name ?? "Luca"} <span className="badge ml-1 bg-brand/20 text-brand">főnök</span></div>
-              <div className="text-xs text-white/60">Hirdetések + SEO · önállóan dönt a korlátokon belül</div>
-            </div>
+        <h2 className="section-title">🏢 A Vitech AI-csapat</h2>
+
+        {/* Titkárság — Erika (a kapcsolattartó) */}
+        <a href="/iroda" className="card card-hover mb-3 flex items-center gap-3 bg-brand/10">
+          <Person avatar={erika?.avatar} name="Erika" fallback="Erika" />
+          <div className="flex-1">
+            <div className="font-semibold">{erika?.name ?? "Erika"} <span className="badge ml-1 bg-brand/20 text-brand">Titkárság</span></div>
+            <div className="text-xs text-white/60">Hozzád minden rajta keresztül · ő irányít az osztályokhoz és jelent → <span className="text-brand">Írj neki ➜</span></div>
           </div>
-          <div className="card card-hover flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={config?.klari_avatar || "https://api.dicebear.com/9.x/lorelei/svg?seed=Klari&backgroundColor=1a73e8"} alt="Klári" className="h-12 w-12 rounded-full border border-white/20 bg-white/10 object-cover" />
-            <div>
-              <div className="font-semibold">Klári <span className="badge ml-1 bg-white/10 text-white/60">beosztott</span></div>
-              <div className="text-xs text-white/60">Napi ajánlat-kutatás + plakát · Lucának jelent</div>
-            </div>
-          </div>
+        </a>
+
+        {/* Osztályok */}
+        <div className="grid gap-3 md:grid-cols-3">
+          <Dept title="Marketing">
+            <Member avatar={config?.agent_avatar || "/avatars/luca-1.svg"} name={config?.agent_name ?? "Luca"} role="osztályvezető · hirdetés + SEO" lead />
+            <Member avatar={config?.klari_avatar} name="Klári" role="napi ajánlat + plakát" />
+          </Dept>
+          <Dept title="Informatika">
+            <Member avatar={gyula?.avatar} name={gyula?.name ?? "Gyula"} role={gyula?.role ?? "IT vezető · automatizálás"} lead />
+          </Dept>
+          <Dept title="Gazdasági">
+            <div className="text-xs text-white/40">Vezető hamarosan…</div>
+          </Dept>
         </div>
       </section>
 
@@ -191,6 +199,34 @@ export default async function Overview() {
         </div>
       </section>
     </main>
+  );
+}
+
+const FALLBACK_AVATAR = (seed: string) => `https://api.dicebear.com/9.x/lorelei/svg?seed=${seed}&backgroundColor=11243f`;
+
+function Person({ avatar, name, fallback }: { avatar?: string | null; name: string; fallback: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={avatar || FALLBACK_AVATAR(fallback)} alt={name} className="h-12 w-12 rounded-full border border-white/20 bg-white/10 object-cover" />;
+}
+function Dept({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="card flex flex-col gap-3">
+      <div className="text-xs font-semibold uppercase tracking-wide text-white/40">{title}</div>
+      {children}
+    </div>
+  );
+}
+function Member({ avatar, name, role, lead }: { avatar?: string | null; name: string; role: string; lead?: boolean }) {
+  return (
+    <div className="flex items-center gap-3">
+      <Person avatar={avatar} name={name} fallback={name} />
+      <div>
+        <div className="text-sm font-semibold">
+          {name} {lead && <span className="badge ml-1 bg-brand/20 text-brand">vezető</span>}
+        </div>
+        <div className="text-xs text-white/55">{role}</div>
+      </div>
+    </div>
   );
 }
 

@@ -17,12 +17,22 @@ export interface KlariPost {
   status: string;
 }
 
+export interface OrgAgent {
+  key: string;
+  name: string;
+  role: string;
+  department: string;
+  avatar: string | null;
+  is_lead: boolean;
+}
+
 export interface DashboardData {
   metrics: CampaignMetric[];
   actions: AgentAction[];
   alerts: Alert[];
   config: AgentConfig | null;
   klari: KlariPost[];
+  agents: OrgAgent[];
   supabaseReady: boolean;
   mock: boolean;
 }
@@ -40,24 +50,27 @@ export async function loadDashboard(): Promise<DashboardData> {
   let alerts: Alert[] = [];
   let config: AgentConfig | null = null;
   let klari: KlariPost[] = [];
+  let agents: OrgAgent[] = [];
   let supabaseReady = false;
 
   try {
     const sb = supabaseAdmin();
-    const [a, al, c, k] = await Promise.all([
+    const [a, al, c, k, ag] = await Promise.all([
       sb.from("actions").select("*").order("created_at", { ascending: false }).limit(20),
       sb.from("alerts").select("*").order("created_at", { ascending: false }).limit(10),
       sb.from("agent_config").select("*").eq("id", 1).single(),
       sb.from("klari_posts").select("*").order("created_at", { ascending: false }).limit(4),
+      sb.from("agents").select("key,name,role,department,avatar,is_lead").eq("active", true).order("sort", { ascending: true }),
     ]);
     actions = (a.data as AgentAction[]) || [];
     alerts = (al.data as Alert[]) || [];
     config = (c.data as AgentConfig) || null;
     klari = (k.data as KlariPost[]) || [];
+    agents = (ag.data as OrgAgent[]) || [];
     supabaseReady = !c.error;
   } catch {
     supabaseReady = false;
   }
 
-  return { metrics, actions, alerts, config, klari, supabaseReady, mock: isMock };
+  return { metrics, actions, alerts, config, klari, agents, supabaseReady, mock: isMock };
 }
