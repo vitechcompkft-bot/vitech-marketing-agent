@@ -514,6 +514,7 @@ Válaszd ki a LEGJOBB ajánlatot, és készíts hozzá kifogástalan plakát-tar
 SZABÁLYOK:
 - HIBÁTLAN magyar nyelv, helyes ékezetek, NULLA elgépelés/magyartalan szó (pl. "billentyűzet", nem "billentyus").
 - PONTOS, túlzásmentes ár-állítás (ne "féláron", ha csak ~15%; a "piaci ár alatt"/"átlaghoz képest" legyen egyértelmu).
+- A CÍMBEN az ÁR és a MEGTAKARÍTÁS NE keveredjen! Ha számot írsz a címbe: vagy a TÉNYLEGES ár (pl. "109.900 Ft-ért"), vagy egyértelmuen a megtakarítás (pl. "44%-kal a piaci ár alatt"). TILOS a megtakarítást árként feltüntetni (pl. "88e Ft alatt", ha az ár 109.900).
 - Hangsúlyozd: bevizsgált, felújított, garanciás. Fiatalos, profi hangnem.
 - A specs mezoket a termék nevébol töltsd ki, magyarul.
 

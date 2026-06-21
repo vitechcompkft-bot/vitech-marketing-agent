@@ -38,24 +38,34 @@ export async function runKlariDaily(): Promise<KlariResult> {
   // 2) Klári: gyors piackutatás (web-keresés, szabad szöveg) → kifogástalan ajánlat összeállítása (eros modell).
   const productList = live.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross }));
   const research = await klariResearch(productList, klariPersona);
-  const deal = await klariCompose(productList, research, klariPersona);
+  let deal = await klariCompose(productList, research, klariPersona);
   if (!deal) return { ran: false, reason: "Klári most nem tudott ajánlatot összeállítani." };
+
+  // Luca elbírálás az aktuális ajánlatra (a termékét a deal-bol keressük ki).
+  const judgeFor = (d: NonNullable<typeof deal>) => {
+    const p = live.find((x) => x.id === d.product_id) || live[0];
+    return lucaJudgeDeal(
+      { name: p.name, price: p.priceGross, headline: d.headline, market_note: d.market_note, caption: d.caption, reason: d.reason },
+      lucaPersona
+    );
+  };
+
+  // 3) Luca (kritikusan) elbírálja — ha elutasít, Klári EGYSZER javít a visszajelzés alapján (keresés nélkül).
+  let judge = await judgeFor(deal);
+  if (!judge.approve) {
+    const d2 = await klariCompose(
+      productList,
+      research + "\n\nLUCA KORÁBBI KRITIKÁJA (KÖTELEZO kijavítani, ne ismételd a hibát):\n" + judge.verdict,
+      klariPersona
+    );
+    if (d2) {
+      deal = d2;
+      judge = await judgeFor(deal);
+    }
+  }
 
   const product = live.find((p) => p.id === deal.product_id) || live[0];
   const priceHuf = product.priceGross ? Number(product.priceGross) : undefined;
-
-  // 3) Luca (kritikusan) elbírálja.
-  const judge = await lucaJudgeDeal(
-    {
-      name: product.name,
-      price: product.priceGross,
-      headline: deal.headline,
-      market_note: deal.market_note,
-      caption: deal.caption,
-      reason: deal.reason,
-    },
-    lucaPersona
-  );
 
   // 4) Jóváhagyás esetén plakát: elsodlegesen PROFI renderelt PNG (htmlcsstoimage),
   //    SVG mindig fallbacknek (ha nincs HCTI kulcs).
