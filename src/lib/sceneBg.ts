@@ -23,9 +23,9 @@ export async function ensureBucket() {
   }
 }
 
-async function genOne(prompt: string): Promise<Buffer | null> {
+async function genOne(prompt: string): Promise<{ buf: Buffer | null; err?: string }> {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) return null;
+  if (!key) return { buf: null, err: "nincs OPENAI_API_KEY" };
   try {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
@@ -33,34 +33,48 @@ async function genOne(prompt: string): Promise<Buffer | null> {
       body: JSON.stringify({ model: "dall-e-3", prompt, size: "1792x1024", quality: "hd", n: 1, response_format: "b64_json" }),
     });
     const j = await res.json();
+    if (j?.error) return { buf: null, err: "openai: " + (j.error.message || JSON.stringify(j.error)).slice(0, 160) };
     const b64 = j?.data?.[0]?.b64_json;
-    if (!b64) return null;
-    return Buffer.from(b64, "base64");
-  } catch {
-    return null;
+    if (!b64) return { buf: null, err: "openai: nincs b64 a válaszban" };
+    return { buf: Buffer.from(b64, "base64") };
+  } catch (e: any) {
+    return { buf: null, err: "openai fetch hiba: " + (e?.message || "ismeretlen") };
   }
 }
 
 /** Néhány iroda-jelenet legenerálása + tárolása (készlet feltöltése). */
-export async function generateScenes(n = 5): Promise<{ ok: boolean; created: number; error?: string }> {
+export async function generateScenes(n = 5): Promise<{ ok: boolean; created: number; error?: string; errors?: string[] }> {
   if (!process.env.OPENAI_API_KEY) return { ok: false, created: 0, error: "Hiányzó OPENAI_API_KEY." };
   await ensureBucket();
   const sb = supabaseAdmin();
   let created = 0;
+  const errors: string[] = [];
   const count = Math.min(n, SCENE_PROMPTS.length);
   for (let i = 0; i < count; i++) {
-    const buf = await genOne(SCENE_PROMPTS[i]);
-    if (!buf) continue;
+    const { buf, err } = await genOne(SCENE_PROMPTS[i]);
+    if (!buf) {
+      if (err) errors.push(err);
+      continue;
+    }
     const path = `scene-${Date.now()}-${i}.png`;
     const up = await sb.storage.from(BUCKET).upload(path, buf, { contentType: "image/png", upsert: true });
-    if (up.error) continue;
-    const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
-    if (data?.publicUrl) {
-      await sb.from("poster_backgrounds").insert({ url: data.publicUrl });
-      created++;
+    if (up.error) {
+      errors.push("storage: " + up.error.message);
+      continue;
     }
+    const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
+    if (!data?.publicUrl) {
+      errors.push("storage: nincs publicUrl");
+      continue;
+    }
+    const ins = await sb.from("poster_backgrounds").insert({ url: data.publicUrl });
+    if (ins.error) {
+      errors.push("db: " + ins.error.message);
+      continue;
+    }
+    created++;
   }
-  return { ok: true, created };
+  return { ok: true, created, errors: errors.slice(0, 5) };
 }
 
 /** Véletlen háttér a készletbol (vagy null, ha üres). */
