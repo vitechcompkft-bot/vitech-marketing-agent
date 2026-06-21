@@ -269,7 +269,12 @@ ${list}
 
 1) KERESS RÁ a piacra (Árukereso, eMAG, használt-laptop oldalak) néhány modellre.
 2) Válaszd ki azt a Vitech terméket, amelyik a piaci árhoz képest a LEGJOBB ajánlat.
-3) Készíts hozzá modern, frappáns, kreatív magyar plakát-szöveget.
+3) Készíts hozzá modern, frappáns, FIATALOS magyar plakát-szöveget.
+
+FONTOS SZABÁLYOK (Luca nagyon kritikus, ezeket betartva):
+- SOHA ne állíts valótlat vagy túlzót. A kedvezmény mértéke legyen PONTOS (ha ~14%, ne írj "féláron"-t!). Ha az árelony szerény, használd: "piaci ár alatt" / "bolti újár töredékéért".
+- MINDIG hangsúlyozd a Vitech bizalmi értékeit: BEVIZSGÁLT, FELÚJÍTOTT, GARANCIÁS.
+- Profi, megbízható, de fiatalos hangnem; magyaros, igényes szöveg.
 
 A VÉGÉN válaszolj PONTOSAN ebben a JSON-ban (utána semmi). A specs mezoket a termék nevébol/leírásából töltsd ki, magyarul, röviden:
 {
@@ -306,6 +311,55 @@ A VÉGÉN válaszolj PONTOSAN ebben a JSON-ban (utána semmi). A specs mezoket a
     };
   } catch {
     return null;
+  }
+}
+
+/** KLÁRI: Luca elutasítása után javít a tartalmon (új keresés nélkül), ugyanazon termékre. */
+export async function klariRevise(
+  prev: KlariDealOut,
+  productName: string,
+  lucaVerdict: string,
+  persona: { name: string; persona: string }
+): Promise<KlariDealOut> {
+  const anthropic = client();
+  const msg = await anthropic.messages.create({
+    model: SMART,
+    max_tokens: 1200,
+    system:
+      buildSystem(persona.name, persona.persona) +
+      "\n\nMOST KLÁRI vagy. Luca (a fonököd) visszaküldte a javaslatod javításra. Fogadd meg a kritikáját és javíts — pontos, nem túlzó, a felújított/garanciás értéket hangsúlyozó szöveggel.",
+    messages: [
+      {
+        role: "user",
+        content: `Termék: ${productName}
+A korábbi (elutasított) tartalom JSON-ban:
+${JSON.stringify({ headline: prev.headline, badge: prev.badge, market_note: prev.market_note, caption: prev.caption, badges: prev.badges, features: prev.features }, null, 2)}
+
+LUCA KRITIKÁJA: ${lucaVerdict}
+
+Javítsd ki ennek megfeleloen. A product_id és a specs MARADJON ugyanaz. Válaszolj PONTOSAN ugyanabban a JSON-formátumban, mint korábban (product_id, headline, badge, market_note, caption, reason, specs, badges, features), utána semmi.`,
+      },
+    ],
+  });
+  const text = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  try {
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return {
+      product_id: prev.product_id,
+      headline: j.headline || prev.headline,
+      badge: j.badge || prev.badge,
+      market_note: j.market_note || prev.market_note,
+      caption: j.caption || prev.caption,
+      reason: j.reason || prev.reason,
+      specs: j.specs || prev.specs,
+      badges: Array.isArray(j.badges) ? j.badges.slice(0, 3) : prev.badges,
+      features: Array.isArray(j.features) ? j.features.slice(0, 4) : prev.features,
+    };
+  } catch {
+    return prev;
   }
 }
 

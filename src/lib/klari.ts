@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
-import { klariFindDeal, lucaJudgeDeal } from "./claude";
+import { klariFindDeal, klariRevise, lucaJudgeDeal } from "./claude";
 import { buildDealPoster } from "./creatives";
 
 export interface KlariResult {
@@ -35,27 +35,35 @@ export async function runKlariDaily(): Promise<KlariResult> {
   if (!live.length) return { ran: false, reason: "Nincs feldolgozható termék." };
 
   // 2) Klári (saját személyiségével): legjobb áru ajánlat + plakát-tartalom (web-kereséssel)
-  const deal = await klariFindDeal(
+  const found = await klariFindDeal(
     live.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross })),
     klariPersona
   );
-  if (!deal) return { ran: false, reason: "Klári most nem talált megfelelo ajánlatot." };
+  if (!found) return { ran: false, reason: "Klári most nem talált megfelelo ajánlatot." };
+  let deal = found; // nem-null
 
   const product = live.find((p) => p.id === deal.product_id) || live[0];
   const priceHuf = product.priceGross ? Number(product.priceGross) : undefined;
 
-  // 3) Luca (kritikusan) elbírálja
-  const judge = await lucaJudgeDeal(
-    {
-      name: product.name,
-      price: product.priceGross,
-      headline: deal.headline,
-      market_note: deal.market_note,
-      caption: deal.caption,
-      reason: deal.reason,
-    },
-    lucaPersona
-  );
+  const judgeDeal = () =>
+    lucaJudgeDeal(
+      {
+        name: product.name,
+        price: product.priceGross,
+        headline: deal.headline,
+        market_note: deal.market_note,
+        caption: deal.caption,
+        reason: deal.reason,
+      },
+      lucaPersona
+    );
+
+  // 3) Luca (kritikusan) elbírálja — ha elutasítja, Klári EGYSZER javít a visszajelzés alapján.
+  let judge = await judgeDeal();
+  if (!judge.approve) {
+    deal = await klariRevise(deal, product.name, judge.verdict, klariPersona);
+    judge = await judgeDeal();
+  }
 
   // 4) Jóváhagyás esetén gazdag plakát (logó + spec + fotó + ár)
   const posterSvg = judge.approve
