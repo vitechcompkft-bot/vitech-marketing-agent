@@ -5,6 +5,7 @@ import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
 import { removeBg } from "./removebg";
 import { getRandomBackgroundUrl } from "./sceneBg";
+import { setAgentStatus } from "./team";
 
 export interface KlariResult {
   ran: boolean;
@@ -33,17 +34,26 @@ export async function runKlariDaily(): Promise<KlariResult> {
   const klariPersona = { name: "Klári", persona: cfg.klari_persona || "Lelkes, kreatív marketinges." };
   const lucaPersona = { name: cfg.agent_name, persona: cfg.agent_persona };
 
+  await setAgentStatus("klari", "working", "Piackutatás a legjobb ajánlathoz…");
+
   // 1) Termékek (egy adag a katalógusból)
   const token = await unasLogin();
   const products = await unasGetProducts(token, { limitNum: 40, limitStart: 0 });
   const live = products.filter((p) => p.priceGross && p.name);
-  if (!live.length) return { ran: false, reason: "Nincs feldolgozható termék." };
+  if (!live.length) {
+    await setAgentStatus("klari", "error", "Nincs feldolgozható termék az Unasból.");
+    return { ran: false, reason: "Nincs feldolgozható termék." };
+  }
 
   // 2) Klári: gyors piackutatás (web-keresés, szabad szöveg) → kifogástalan ajánlat összeállítása (eros modell).
   const productList = live.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross }));
   const research = await klariResearch(productList, klariPersona);
+  await setAgentStatus("klari", "working", "Ajánlat összeállítása + Luca jóváhagyása…");
   let deal = await klariCompose(productList, research, klariPersona);
-  if (!deal) return { ran: false, reason: "Klári most nem tudott ajánlatot összeállítani." };
+  if (!deal) {
+    await setAgentStatus("klari", "error", "Nem sikerült ajánlatot összeállítani.");
+    return { ran: false, reason: "Klári most nem tudott ajánlatot összeállítani." };
+  }
 
   // Luca elbírálás az aktuális ajánlatra (a termékét a deal-bol keressük ki).
   const judgeFor = (d: NonNullable<typeof deal>) => {
@@ -111,6 +121,14 @@ export async function runKlariDaily(): Promise<KlariResult> {
     luca_verdict: judge.verdict,
     status: judge.approve ? "approved" : "rejected",
   });
+
+  await setAgentStatus(
+    "klari",
+    judge.approve ? "done" : "waiting",
+    judge.approve
+      ? `Kész: ${product.name.slice(0, 38)} — plakát posztolásra kész`
+      : "Luca elutasította — holnap új javaslat"
+  );
 
   return {
     ran: true,

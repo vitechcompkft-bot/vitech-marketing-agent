@@ -3,6 +3,7 @@ import { getCampaignMetrics, applyBudgetChange, setCampaignStatus } from "./goog
 import { analyzeMetrics } from "./claude";
 import { enforceGuardrails } from "./guardrails";
 import { sendTelegram } from "./telegram";
+import { setAgentStatus, getAgentStatuses } from "./team";
 import type { AgentConfig, AgentDecision, CampaignMetric } from "./types";
 
 export async function getConfig(): Promise<AgentConfig> {
@@ -44,6 +45,7 @@ export async function runMonitorCycle(opts?: { sendReport?: boolean }): Promise<
 }> {
   const sb = supabaseAdmin();
   const config = await getConfig();
+  await setAgentStatus("luca", "working", "Hirdetések mérése és elemzése…");
 
   // 1) Mérés
   const metrics = await getCampaignMetrics();
@@ -72,6 +74,7 @@ export async function runMonitorCycle(opts?: { sendReport?: boolean }): Promise<
 
   // Vész-leállító: csak mérünk, nem nyúlunk semmihez
   if (!config.agent_enabled) {
+    await setAgentStatus("luca", "waiting", "Vész-leállító bekapcsolva — csak mérek, nem avatkozom be.");
     return { ran: false, summary: "Az Agent ki van kapcsolva — csak mértem, nem avatkoztam be.", executed: 0, queued: 0, proposed: 0, blocked: 0 };
   }
 
@@ -171,6 +174,12 @@ export async function runMonitorCycle(opts?: { sendReport?: boolean }): Promise<
 
   // 5) Telegram napi összegzo — CSAK a dedikált napi cron kéri (sendReport).
   //    Az óránkénti adatküldés (szkript) NEM küld jelentést, csak figyel + cselekszik csendben.
+  await setAgentStatus(
+    "luca",
+    "done",
+    `Figyelem a hirdetéseket — ${executed} beavatkozás, ${queued} folyamatban, ${proposed} javaslat.`
+  );
+
   if (opts?.sendReport) {
     await sendDailyReport(sb, config, summary);
   }
@@ -197,25 +206,35 @@ async function sendDailyReport(
   const proposed = all.filter((a) => a.status === "proposed");
   const blocked = all.filter((a) => a.status === "blocked");
 
+  // Csapat napi státuszai (Erika gyujti össze).
+  const statuses = await getAgentStatuses();
+  const NAMES: Record<string, string> = { luca: "Luca", klari: "Klári", gyula: "Gyula", erika: "Erika" };
+  const ICON: Record<string, string> = { working: "⏳", done: "✅", waiting: "⏸️", error: "⚠️", idle: "⚪" };
+  const order = ["luca", "klari", "gyula"];
+  const teamLines = order
+    .map((k) => statuses.find((s) => s.key === k))
+    .filter(Boolean)
+    .map((s) => `${ICON[s!.status] || "•"} <b>${NAMES[s!.key] || s!.key}</b>: ${s!.status_note || s!.daily_task || "—"}`);
+
   const lines: string[] = [
-    "📊 <b>Luca — napi összegzés</b>",
+    "🗂️ <b>Erika — napi jelentés</b>",
     "",
+    "<b>Csapat ma:</b>",
+    ...teamLines,
+    "",
+    "<b>Marketing (Luca):</b>",
     analysisSummary,
-    "",
     `Elmúlt 24 óra: 🤖 ${done.length} autonóm lépés · 💡 ${proposed.length} jóváhagyásra vár · 🚫 ${blocked.length} korlátozva.`,
   ];
 
-  if (done.length) {
-    lines.push("", "<b>Amit magamtól elintéztem:</b>");
-    for (const a of done.slice(0, 10)) lines.push(`• ${humanize(a.type, a.params || {})}`);
-  }
   if (proposed.length) {
-    lines.push("", "<b>Vezetői döntést kérek (jóváhagyás):</b>");
-    for (const a of proposed.slice(0, 10)) lines.push(`• ${humanize(a.type, a.params || {})} — /approve_${a.id}`);
+    lines.push("", "<b>Vezetői döntést kérünk (jóváhagyás):</b>");
+    for (const a of proposed.slice(0, 8)) lines.push(`• ${humanize(a.type, a.params || {})} — /approve_${a.id}`);
   }
-  lines.push("", "Részletek a dashboardon. Bármit kérdezhetsz tolem itt is! 💬");
+  lines.push("", "Részletek a dashboardon. Bármit kérdezhetsz tolem (Titkárság)! 💬");
 
   await sendTelegram(lines.join("\n"), config.telegram_chat_id || undefined);
+  await setAgentStatus("erika", "done", `Napi jelentés elküldve · ${done.length} lépés, ${proposed.length} jóváhagyásra vár`);
 }
 
 /** Egy konkrét akció tényleges végrehajtása a Google Ads-ben (vagy mockban). */

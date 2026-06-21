@@ -22,9 +22,10 @@ function humanize(type: string, p: any): string {
 }
 
 export default async function Overview() {
-  const { metrics, actions, alerts, config, agents, orders, supabaseReady, mock } = await loadDashboard();
+  const { metrics, actions, alerts, config, agents, statuses, orders, supabaseReady, mock } = await loadDashboard();
   const erika = agents.find((a) => a.key === "erika");
   const gyula = agents.find((a) => a.key === "gyula");
+  const st = (k: string) => statuses.find((s) => s.key === k);
   const proposed = actions.filter((a) => a.status === "proposed");
   const log = actions.filter((a) => a.status !== "proposed").slice(0, 12);
 
@@ -68,18 +69,19 @@ export default async function Overview() {
           <Person avatar={erika?.avatar} name="Erika" fallback="Erika" />
           <div className="flex-1">
             <div className="font-semibold">{erika?.name ?? "Erika"} <span className="badge ml-1 bg-brand/20 text-brand">Titkárság</span></div>
-            <div className="text-xs text-white/60">Hozzád minden rajta keresztül · ő irányít az osztályokhoz és jelent → <span className="text-brand">Írj neki ➜</span></div>
+            <StatusLine s={st("erika")} fallback="Üzenetek rendezése + napi összegzés" />
+            <div className="mt-0.5 text-xs text-brand">Hozzád minden rajta keresztül → Írj neki ➜</div>
           </div>
         </a>
 
         {/* Osztályok */}
         <div className="grid gap-3 md:grid-cols-3">
           <Dept title="Marketing" accent="#1a73e8">
-            <Member avatar={config?.agent_avatar || "/avatars/luca-1.svg"} name={config?.agent_name ?? "Luca"} role="osztályvezető · hirdetés + SEO" lead />
-            <Member avatar={config?.klari_avatar} name="Klári" role="napi ajánlat + plakát" />
+            <Member avatar={config?.agent_avatar || "/avatars/luca-1.svg"} name={config?.agent_name ?? "Luca"} role="osztályvezető · hirdetés + SEO" lead status={st("luca")} />
+            <Member avatar={config?.klari_avatar} name="Klári" role="napi ajánlat + plakát" status={st("klari")} />
           </Dept>
           <Dept title="Informatika" accent="#22d3ee">
-            <Member avatar={gyula?.avatar} name={gyula?.name ?? "Gyula"} role={gyula?.role ?? "IT vezető · automatizálás"} lead />
+            <Member avatar={gyula?.avatar} name={gyula?.name ?? "Gyula"} role={gyula?.role ?? "IT vezető · automatizálás"} lead status={st("gyula")} />
           </Dept>
           <Dept title="Gazdasági" accent="#22c55e">
             <div className="text-xs text-white/45">Vezető hamarosan…</div>
@@ -236,15 +238,33 @@ function Dept({ title, accent, children }: { title: string; accent: string; chil
     </div>
   );
 }
-function Member({ avatar, name, role, lead }: { avatar?: string | null; name: string; role: string; lead?: boolean }) {
+type Status = { status: string; status_note?: string | null; daily_task?: string | null } | undefined;
+const STATUS_META: Record<string, { dot: string; label: string }> = {
+  working: { dot: "bg-amber-400", label: "dolgozik" },
+  done: { dot: "bg-green-400", label: "kész" },
+  waiting: { dot: "bg-blue-400", label: "vár" },
+  error: { dot: "bg-red-400", label: "hiba" },
+  idle: { dot: "bg-white/40", label: "tétlen" },
+};
+function StatusLine({ s, fallback }: { s: Status; fallback?: string }) {
+  const meta = STATUS_META[s?.status || "idle"] || STATUS_META.idle;
   return (
-    <div className="flex items-center gap-3">
+    <div className="mt-0.5 flex items-start gap-1.5 text-xs text-white/60">
+      <span className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
+      <span>{s?.status_note || fallback || s?.daily_task || "—"}</span>
+    </div>
+  );
+}
+function Member({ avatar, name, role, lead, status }: { avatar?: string | null; name: string; role: string; lead?: boolean; status?: Status }) {
+  return (
+    <div className="flex items-start gap-3">
       <Person avatar={avatar} name={name} fallback={name} />
-      <div>
+      <div className="min-w-0">
         <div className="text-sm font-semibold">
           {name} {lead && <span className="badge ml-1 bg-brand/20 text-brand">vezető</span>}
         </div>
-        <div className="text-xs text-white/55">{role}</div>
+        <div className="text-xs text-white/45">{role}</div>
+        {status && <StatusLine s={status} fallback={status.daily_task || undefined} />}
       </div>
     </div>
   );

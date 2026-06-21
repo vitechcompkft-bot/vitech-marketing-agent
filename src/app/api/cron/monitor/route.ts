@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMonitorCycle } from "@/lib/agent";
 import { runSeoAudit } from "@/lib/seo";
+import { gyulaDailyCheck } from "@/lib/team";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +22,9 @@ async function handle(req: NextRequest) {
   try {
     // 1) SEO-átvilágítás egy adag termékre (a jelentés ELOTT, hogy bekerüljön).
     const seo = await runSeoAudit({ limit: 5 }).catch((e) => ({ ran: false, reason: e?.message }));
-    // 2) Google Ads ciklus + napi Telegram-összegzo.
+    // 1b) Gyula napi rendszer-ellenorzése (a státusza bekerüljön Erika jelentésébe).
+    await gyulaDailyCheck().catch(() => {});
+    // 2) Google Ads ciklus + Erika napi jelentés (csapat-státuszokkal).
     const result = await runMonitorCycle({ sendReport: true });
     return NextResponse.json({ ok: true, seo, ...result });
   } catch (e: any) {
