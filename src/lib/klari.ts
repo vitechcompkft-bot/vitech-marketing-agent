@@ -4,6 +4,7 @@ import { klariResearch, klariCompose, lucaJudgeDeal } from "./claude";
 import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
 import { removeBg } from "./removebg";
+import { getRandomBackgroundUrl } from "./sceneBg";
 
 export interface KlariResult {
   ran: boolean;
@@ -75,9 +76,12 @@ export async function runKlariDaily(): Promise<KlariResult> {
   if (judge.approve) {
     // Háttér eltávolítása a termékfotóról (remove.bg) → átlátszó, fehér keret nélkül.
     const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
+    // AI-generált iroda-jelenet háttér a készletbol (ha van).
+    const bgUrl = await getRandomBackgroundUrl().catch(() => null);
     const pdata = {
       imageUrl: product.imageUrl,
       cutout: cutout || undefined,
+      bgUrl: bgUrl || undefined,
       productName: product.name,
       headline: deal.headline,
       priceHuf,

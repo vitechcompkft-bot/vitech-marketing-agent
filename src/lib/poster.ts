@@ -6,6 +6,7 @@
 export interface PosterData {
   imageUrl?: string;
   cutout?: string; // háttér nélküli termék (data URI) — ha van, EZT használjuk
+  bgUrl?: string; // AI-generált jelenet-háttér (URL) — ha van, EZ a háttér
   productName: string;
   headline: string;
   priceHuf?: number;
@@ -33,10 +34,11 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
 
   const html = `
   <div class="poster">
-    <div class="glow glow-a"></div>
-    <div class="glow glow-b"></div>
-    <div class="grid"></div>
-    <div class="desk"></div>
+    ${
+      o.bgUrl
+        ? `<img class="scene" src="${esc(o.bgUrl)}"/><div class="scene-shade"></div>`
+        : `<div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grid"></div><div class="desk"></div>`
+    }
 
     <div class="top">
       <div class="logo"><img src="${LOGO_URL}"/></div>
@@ -89,6 +91,12 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   .grid { position:absolute; inset:0; opacity:.05;
     background-image:linear-gradient(#9cc4ff 1px,transparent 1px),linear-gradient(90deg,#9cc4ff 1px,transparent 1px);
     background-size:48px 48px; }
+  /* AI jelenet-háttér + sötétíto réteg a szöveg olvashatóságáért (bal+alsó sötétebb) */
+  .scene { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .scene-shade { position:absolute; inset:0;
+    background:
+      linear-gradient(90deg, rgba(5,14,33,.94) 0%, rgba(5,14,33,.80) 36%, rgba(5,14,33,.40) 68%, rgba(5,14,33,.30) 100%),
+      linear-gradient(0deg, rgba(5,14,33,.90) 0%, rgba(5,14,33,.0) 42%); }
   .top { position:absolute; top:36px; left:44px; right:44px; display:flex; justify-content:space-between; align-items:flex-start; }
   .logo { background:#fff; border-radius:16px; padding:12px 18px; box-shadow:0 12px 30px rgba(0,0,0,.35); }
   .logo img { height:86px; display:block; }
