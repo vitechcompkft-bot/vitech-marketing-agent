@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
-import { klariFindDeal, klariPolish, lucaJudgeDeal } from "./claude";
+import { klariResearch, klariCompose, lucaJudgeDeal } from "./claude";
 import { buildDealPoster } from "./creatives";
 
 export interface KlariResult {
@@ -34,18 +34,14 @@ export async function runKlariDaily(): Promise<KlariResult> {
   const live = products.filter((p) => p.priceGross && p.name);
   if (!live.length) return { ran: false, reason: "Nincs feldolgozható termék." };
 
-  // 2) Klári (saját személyiségével): legjobb áru ajánlat + plakát-tartalom (web-kereséssel)
-  const found = await klariFindDeal(
-    live.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross })),
-    klariPersona
-  );
-  if (!found) return { ran: false, reason: "Klári most nem talált megfelelo ajánlatot." };
+  // 2) Klári: gyors piackutatás (web-keresés, szabad szöveg) → kifogástalan ajánlat összeállítása (eros modell).
+  const productList = live.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross }));
+  const research = await klariResearch(productList, klariPersona);
+  const deal = await klariCompose(productList, research, klariPersona);
+  if (!deal) return { ran: false, reason: "Klári most nem tudott ajánlatot összeállítani." };
 
-  const product = live.find((p) => p.id === found.product_id) || live[0];
+  const product = live.find((p) => p.id === deal.product_id) || live[0];
   const priceHuf = product.priceGross ? Number(product.priceGross) : undefined;
-
-  // 2b) Klári eros modellel KIFOGÁSTALANRA csiszolja (hibátlan magyar + pontos állítások), web-keresés nélkül.
-  const deal = await klariPolish(found, product.name, klariPersona);
 
   // 3) Luca (kritikusan) elbírálja.
   const judge = await lucaJudgeDeal(

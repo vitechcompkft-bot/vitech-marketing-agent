@@ -460,4 +460,86 @@ Magyarul, szakszeruen, lényegre töroen válaszolsz a tulajdonos kérésére. A
   return msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
 }
 
+/** KLÁRI 1. lépés: gyors piackutatás web-kereséssel — SZABAD SZÖVEG (nincs JSON-parse kockázat). */
+export async function klariResearch(
+  products: { id: string; name: string; priceGross?: string }[],
+  persona: { name: string; persona: string }
+): Promise<string> {
+  const anthropic = client();
+  const list = products.map((p) => `- [${p.id}] ${p.name} — ${p.priceGross || "?"} Ft`).join("\n");
+  try {
+    const msg = await anthropic.messages.create({
+      model: FAST,
+      max_tokens: 1000,
+      system: buildSystem(persona.name, persona.persona) + "\n\nMOST KLÁRI vagy. Gyors piackutatást végzel a legjobb áru ajánlat megtalálásához.",
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 } as any],
+      messages: [
+        {
+          role: "user",
+          content: `Vitech felújított gépek, bruttó árral:
+${list}
+
+Keress rá néhány modellre a piacon (Árukereso, eMAG, használt-laptop oldalak). Írd le RÖVIDEN, melyik Vitech termék [id] a legjobb ajánlat a piaci árhoz képest, KONKRÉT számokkal (mihez képest mennyivel olcsóbb). Pár mondat elég.`,
+        },
+      ],
+    });
+    return msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
+  } catch {
+    return "";
+  }
+}
+
+/** KLÁRI 2. lépés: a kutatás alapján kifogástalan ajánlat összeállítása (eros modell, JSON, keresés nélkül). */
+export async function klariCompose(
+  products: { id: string; name: string; priceGross?: string }[],
+  research: string,
+  persona: { name: string; persona: string }
+): Promise<KlariDealOut | null> {
+  const anthropic = client();
+  const list = products.map((p) => `- [${p.id}] ${p.name} — ${p.priceGross || "?"} Ft`).join("\n");
+  const msg = await anthropic.messages.create({
+    model: SMART,
+    max_tokens: 1500,
+    system: buildSystem(persona.name, persona.persona) + "\n\nMOST KLÁRI vagy: lelkes, precíz marketinges. A piackutatás alapján összeállítod a végleges, kifogástalan plakát-ajánlatot.",
+    messages: [
+      {
+        role: "user",
+        content: `Vitech termékek (bruttó ár):
+${list}
+
+KLÁRI PIACKUTATÁSA:
+${research || "(nincs külön piaci adat — a belso ár/konfiguráció alapján válassz)"}
+
+Válaszd ki a LEGJOBB ajánlatot, és készíts hozzá kifogástalan plakát-tartalmat.
+SZABÁLYOK:
+- HIBÁTLAN magyar nyelv, helyes ékezetek, NULLA elgépelés/magyartalan szó (pl. "billentyűzet", nem "billentyus").
+- PONTOS, túlzásmentes ár-állítás (ne "féláron", ha csak ~15%; a "piaci ár alatt"/"átlaghoz képest" legyen egyértelmu).
+- Hangsúlyozd: bevizsgált, felújított, garanciás. Fiatalos, profi hangnem.
+- A specs mezoket a termék nevébol töltsd ki, magyarul.
+
+Válaszolj PONTOSAN ebben a JSON-ban, utána semmi:
+{ "product_id":"a lista szerinti id", "headline":"ütos cím max ~40 karakter", "badge":"rövid kiemelés", "market_note":"1-2 mondat számokkal", "caption":"FB poszt 2-4 mondat emojikkal, vitechcompkft.hu-ra hívva", "reason":"miért ez", "specs":{"cpu":"","ram":"","storage":"","display":"","ports":"","os":"","condition":"","warranty":""}, "badges":["FELÚJÍTVA","12 HÓ GARANCIA"], "features":["Magyar billentyűzet","Bevizsgálva","Windows 11 Pro"] }`,
+      },
+    ],
+  });
+  const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+  try {
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    if (!j.product_id) return null;
+    return {
+      product_id: String(j.product_id),
+      headline: j.headline || "",
+      badge: j.badge || "AKCIÓ",
+      market_note: j.market_note || "",
+      caption: j.caption || "",
+      reason: j.reason || "",
+      specs: j.specs || {},
+      badges: Array.isArray(j.badges) ? j.badges.slice(0, 3) : [],
+      features: Array.isArray(j.features) ? j.features.slice(0, 4) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export { SMART, FAST };
