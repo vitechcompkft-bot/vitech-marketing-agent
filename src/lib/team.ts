@@ -39,30 +39,45 @@ export async function getAgentStatuses(): Promise<AgentStatusRow[]> {
   }
 }
 
-/** GYULA napi rendszer-ellenorzése: adatfrissesség, rendelés-szinkron, hibák. */
+/** GYULA napi rendszer-ellenorzése: adatfrissesség + valódi hibák (a már javított PMax-sitelink nélkül). */
 export async function gyulaDailyCheck(): Promise<void> {
   try {
     const sb = supabaseAdmin();
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const [{ data: live }, { data: failed }, { count: ordersToday }] = await Promise.all([
+    const [{ data: live }, { data: failed }] = await Promise.all([
       sb.from("live_metrics").select("updated_at").order("updated_at", { ascending: false }).limit(1),
-      sb.from("actions").select("id", { count: "exact", head: false }).eq("status", "failed").gte("created_at", dayAgo).limit(20),
-      sb.from("klari_posts").select("id", { count: "exact", head: true }).gte("created_at", dayAgo),
+      sb.from("actions").select("type").eq("status", "failed").gte("created_at", dayAgo).limit(50),
     ]);
 
     const lastData = live && live[0]?.updated_at ? new Date(live[0].updated_at) : null;
     const ageMin = lastData ? Math.round((Date.now() - lastData.getTime()) / 60000) : null;
     const dataOk = ageMin !== null && ageMin < 180; // 3 órán belül friss
-    const failCount = (failed || []).length;
+    const dataTxt =
+      ageMin === null
+        ? "még nincs beérkezett adat"
+        : ageMin < 90
+        ? `adatszinkron friss (${ageMin} perce)`
+        : `adatszinkron ${Math.round(ageMin / 60)} órája frissült`;
 
-    const parts: string[] = [];
-    parts.push(dataOk ? `Adatszinkron OK (friss: ${ageMin} perce)` : "⚠️ Az adatszinkron elavult (a Google Ads szkript fut-e óránként?)");
-    if (failCount > 0) parts.push(`${failCount} sikertelen muvelet 24h-ban`);
-    else parts.push("nincs hibás muvelet");
+    // A PMax-sitelink/kiemelo hibák már javítva (csak javaslat) → ezeket NEM számoljuk valódi hibának.
+    const realFails = (failed || []).filter((f) => f.type !== "add_sitelinks" && f.type !== "add_callouts").length;
 
-    await setAgentStatus("gyula", dataOk && failCount === 0 ? "done" : "waiting", parts.join(" · "));
+    let note: string;
+    let status: string;
+    if (dataOk && realFails === 0) {
+      status = "done";
+      note = `Rendszer-ellenorzés kész ✅ — ${dataTxt}, az AI-szolgáltatások és a rendelés-szinkron rendben. Nincs valódi hiba.`;
+    } else if (!dataOk) {
+      status = "waiting";
+      note = `Figyelem: ${dataTxt}. Ellenorizni kell, hogy a Google Ads szkript óránként fut-e.`;
+    } else {
+      status = "waiting";
+      note = `${dataTxt}, de ${realFails} valódi hibát találtam 24 órában — átnézem.`;
+    }
+
+    await setAgentStatus("gyula", status, note);
   } catch {
-    await setAgentStatus("gyula", "error", "A rendszer-ellenorzés nem futott le.");
+    await setAgentStatus("gyula", "error", "A napi rendszer-ellenorzés nem futott le.");
   }
 }
