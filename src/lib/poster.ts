@@ -5,6 +5,7 @@
 
 export interface PosterData {
   imageUrl?: string;
+  cutout?: string; // háttér nélküli termék (data URI) — ha van, EZT használjuk
   productName: string;
   headline: string;
   priceHuf?: number;
@@ -35,6 +36,7 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
     <div class="glow glow-a"></div>
     <div class="glow glow-b"></div>
     <div class="grid"></div>
+    <div class="desk"></div>
 
     <div class="top">
       <div class="logo"><img src="${LOGO_URL}"/></div>
@@ -49,8 +51,13 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
         ${specRows.slice(0, 7).map(([ic, t]) => `<li><i>${ic}</i><span>${esc(t)}</span></li>`).join("")}
       </ul>
       <div class="product">
-        <div class="pedestal"></div>
-        ${o.imageUrl ? `<img src="${esc(o.imageUrl)}"/>` : ""}
+        ${
+          o.cutout
+            ? `<div class="shadow"></div><img class="cut" src="${o.cutout}"/>`
+            : o.imageUrl
+            ? `<div class="pedestal"></div><img src="${esc(o.imageUrl)}"/>`
+            : ""
+        }
       </div>
     </div>
 
@@ -70,17 +77,18 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
     position:relative; width:1200px; height:800px; overflow:hidden;
     font-family:'Montserrat',system-ui,Arial,sans-serif; color:#fff;
     background:
-      radial-gradient(1200px 700px at 80% 120%, #16407e 0%, transparent 60%),
-      linear-gradient(135deg,#06122b 0%, #0a2150 55%, #0e2c63 100%);
+      radial-gradient(900px 600px at 88% 8%, rgba(255,244,214,.22) 0%, transparent 55%),
+      linear-gradient(150deg,#081730 0%, #0c2350 48%, #11356e 100%);
   }
-  .glow { position:absolute; border-radius:50%; filter:blur(70px); opacity:.55; }
-  .glow-a { width:520px; height:520px; left:-120px; top:-160px; background:#1f7bff; }
-  .glow-b { width:420px; height:420px; right:280px; bottom:-180px; background:#23d3ee; opacity:.35; }
-  .grid {
-    position:absolute; inset:0; opacity:.06;
+  /* iroda-környezet: meleg ablakfény + hideg bokeh + asztal-sík */
+  .glow { position:absolute; border-radius:50%; filter:blur(80px); }
+  .glow-a { width:520px; height:520px; right:-120px; top:-180px; background:rgba(255,236,196,.45); }
+  .glow-b { width:460px; height:460px; left:-140px; top:120px; background:rgba(40,130,255,.40); }
+  .desk { position:absolute; left:0; right:0; bottom:0; height:300px;
+    background:linear-gradient(0deg, rgba(8,18,38,.96) 0%, rgba(12,32,72,.55) 55%, transparent 100%); }
+  .grid { position:absolute; inset:0; opacity:.05;
     background-image:linear-gradient(#9cc4ff 1px,transparent 1px),linear-gradient(90deg,#9cc4ff 1px,transparent 1px);
-    background-size:46px 46px;
-  }
+    background-size:48px 48px; }
   .top { position:absolute; top:36px; left:44px; right:44px; display:flex; justify-content:space-between; align-items:flex-start; }
   .logo { background:#fff; border-radius:16px; padding:12px 18px; box-shadow:0 12px 30px rgba(0,0,0,.35); }
   .logo img { height:86px; display:block; }
@@ -96,10 +104,16 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   .specs li { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
   .specs li i { font-size:26px; font-style:normal; width:34px; text-align:center; }
   .specs li span { font-size:25px; font-weight:600; color:#e9f2ff; }
-  .product { position:absolute; right:0; top:-40px; width:540px; height:400px; }
+  .product { position:absolute; right:10px; top:-10px; width:560px; height:430px; }
+  /* háttér nélküli (kivágott) termék: nincs fehér doboz, csak lágy árnyék az "asztalon" */
+  .product .cut { position:relative; max-width:560px; max-height:400px; display:block; margin:0 auto;
+    filter:drop-shadow(0 30px 34px rgba(0,0,0,.55)); }
+  .product .shadow { position:absolute; left:50%; bottom:14px; width:430px; height:54px; transform:translateX(-50%);
+    background:radial-gradient(ellipse at center, rgba(0,0,0,.55) 0%, transparent 70%); filter:blur(6px); }
+  /* fallback (ha nincs kivágás): light pedestal a fehér hátteru fotóhoz */
   .pedestal { position:absolute; left:50%; top:50%; width:520px; height:300px; transform:translate(-50%,-45%);
     background:radial-gradient(ellipse at center, rgba(220,235,255,.95) 0%, rgba(220,235,255,.35) 42%, transparent 70%); filter:blur(2px); }
-  .product img { position:relative; max-width:520px; max-height:380px; display:block; margin:0 auto; filter:drop-shadow(0 24px 40px rgba(0,0,0,.45)); }
+  .product img:not(.cut) { position:relative; max-width:520px; max-height:380px; display:block; margin:0 auto; filter:drop-shadow(0 24px 40px rgba(0,0,0,.45)); }
   .foot { position:absolute; left:0; right:0; bottom:0; height:104px; padding:0 44px; display:flex; align-items:center; justify-content:space-between;
     background:linear-gradient(0deg, rgba(3,10,26,.92), rgba(3,10,26,.55)); }
   .pname { font-size:24px; font-weight:700; }

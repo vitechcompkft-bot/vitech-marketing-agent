@@ -3,6 +3,7 @@ import { unasLogin, unasGetProducts } from "./unas";
 import { klariResearch, klariCompose, lucaJudgeDeal } from "./claude";
 import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
+import { removeBg } from "./removebg";
 
 export interface KlariResult {
   ran: boolean;
@@ -72,8 +73,11 @@ export async function runKlariDaily(): Promise<KlariResult> {
   let posterSvg: string | null = null;
   let posterUrl: string | null = null;
   if (judge.approve) {
+    // Háttér eltávolítása a termékfotóról (remove.bg) → átlátszó, fehér keret nélkül.
+    const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
     const pdata = {
       imageUrl: product.imageUrl,
+      cutout: cutout || undefined,
       productName: product.name,
       headline: deal.headline,
       priceHuf,
