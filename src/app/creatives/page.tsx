@@ -25,13 +25,26 @@ export default function CreativesPage() {
   const [loading, setLoading] = useState(false);
   const [current, setCurrent] = useState<Creative | null>(null);
   const [list, setList] = useState<Creative[]>([]);
+  const [klari, setKlari] = useState<any[]>([]);
+  const [copied, setCopied] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   async function refresh() {
     const r = await fetch("/api/creatives").then((x) => x.json()).catch(() => ({ creatives: [] }));
     setList(r.creatives || []);
+    const k = await fetch("/api/klari-posts").then((x) => x.json()).catch(() => ({ posts: [] }));
+    setKlari(k.posts || []);
   }
   useEffect(() => { refresh(); }, []);
+
+  const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) + " Ft";
+  async function copyCaption(id: number, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(id);
+      setTimeout(() => setCopied(null), 1800);
+    } catch {}
+  }
 
   async function generate() {
     if (!topic.trim() || loading) return;
@@ -87,6 +100,59 @@ export default function CreativesPage() {
   return (
     <main className="flex flex-col gap-6">
       <h1 className="text-lg font-bold">Kreatívok — hirdetés, plakát, Facebook-poszt</h1>
+
+      {/* Klári napi ajánlatai */}
+      <section>
+        <h2 className="section-title">🖼️ Klári napi ajánlatai</h2>
+        {klari.length === 0 ? (
+          <div className="card text-sm text-white/55">Még nincs ajánlat. Klári minden reggel 7-kor készít egyet.</div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {klari.map((k) => (
+              <div key={k.id} className="card flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="mono h-7 w-7 text-xs" style={{ background: "linear-gradient(135deg,#1a73e8,#0a2a5e)" }}>K</div>
+                    <span className="text-sm font-semibold">{k.product_name?.slice(0, 40)}</span>
+                  </div>
+                  <span className={`badge ${k.status === "approved" ? "bg-green-500/20 text-green-300" : k.status === "posted" ? "bg-blue-500/20 text-blue-300" : "bg-white/10 text-white/50"}`}>
+                    {k.status === "approved" ? "Luca jóváhagyta" : k.status === "posted" ? "kiposztolva" : k.status === "rejected" ? "elvetve" : k.status}
+                  </span>
+                </div>
+
+                {k.poster_svg && k.status !== "rejected" && (
+                  <div className="overflow-hidden rounded-xl bg-black/10 [&_svg]:block [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: k.poster_svg }} />
+                )}
+
+                {k.price_huf ? <div className="font-bold text-emerald-300">{ft(k.price_huf)}</div> : null}
+                {k.market_note && <div className="text-sm text-white/70">📊 {k.market_note}</div>}
+                {k.luca_verdict && (
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
+                    <span className="text-white/50">Luca: </span>
+                    <span className="text-white/85">{k.luca_verdict}</span>
+                  </div>
+                )}
+
+                {k.caption && k.status !== "rejected" && (
+                  <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                    <div className="mb-2 text-xs uppercase tracking-wide text-white/40">Facebook poszt szövege</div>
+                    <div className="whitespace-pre-wrap text-sm text-white/90">{k.caption}</div>
+                  </div>
+                )}
+
+                {k.poster_svg && k.status !== "rejected" && (
+                  <div className="flex flex-wrap gap-2">
+                    <button className="btn btn-primary" onClick={() => copyCaption(k.id, k.caption || "")}>{copied === k.id ? "✓ Másolva" : "Szöveg másolása"}</button>
+                    <button className="btn btn-ghost" onClick={() => downloadPng(k.poster_svg, `vitech_klari_${k.id}`)}>⬇ Plakát PNG</button>
+                    <button className="btn btn-ghost" onClick={() => downloadSvg(k.poster_svg, `vitech_klari_${k.id}`)}>SVG</button>
+                    {k.product_url && <a className="btn btn-ghost" href={k.product_url} target="_blank" rel="noreferrer">Termék</a>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="card flex flex-col gap-3">
         <div className="grid gap-3 md:grid-cols-3">

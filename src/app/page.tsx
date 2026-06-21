@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { loadDashboard } from "@/lib/dashboard";
 import RunNowButton from "@/components/RunNowButton";
 import ProposedAction from "@/components/ProposedAction";
-import KlariDeal from "@/components/KlariDeal";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +22,7 @@ function humanize(type: string, p: any): string {
 }
 
 export default async function Overview() {
-  const { metrics, actions, alerts, config, klari, agents, orders, supabaseReady, mock } = await loadDashboard();
+  const { metrics, actions, alerts, config, agents, orders, supabaseReady, mock } = await loadDashboard();
   const erika = agents.find((a) => a.key === "erika");
   const gyula = agents.find((a) => a.key === "gyula");
   const proposed = actions.filter((a) => a.status === "proposed");
@@ -87,30 +86,6 @@ export default async function Overview() {
           </Dept>
         </div>
       </section>
-
-      {/* Klári napi ajánlata */}
-      {klari.length > 0 && (
-        <section>
-          <h2 className="section-title">🖼️ Klári napi ajánlata</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {klari.slice(0, 2).map((k) => (
-              <KlariDeal
-                key={k.id}
-                id={k.id}
-                productName={k.product_name}
-                productUrl={k.product_url}
-                priceHuf={k.price_huf}
-                marketNote={k.market_note}
-                caption={k.caption}
-                posterSvg={k.poster_svg}
-                lucaVerdict={k.luca_verdict}
-                status={k.status}
-                createdAt={k.created_at}
-              />
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Valós eladások (webshop, minden csatorna) */}
       {orders.ok && (
