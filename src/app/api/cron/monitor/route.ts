@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMonitorCycle } from "@/lib/agent";
+import { runSeoAudit } from "@/lib/seo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,9 +19,11 @@ async function handle(req: NextRequest) {
     }
   }
   try {
-    // A dedikált napi cron ezt hívja → kérje a napi Telegram-összegzot is.
+    // 1) SEO-átvilágítás egy adag termékre (a jelentés ELOTT, hogy bekerüljön).
+    const seo = await runSeoAudit({ limit: 5 }).catch((e) => ({ ran: false, reason: e?.message }));
+    // 2) Google Ads ciklus + napi Telegram-összegzo.
     const result = await runMonitorCycle({ sendReport: true });
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, seo, ...result });
   } catch (e: any) {
     console.error("[cron/monitor] hiba:", e);
     return NextResponse.json({ ok: false, error: e?.message ?? "hiba" }, { status: 500 });

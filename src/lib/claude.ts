@@ -196,7 +196,7 @@ export async function generateSeo(
 ): Promise<{ improve: boolean; title: string; description: string; keywords: string; reason: string }> {
   const anthropic = client();
   const msg = await anthropic.messages.create({
-    model: SMART,
+    model: FAST, // sok termék → gyors/olcsó modell elég a SEO-szöveghez
     max_tokens: 600,
     system: buildSystem(persona.name, persona.persona),
     messages: [
