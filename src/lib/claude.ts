@@ -543,4 +543,39 @@ Válaszolj PONTOSAN ebben a JSON-ban, utána semmi:
   }
 }
 
+/** ERIKA: egy beérkezo e-mail triázsa — összegzés, osztály, sürgosség. */
+export async function erikaTriageEmail(
+  email: { from: string; subject: string; body: string },
+  persona: string
+): Promise<{ summary: string; department: string; urgency: string }> {
+  const anthropic = client();
+  try {
+    const msg = await anthropic.messages.create({
+      model: FAST,
+      max_tokens: 300,
+      system: `Te vagy Erika, a Vitech/HUNOR titkárnoje. ${persona}\nBeérkezo e-maileket triázsolsz a tulajdonosnak.`,
+      messages: [
+        {
+          role: "user",
+          content: `Feladó: ${email.from}
+Tárgy: ${email.subject}
+Tartalom (részlet): ${email.body.slice(0, 1500)}
+
+Triázsold. Válaszolj PONTOSAN ebben a JSON-ban:
+{ "summary": "1 mondat magyar összegzés", "department": "Informatika | Gazdasagi | Marketing | Titkarsag | Egyeb", "urgency": "alacsony | kozepes | magas" }`,
+        },
+      ],
+    });
+    const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return {
+      summary: j.summary || "(nincs összegzés)",
+      department: j.department || "Egyeb",
+      urgency: ["alacsony", "kozepes", "magas"].includes(j.urgency) ? j.urgency : "alacsony",
+    };
+  } catch {
+    return { summary: "(triázs nem sikerült)", department: "Egyeb", urgency: "alacsony" };
+  }
+}
+
 export { SMART, FAST };

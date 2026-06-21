@@ -22,7 +22,7 @@ function humanize(type: string, p: any): string {
 }
 
 export default async function Overview() {
-  const { metrics, actions, alerts, config, agents, statuses, orders, supabaseReady, mock } = await loadDashboard();
+  const { metrics, actions, alerts, config, agents, statuses, emails, orders, supabaseReady, mock } = await loadDashboard();
   const erika = agents.find((a) => a.key === "erika");
   const gyula = agents.find((a) => a.key === "gyula");
   const st = (k: string) => statuses.find((s) => s.key === k);
@@ -88,6 +88,30 @@ export default async function Overview() {
           </Dept>
         </div>
       </section>
+
+      {/* Postaláda — Erika triázsa */}
+      {emails.length > 0 && (
+        <section>
+          <h2 className="section-title">📨 Postaláda — Erika rendezte</h2>
+          <div className="card flex flex-col divide-y divide-white/5">
+            {emails.map((e) => (
+              <div key={e.id} className="flex items-start gap-3 py-2.5">
+                <span className={`badge mt-0.5 shrink-0 ${e.urgency === "magas" ? "bg-red-500/20 text-red-300" : e.urgency === "kozepes" ? "bg-amber-500/20 text-amber-200" : "bg-white/10 text-white/60"}`}>
+                  {e.urgency === "magas" ? "sürgős" : e.urgency === "kozepes" ? "közepes" : "alacsony"}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{e.subject}</span>
+                    {e.department && <span className="badge bg-brand/15 text-brand">{e.department}</span>}
+                  </div>
+                  <div className="text-xs text-white/55">{e.from_addr}{e.date ? ` · ${new Date(e.date).toLocaleString("hu-HU")}` : ""}</div>
+                  {e.summary && <div className="mt-0.5 text-sm text-white/75">{e.summary}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Valós eladások (webshop, minden csatorna) */}
       {orders.ok && (

@@ -216,11 +216,20 @@ async function sendDailyReport(
     .filter(Boolean)
     .map((s) => `${ICON[s!.status] || "•"} <b>${NAMES[s!.key] || s!.key}</b>: ${s!.status_note || s!.daily_task || "—"}`);
 
+  // Beérkezett e-mailek (Erika postaláda-triázsa) az elmúlt 24 órában.
+  const { data: em } = await sb.from("emails").select("urgency").gte("created_at", since);
+  const emailCount = (em || []).length;
+  const emailUrgent = (em || []).filter((e) => e.urgency === "magas").length;
+  const emailLine = emailCount
+    ? `📨 ${emailCount} új e-mail rendezve${emailUrgent ? ` (ebbol ${emailUrgent} sürgos!)` : ""} — részletek a dashboardon.`
+    : "";
+
   const lines: string[] = [
     "🗂️ <b>Erika — napi jelentés</b>",
     "",
     "<b>Csapat ma:</b>",
     ...teamLines,
+    ...(emailLine ? ["", emailLine] : []),
     "",
     "<b>Marketing (Luca):</b>",
     analysisSummary,

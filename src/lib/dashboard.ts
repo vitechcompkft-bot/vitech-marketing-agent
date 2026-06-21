@@ -19,6 +19,16 @@ export interface KlariPost {
   status: string;
 }
 
+export interface EmailRow {
+  id: number;
+  from_addr: string | null;
+  subject: string | null;
+  date: string | null;
+  summary: string | null;
+  department: string | null;
+  urgency: string | null;
+}
+
 export interface OrgAgent {
   key: string;
   name: string;
@@ -36,6 +46,7 @@ export interface DashboardData {
   klari: KlariPost[];
   agents: OrgAgent[];
   statuses: AgentStatusRow[];
+  emails: EmailRow[];
   orders: OrderStats;
   supabaseReady: boolean;
   mock: boolean;
@@ -58,17 +69,19 @@ export async function loadDashboard(): Promise<DashboardData> {
   let klari: KlariPost[] = [];
   let agents: OrgAgent[] = [];
   let statuses: AgentStatusRow[] = [];
+  let emails: EmailRow[] = [];
   let supabaseReady = false;
 
   try {
     const sb = supabaseAdmin();
-    const [a, al, c, k, ag, st] = await Promise.all([
+    const [a, al, c, k, ag, st, em] = await Promise.all([
       sb.from("actions").select("*").order("created_at", { ascending: false }).limit(20),
       sb.from("alerts").select("*").order("created_at", { ascending: false }).limit(10),
       sb.from("agent_config").select("*").eq("id", 1).single(),
       sb.from("klari_posts").select("*").order("created_at", { ascending: false }).limit(4),
       sb.from("agents").select("key,name,role,department,avatar,is_lead").eq("active", true).order("sort", { ascending: true }),
       sb.from("agent_status").select("*"),
+      sb.from("emails").select("id,from_addr,subject,date,summary,department,urgency").order("date", { ascending: false }).limit(8),
     ]);
     actions = (a.data as AgentAction[]) || [];
     alerts = (al.data as Alert[]) || [];
@@ -76,10 +89,11 @@ export async function loadDashboard(): Promise<DashboardData> {
     klari = (k.data as KlariPost[]) || [];
     agents = (ag.data as OrgAgent[]) || [];
     statuses = (st.data as AgentStatusRow[]) || [];
+    emails = (em.data as EmailRow[]) || [];
     supabaseReady = !c.error;
   } catch {
     supabaseReady = false;
   }
 
-  return { metrics, actions, alerts, config, klari, agents, statuses, orders, supabaseReady, mock: isMock };
+  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, supabaseReady, mock: isMock };
 }
