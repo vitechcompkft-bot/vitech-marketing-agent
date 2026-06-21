@@ -30,7 +30,7 @@ async function genOne(prompt: string): Promise<{ buf: Buffer | null; err?: strin
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: "dall-e-3", prompt, size: "1792x1024", quality: "hd", n: 1 }),
+      body: JSON.stringify({ model: "gpt-image-1", prompt, size: "1536x1024", quality: "medium", n: 1 }),
     });
     const j = await res.json();
     if (j?.error) return { buf: null, err: "openai: " + (j.error.message || JSON.stringify(j.error)).slice(0, 160) };
@@ -54,9 +54,10 @@ export async function generateScenes(n = 5): Promise<{ ok: boolean; created: num
   const sb = supabaseAdmin();
   let created = 0;
   const errors: string[] = [];
-  const count = Math.min(n, SCENE_PROMPTS.length);
+  const count = Math.min(n, 2); // idolimit miatt hívásonként max 2 kép
   for (let i = 0; i < count; i++) {
-    const { buf, err } = await genOne(SCENE_PROMPTS[i]);
+    const prompt = SCENE_PROMPTS[Math.floor(Math.random() * SCENE_PROMPTS.length)];
+    const { buf, err } = await genOne(prompt);
     if (!buf) {
       if (err) errors.push(err);
       continue;
