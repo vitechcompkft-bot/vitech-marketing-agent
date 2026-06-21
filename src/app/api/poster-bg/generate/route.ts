@@ -11,7 +11,9 @@ export const maxDuration = 60;
  */
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
+  const key = req.nextUrl.searchParams.get("key");
+  const auth = req.headers.get("authorization");
+  if (secret && key !== secret && auth !== `Bearer ${secret}`) {
     return NextResponse.json({ ok: false, error: "Jogosulatlan" }, { status: 401 });
   }
   const n = Math.min(Number(req.nextUrl.searchParams.get("n") || 5), 5);
