@@ -24,14 +24,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <div className="mx-auto max-w-6xl px-4 py-6">
           <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 items-center rounded-xl bg-white px-3 shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="flex h-20 items-center rounded-2xl bg-white px-5 shadow-xl">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/avatars/vitech-logo.png" alt="Vitech Comp Kft." className="h-9 w-auto" />
+                <img src="/avatars/vitech-logo.png" alt="Vitech Comp Kft." className="h-16 w-auto" />
               </div>
               <div>
-                <div className="text-base font-bold leading-tight text-brand">AI Marketing</div>
-                <div className="text-xs text-white/55">{persona.name} & csapata · Vitech Comp Kft.</div>
+                <div className="text-2xl font-extrabold leading-tight text-white">
+                  AI <span className="text-brand">Marketing</span>
+                </div>
+                <div className="text-sm text-white/65">{persona.name} & csapata · Vitech Comp Kft.</div>
               </div>
             </div>
             <nav className="flex flex-wrap gap-1 text-sm">

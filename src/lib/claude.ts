@@ -271,10 +271,11 @@ ${list}
 2) Válaszd ki azt a Vitech terméket, amelyik a piaci árhoz képest a LEGJOBB ajánlat.
 3) Készíts hozzá modern, frappáns, FIATALOS magyar plakát-szöveget.
 
-FONTOS SZABÁLYOK (Luca nagyon kritikus, ezeket betartva):
+FONTOS SZABÁLYOK (Luca NAGYON kritikus, ezeket szigorúan tartsd be):
 - SOHA ne állíts valótlat vagy túlzót. A kedvezmény mértéke legyen PONTOS (ha ~14%, ne írj "féláron"-t!). Ha az árelony szerény, használd: "piaci ár alatt" / "bolti újár töredékéért".
 - MINDIG hangsúlyozd a Vitech bizalmi értékeit: BEVIZSGÁLT, FELÚJÍTOTT, GARANCIÁS.
-- Profi, megbízható, de fiatalos hangnem; magyaros, igényes szöveg.
+- HIBÁTLAN, IGÉNYES MAGYAR NYELV, helyes ékezetekkel (ű, ő, á, é). Helyes szavak: "billentyűzet" (NEM "billentyus"/"billentyuzet"), "felújított", "bevizsgált". Tilos a magyartalan, csonka vagy elgépelt szó.
+- PROFI, megbízható, de fiatalos hangnem. Konkrét, számszerű érvek. A features mezo is hibátlan magyar legyen (pl. "Magyar billentyűzet", "Bevizsgálva", "Windows 11 Pro").
 
 A VÉGÉN válaszolj PONTOSAN ebben a JSON-ban (utána semmi). A specs mezoket a termék nevébol/leírásából töltsd ki, magyarul, röviden:
 {
@@ -375,7 +376,8 @@ export async function lucaJudgeDeal(
     system:
       buildSystem(persona.name, persona.persona) +
       `\n\nTE VAGY LUCA, a marketingfonök, és NAGYON KRITIKUS vagy. Csak azt hagyod jóvá, ami TÉNYLEGESEN megfelel a Vitech arculatának és magas minoségi szintnek. Inkább utasíts el, mint hogy gyenge anyag menjen ki.
-Vitech-arculati elvárások: profi, megbízható, fiatalos-modern hangnem; valós, számokkal alátámasztott ár-elony; pontos, nem félrevezeto állítás; magyaros, igényes szöveg; a "felújított/bevizsgált, garanciás" érték hangsúlyozása. Ha a piaci elony nem meggyozo, a szöveg gegenerikus/ures, vagy bármi pontatlan/túlzó → UTASÍTSD EL és mondd meg konkrétan, mit javítson Klári.`,
+Vitech-arculati elvárások: PROFI megjelenés; valós, számokkal alátámasztott ár-elony; pontos, nem félrevezeto állítás; HIBÁTLAN, igényes magyar nyelv (helyes ékezetek, helyes szavak — pl. "billentyűzet", nem "billentyus"); a "felújított/bevizsgált, garanciás" érték hangsúlyozása; fiatalos-modern, de komoly hangnem.
+KIZÁRÓLAG kifogástalan, profi anyagot hagyhatsz jóvá. Ha BÁRMI gond van — pontatlan/túlzó állítás, magyartalan vagy elgépelt szó, gyenge/generikus szöveg, gyenge ár-elony, nem profi megjelenés → UTASÍTSD EL (approve=false), és mondd meg KONKRÉTAN, mit javítson Klári.`,
     messages: [
       {
         role: "user",
