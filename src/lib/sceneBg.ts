@@ -30,7 +30,7 @@ async function genOne(prompt: string): Promise<Buffer | null> {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: "gpt-image-1", prompt, size: "1536x1024", n: 1 }),
+      body: JSON.stringify({ model: "dall-e-3", prompt, size: "1792x1024", quality: "hd", n: 1, response_format: "b64_json" }),
     });
     const j = await res.json();
     const b64 = j?.data?.[0]?.b64_json;
