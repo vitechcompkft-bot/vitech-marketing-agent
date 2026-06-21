@@ -6,14 +6,24 @@ const AVATAR_PRESETS = [
   "https://api.dicebear.com/9.x/lorelei/svg?seed=Luca&backgroundColor=2e86ff",
   "https://api.dicebear.com/9.x/lorelei/svg?seed=Petra&backgroundColor=7c4dff",
   "https://api.dicebear.com/9.x/lorelei/svg?seed=Nora&backgroundColor=00b894",
-  "https://api.dicebear.com/9.x/notionists/svg?seed=Kata&backgroundColor=e8232f",
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=Reka&backgroundColor=ff9f1c",
+  "https://api.dicebear.com/9.x/notionists/svg?seed=Kata&backgroundColor=1a73e8",
+  "https://api.dicebear.com/9.x/adventurer/svg?seed=Reka&backgroundColor=11243f",
+];
+const KLARI_PRESETS = [
+  "https://api.dicebear.com/9.x/lorelei/svg?seed=Klari&backgroundColor=1a73e8",
+  "https://api.dicebear.com/9.x/lorelei/svg?seed=Klara&backgroundColor=11243f",
+  "https://api.dicebear.com/9.x/notionists/svg?seed=Klari&backgroundColor=1a73e8",
+  "https://api.dicebear.com/9.x/adventurer/svg?seed=Klari&backgroundColor=0a8ee8",
+  "https://api.dicebear.com/9.x/lorelei/svg?seed=Vivien&backgroundColor=2e86ff",
+  "https://api.dicebear.com/9.x/notionists/svg?seed=Dori&backgroundColor=11243f",
 ];
 
 type Cfg = {
   agent_name: string;
   agent_avatar: string;
   agent_persona: string;
+  klari_avatar: string;
+  klari_persona: string;
   agent_enabled: boolean;
   autonomy_level: string;
   max_daily_budget_huf: number;
@@ -61,9 +71,9 @@ export default function SettingsPage() {
     <main className="flex flex-col gap-5">
       <h1 className="text-lg font-bold">Beállítások &amp; korlátok</h1>
 
-      {/* Személyiség */}
+      {/* Luca személyisége */}
       <div className="card flex flex-col gap-4">
-        <div className="font-semibold">Személyiség</div>
+        <div className="font-semibold">👑 {cfg.agent_name || "Luca"} — a marketingfőnök</div>
         <div className="flex items-center gap-4">
           <img src={cfg.agent_avatar} alt="avatar" className="h-16 w-16 rounded-full border border-white/20 bg-white/10 object-cover" />
           <div className="flex-1">
@@ -88,6 +98,33 @@ export default function SettingsPage() {
         <div>
           <label className="text-sm text-white/70">Személyiség leírása (ez alakítja a hangnemét és viselkedését)</label>
           <textarea rows={3} className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm" value={cfg.agent_persona} onChange={(e) => set("agent_persona", e.target.value)} />
+        </div>
+      </div>
+
+      {/* Klári személyisége */}
+      <div className="card flex flex-col gap-4">
+        <div className="font-semibold">💼 Klári — a beosztott marketinges</div>
+        <div className="flex items-center gap-4">
+          <img src={cfg.klari_avatar} alt="Klári" className="h-16 w-16 rounded-full border border-white/20 bg-white/10 object-cover" />
+          <div className="flex-1 text-sm text-white/60">
+            Klári minden reggel 7-kor keres egy jó áras gépet, és plakátot készít — Lucának jelent.
+          </div>
+        </div>
+        <div>
+          <label className="text-sm text-white/70">Klári karaktere (avatar) — válassz vagy adj meg URL-t</label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {KLARI_PRESETS.map((url) => (
+              <button key={url} type="button" onClick={() => set("klari_avatar", url)}
+                className={`h-12 w-12 overflow-hidden rounded-full border-2 ${cfg.klari_avatar === url ? "border-brand" : "border-white/15"}`}>
+                <img src={url} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
+          <input className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs" value={cfg.klari_avatar} onChange={(e) => set("klari_avatar", e.target.value)} placeholder="vagy saját kép URL-je…" />
+        </div>
+        <div>
+          <label className="text-sm text-white/70">Klári személyisége</label>
+          <textarea rows={3} className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm" value={cfg.klari_persona} onChange={(e) => set("klari_persona", e.target.value)} />
         </div>
       </div>
 

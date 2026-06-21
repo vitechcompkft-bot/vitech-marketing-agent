@@ -5,6 +5,8 @@ export interface AgentConfig {
   agent_name: string;
   agent_avatar: string;
   agent_persona: string;
+  klari_avatar: string;
+  klari_persona: string;
   agent_enabled: boolean;
   autonomy_level: AutonomyLevel;
   max_daily_budget_huf: number;

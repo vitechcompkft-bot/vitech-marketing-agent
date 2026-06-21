@@ -25,7 +25,8 @@ export async function runKlariDaily(): Promise<KlariResult> {
   if (!cfg) return { ran: false, reason: "Nincs konfiguráció." };
   if (!cfg.agent_enabled) return { ran: false, reason: "Az Agent ki van kapcsolva (vész-leállító)." };
 
-  const persona = { name: cfg.agent_name, persona: cfg.agent_persona };
+  const klariPersona = { name: "Klári", persona: cfg.klari_persona || "Lelkes, kreatív marketinges." };
+  const lucaPersona = { name: cfg.agent_name, persona: cfg.agent_persona };
 
   // 1) Termékek (egy adag a katalógusból)
   const token = await unasLogin();
@@ -33,17 +34,17 @@ export async function runKlariDaily(): Promise<KlariResult> {
   const live = products.filter((p) => p.priceGross && p.name);
   if (!live.length) return { ran: false, reason: "Nincs feldolgozható termék." };
 
-  // 2) Klári: legjobb áru ajánlat + plakát-szöveg (web-kereséssel)
+  // 2) Klári (saját személyiségével): legjobb áru ajánlat + plakát-tartalom (web-kereséssel)
   const deal = await klariFindDeal(
     live.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross })),
-    persona
+    klariPersona
   );
   if (!deal) return { ran: false, reason: "Klári most nem talált megfelelo ajánlatot." };
 
   const product = live.find((p) => p.id === deal.product_id) || live[0];
   const priceHuf = product.priceGross ? Number(product.priceGross) : undefined;
 
-  // 3) Luca elbírálja
+  // 3) Luca (kritikusan) elbírálja
   const judge = await lucaJudgeDeal(
     {
       name: product.name,
@@ -53,12 +54,20 @@ export async function runKlariDaily(): Promise<KlariResult> {
       caption: deal.caption,
       reason: deal.reason,
     },
-    persona
+    lucaPersona
   );
 
-  // 4) Jóváhagyás esetén plakát
+  // 4) Jóváhagyás esetén gazdag plakát (logó + spec + fotó + ár)
   const posterSvg = judge.approve
-    ? buildDealPoster({ imageUrl: product.imageUrl, headline: deal.headline, badge: deal.badge, priceHuf })
+    ? buildDealPoster({
+        imageUrl: product.imageUrl,
+        productName: product.name,
+        headline: deal.headline,
+        priceHuf,
+        badges: deal.badges,
+        features: deal.features,
+        specs: deal.specs,
+      })
     : null;
 
   await sb.from("klari_posts").insert({

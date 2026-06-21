@@ -119,77 +119,120 @@ export function buildCreativeSVG(
 </svg>`;
 }
 
+const APP_URL = "https://vitech-marketing-agent.vercel.app";
+const LOGO_URL = `${APP_URL}/avatars/vitech-logo.png`;
+
 /**
- * Klári napi ajánlat-plakátja: termék FOTÓVAL + ütos cím + ár + Vitech arculat.
- * 1080×1080 (Facebook feed). A fotó URL-rol töltodik (kliensoldali render / PNG).
+ * Klári napi ajánlat-plakátja — gazdag, fiatalos Vitech stílus:
+ * fejléc a Vitech logóval + termékcím, jelvények, feature-sáv, spec-lista ikonokkal,
+ * termékfotó, alul ár + elérhetoség. 1200×800 (FB feed / link-poszt).
  */
 export function buildDealPoster(o: {
   imageUrl?: string;
+  productName: string;
   headline: string;
-  badge: string;
   priceHuf?: number;
+  badges?: string[];
+  features?: string[];
+  specs?: { cpu?: string; ram?: string; storage?: string; display?: string; ports?: string; os?: string; condition?: string; warranty?: string };
 }): string {
-  const w = 1080,
-    h = 1080,
-    cx = w / 2;
+  const w = 1200,
+    h = 800;
   const ff = `'Segoe UI','Helvetica Neue',Arial,sans-serif`;
-  const imgH = 600; // felso fotó-sáv
+  const NAVY = "#11243f",
+    BLUE = "#1a73e8",
+    SILVER = "#5b6f8c";
   const priceTxt = o.priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(o.priceHuf)) + " Ft" : "";
-  const hlLines = wrap(o.headline, 22).slice(0, 2);
-  const hlY = imgH + 120;
-  const hlSize = 64;
 
-  const imageTag = o.imageUrl
-    ? `<image href="${esc(o.imageUrl)}" x="0" y="0" width="${w}" height="${imgH}" preserveAspectRatio="xMidYMid slice" clip-path="url(#imgclip)"/>`
-    : `<rect width="${w}" height="${imgH}" fill="#0f2a52"/>`;
+  // Spec-sorok (csak a kitöltöttek)
+  const specRows = [
+    ["🧠", o.specs?.cpu],
+    ["📊", o.specs?.ram],
+    ["💾", o.specs?.storage],
+    ["🖥", o.specs?.display],
+    ["🔌", o.specs?.ports],
+    ["🪟", o.specs?.os],
+    ["✅", o.specs?.condition],
+    ["🛡", o.specs?.warranty],
+  ].filter((r) => r[1]) as [string, string][];
+
+  const specStartY = 320;
+  const specGap = 52;
+  const specSvg = specRows
+    .map(
+      ([ic, txt], i) =>
+        `<text x="60" y="${specStartY + i * specGap}" font-family="${ff}" font-size="26">${ic}</text>` +
+        `<text x="104" y="${specStartY + i * specGap}" font-family="${ff}" font-weight="600" font-size="26" fill="${NAVY}">${esc(txt)}</text>`
+    )
+    .join("");
+
+  // Felso jelvény-chipek (jobb felül)
+  const badges = (o.badges && o.badges.length ? o.badges : ["FELÚJÍTVA", "GARANCIA"]).slice(0, 3);
+  let bx = w - 40;
+  const badgeSvg = badges
+    .reverse()
+    .map((b) => {
+      const bw = esc(b).length * 13 + 36;
+      bx -= bw + 10;
+      return `<g transform="translate(${bx},34)"><rect width="${bw}" height="40" rx="20" fill="${BLUE}"/><text x="${bw / 2}" y="26" text-anchor="middle" font-family="${ff}" font-weight="800" font-size="18" fill="#ffffff">${esc(b)}</text></g>`;
+    })
+    .join("");
+
+  // Feature-sáv
+  const feats = (o.features && o.features.length ? o.features : ["Bevizsgálva", "Használatra kész"]).slice(0, 4);
+  const featW = w / feats.length;
+  const featSvg = feats
+    .map(
+      (f, i) =>
+        `<text x="${featW * i + featW / 2}" y="244" text-anchor="middle" font-family="${ff}" font-weight="700" font-size="20" fill="${NAVY}">✓ ${esc(f)}</text>`
+    )
+    .join("");
+
+  const hlLines = wrap(o.headline, 26).slice(0, 2);
+
+  const photo = o.imageUrl
+    ? `<image href="${esc(o.imageUrl)}" x="630" y="300" width="520" height="380" preserveAspectRatio="xMidYMid meet"/>`
+    : "";
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
   <defs>
-    <clipPath id="imgclip"><rect x="0" y="0" width="${w}" height="${imgH}"/></clipPath>
-    <linearGradient id="dbg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0a1b40"/>
-      <stop offset="1" stop-color="#13396b"/>
+    <linearGradient id="pbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eaf1fb"/>
     </linearGradient>
-    <linearGradient id="ishade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0.6" stop-color="#000000" stop-opacity="0"/>
-      <stop offset="1" stop-color="#0a1b40" stop-opacity="0.95"/>
+    <linearGradient id="navybar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0a1b34"/>
+      <stop offset="1" stop-color="#15315c"/>
     </linearGradient>
   </defs>
-  <rect width="${w}" height="${h}" fill="url(#dbg)"/>
-  ${imageTag}
-  <rect x="0" y="0" width="${w}" height="${imgH}" fill="url(#ishade)"/>
+  <rect width="${w}" height="${h}" fill="url(#pbg)"/>
 
-  <!-- badge -->
-  <g transform="translate(40,40)">
-    <rect width="${Math.max(esc(o.badge).length * 22 + 60, 220)}" height="64" rx="32" fill="#E8232F"/>
-    <text x="${Math.max(esc(o.badge).length * 22 + 60, 220) / 2}" y="42" text-anchor="middle" font-family="${ff}" font-weight="800" font-size="30" fill="#ffffff">${esc(o.badge)}</text>
-  </g>
-
-  <!-- Vitech logó -->
-  <g transform="translate(${w - 96},44)">
-    <rect width="56" height="56" rx="14" fill="#1A73E8"/>
-    <text x="28" y="42" text-anchor="middle" font-family="${ff}" font-weight="900" font-size="40" fill="#ffffff">V</text>
-  </g>
-
-  <!-- headline -->
+  <!-- fejléc -->
+  <rect x="0" y="0" width="${w}" height="200" fill="#ffffff"/>
+  <image href="${LOGO_URL}" x="36" y="34" width="190" height="120" preserveAspectRatio="xMidYMid meet"/>
+  ${badgeSvg}
   ${hlLines
     .map(
       (ln, i) =>
-        `<text x="60" y="${hlY + i * hlSize * 1.1}" font-family="${ff}" font-weight="800" font-size="${hlSize}" fill="#ffffff">${esc(ln)}</text>`
+        `<text x="250" y="${88 + i * 56}" font-family="${ff}" font-weight="800" font-size="48" fill="${NAVY}">${esc(ln)}</text>`
     )
     .join("")}
+  <rect x="0" y="200" width="${w}" height="4" fill="${BLUE}"/>
 
-  <!-- ár -->
-  ${
-    priceTxt
-      ? `<text x="60" y="${hlY + hlLines.length * hlSize * 1.1 + 90}" font-family="${ff}" font-weight="900" font-size="92" fill="#36d399">${priceTxt}</text>`
-      : ""
-  }
+  <!-- feature-sáv -->
+  <rect x="0" y="210" width="${w}" height="56" fill="#dfe9f8"/>
+  ${featSvg}
 
-  <!-- piros akcentvonal -->
-  <rect x="60" y="${imgH + 50}" width="120" height="8" rx="4" fill="#E8232F"/>
+  <!-- spec-lista -->
+  ${specSvg}
 
-  <!-- CTA -->
-  <text x="60" y="${h - 60}" font-family="${ff}" font-weight="700" font-size="38" fill="#aebed4">vitechcompkft.hu — Bevizsgált gépek, 12 hó garancia</text>
+  <!-- termékfotó -->
+  ${photo}
+
+  <!-- alsó sáv: ár + elérhetoség -->
+  <rect x="0" y="${h - 100}" width="${w}" height="100" fill="url(#navybar)"/>
+  <text x="40" y="${h - 56}" font-family="${ff}" font-weight="700" font-size="24" fill="#ffffff">${esc(o.productName).slice(0, 48)}</text>
+  <text x="40" y="${h - 26}" font-family="${ff}" font-size="18" fill="#aecbff">vitechcompkft.hu · Bevizsgált gépek, garanciával</text>
+  ${priceTxt ? `<text x="${w - 40}" y="${h - 38}" text-anchor="end" font-family="${ff}" font-weight="900" font-size="60" fill="#ffffff">${priceTxt}</text>` : ""}
 </svg>`;
 }

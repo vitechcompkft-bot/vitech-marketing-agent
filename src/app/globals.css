@@ -8,9 +8,9 @@
 
 body {
   background:
-    radial-gradient(1100px 600px at 12% -10%, rgba(46, 134, 255, 0.16), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(232, 35, 47, 0.10), transparent 55%),
-    #08152e;
+    radial-gradient(1100px 600px at 12% -10%, rgba(26, 115, 232, 0.20), transparent 60%),
+    radial-gradient(900px 520px at 100% 0%, rgba(14, 142, 232, 0.12), transparent 55%),
+    linear-gradient(180deg, #0a1b34 0%, #08152e 100%);
   color: #e9eef6;
   min-height: 100vh;
 }

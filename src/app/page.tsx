@@ -62,18 +62,16 @@ export default async function Overview() {
         <h2 className="section-title">👥 Marketing csapat</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="card card-hover flex items-center gap-3">
-            <div className="mono h-12 w-12 text-lg" style={{ background: "linear-gradient(135deg,#1A73E8,#0a2a5e)" }}>
-              {(config?.agent_name ?? "L").charAt(0)}
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={config?.agent_avatar || "/avatars/luca-1.svg"} alt={config?.agent_name ?? "Luca"} className="h-12 w-12 rounded-full border border-white/20 bg-white/10 object-cover" />
             <div>
               <div className="font-semibold">{config?.agent_name ?? "Luca"} <span className="badge ml-1 bg-brand/20 text-brand">főnök</span></div>
               <div className="text-xs text-white/60">Hirdetések + SEO · önállóan dönt a korlátokon belül</div>
             </div>
           </div>
           <div className="card card-hover flex items-center gap-3">
-            <div className="mono h-12 w-12 text-lg" style={{ background: "linear-gradient(135deg,#e84393,#a02060)" }}>
-              K
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={config?.klari_avatar || "https://api.dicebear.com/9.x/lorelei/svg?seed=Klari&backgroundColor=1a73e8"} alt="Klári" className="h-12 w-12 rounded-full border border-white/20 bg-white/10 object-cover" />
             <div>
               <div className="font-semibold">Klári <span className="badge ml-1 bg-white/10 text-white/60">beosztott</span></div>
               <div className="text-xs text-white/60">Napi ajánlat-kutatás + plakát · Lucának jelent</div>

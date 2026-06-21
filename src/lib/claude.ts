@@ -235,11 +235,23 @@ Válaszolj PONTOSAN ebben a JSON-ban, semmi mással:
   }
 }
 
-/** KLÁRI: web-kereséssel megkeresi a piachoz képest legjobb áru Vitech terméket + plakát-szöveg. */
+export interface KlariDealOut {
+  product_id: string;
+  headline: string;
+  badge: string;
+  market_note: string;
+  caption: string;
+  reason: string;
+  specs: { cpu?: string; ram?: string; storage?: string; display?: string; ports?: string; os?: string; condition?: string; warranty?: string };
+  badges: string[];
+  features: string[];
+}
+
+/** KLÁRI: web-kereséssel megkeresi a piachoz képest legjobb áru Vitech terméket + plakát-tartalom. */
 export async function klariFindDeal(
   products: { id: string; name: string; priceGross?: string }[],
   persona: { name: string; persona: string }
-): Promise<{ product_id: string; headline: string; badge: string; market_note: string; caption: string; reason: string } | null> {
+): Promise<KlariDealOut | null> {
   const anthropic = client();
   const list = products.map((p) => `- [${p.id}] ${p.name} — ${p.priceGross || "?"} Ft`).join("\n");
   const msg = await anthropic.messages.create({
@@ -259,14 +271,17 @@ ${list}
 2) Válaszd ki azt a Vitech terméket, amelyik a piaci árhoz képest a LEGJOBB ajánlat.
 3) Készíts hozzá modern, frappáns, kreatív magyar plakát-szöveget.
 
-A VÉGÉN válaszolj PONTOSAN ebben a JSON-ban (utána semmi):
+A VÉGÉN válaszolj PONTOSAN ebben a JSON-ban (utána semmi). A specs mezoket a termék nevébol/leírásából töltsd ki, magyarul, röviden:
 {
   "product_id": "a lista szerinti id",
-  "headline": "ütos plakát-cím, max ~40 karakter",
-  "badge": "rövid kiemelés, pl. PIAC ALATTI ÁR",
+  "headline": "ütos, FIATALOS plakát-cím, max ~40 karakter",
+  "badge": "rövid fo-kiemelés, pl. PIAC ALATTI ÁR",
   "market_note": "1-2 mondat: mihez képest jó az ár (számokkal)",
   "caption": "Facebook poszt szöveg, 2-4 mondat, lelkes, emojikkal, hashtagekkel, vitechcompkft.hu-ra hívva",
-  "reason": "miért ezt választottad"
+  "reason": "miért ezt választottad",
+  "specs": { "cpu": "pl. Intel Core i5-1135G7 4 mag", "ram": "16GB DDR4", "storage": "512GB NVMe SSD", "display": "13.3\" FHD IPS", "ports": "USB-C, WiFi 6, BT 5.1", "os": "Windows 11 Pro", "condition": "Felújított, GOLD állapot", "warranty": "12 hónap garancia" },
+  "badges": ["FELÚJÍTVA", "12 HÓ GARANCIA"],
+  "features": ["Magyar billentyuzet", "Bevizsgálva", "Használatra kész", "Windows 11 Pro"]
 }`,
       },
     ],
@@ -285,6 +300,9 @@ A VÉGÉN válaszolj PONTOSAN ebben a JSON-ban (utána semmi):
       market_note: j.market_note || "",
       caption: j.caption || "",
       reason: j.reason || "",
+      specs: j.specs || {},
+      badges: Array.isArray(j.badges) ? j.badges.slice(0, 3) : [],
+      features: Array.isArray(j.features) ? j.features.slice(0, 4) : [],
     };
   } catch {
     return null;
@@ -302,7 +320,8 @@ export async function lucaJudgeDeal(
     max_tokens: 400,
     system:
       buildSystem(persona.name, persona.persona) +
-      "\n\nTE VAGY LUCA, a marketingfonök. Klári beosztottad hozott egy napi ajánlatot — bíráld el szakmailag, röviden.",
+      `\n\nTE VAGY LUCA, a marketingfonök, és NAGYON KRITIKUS vagy. Csak azt hagyod jóvá, ami TÉNYLEGESEN megfelel a Vitech arculatának és magas minoségi szintnek. Inkább utasíts el, mint hogy gyenge anyag menjen ki.
+Vitech-arculati elvárások: profi, megbízható, fiatalos-modern hangnem; valós, számokkal alátámasztott ár-elony; pontos, nem félrevezeto állítás; magyaros, igényes szöveg; a "felújított/bevizsgált, garanciás" érték hangsúlyozása. Ha a piaci elony nem meggyozo, a szöveg gegenerikus/ures, vagy bármi pontatlan/túlzó → UTASÍTSD EL és mondd meg konkrétan, mit javítson Klári.`,
     messages: [
       {
         role: "user",
@@ -313,8 +332,8 @@ Piaci összevetés: ${deal.market_note}
 FB szöveg: ${deal.caption}
 Indok: ${deal.reason}
 
-Jóváhagyod megjelenésre? Válaszolj PONTOSAN ebben a JSON-ban:
-{ "approve": true, "verdict": "rövid vezetoi vélemény Klárinak, 1-2 mondat" }`,
+Szigorúan bíráld el. Csak akkor approve=true, ha kiváló és Vitech-arculatba illo. Válaszolj PONTOSAN ebben a JSON-ban:
+{ "approve": true, "verdict": "konkrét, kritikus vezetoi vélemény Klárinak, 1-3 mondat (mit dicsérsz / mit kell javítani)" }`,
       },
     ],
   });

@@ -8,6 +8,8 @@ const ALLOWED = [
   "agent_name",
   "agent_avatar",
   "agent_persona",
+  "klari_avatar",
+  "klari_persona",
   "agent_enabled",
   "autonomy_level",
   "max_daily_budget_huf",
