@@ -23,7 +23,8 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/api/telegram") ||
     pathname.startsWith("/api/ingest") ||
     pathname.startsWith("/api/commands") ||
-    pathname.startsWith("/api/seo")
+    pathname.startsWith("/api/seo") ||
+    pathname.startsWith("/api/klari")
   ) {
     return NextResponse.next();
   }

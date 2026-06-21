@@ -235,4 +235,99 @@ Válaszolj PONTOSAN ebben a JSON-ban, semmi mással:
   }
 }
 
+/** KLÁRI: web-kereséssel megkeresi a piachoz képest legjobb áru Vitech terméket + plakát-szöveg. */
+export async function klariFindDeal(
+  products: { id: string; name: string; priceGross?: string }[],
+  persona: { name: string; persona: string }
+): Promise<{ product_id: string; headline: string; badge: string; market_note: string; caption: string; reason: string } | null> {
+  const anthropic = client();
+  const list = products.map((p) => `- [${p.id}] ${p.name} — ${p.priceGross || "?"} Ft`).join("\n");
+  const msg = await anthropic.messages.create({
+    model: SMART,
+    max_tokens: 2000,
+    system:
+      buildSystem(persona.name, persona.persona) +
+      "\n\nMOST KLÁRI vagy: Luca lelkes, megbízható marketinges beosztottja. Feladatod a legjobb áru ajánlat megtalálása piaci összevetéssel.",
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 } as any],
+    messages: [
+      {
+        role: "user",
+        content: `Itt a Vitech felújított gépeinek egy része, bruttó árral:
+${list}
+
+1) KERESS RÁ a piacra (Árukereso, eMAG, használt-laptop oldalak) néhány modellre.
+2) Válaszd ki azt a Vitech terméket, amelyik a piaci árhoz képest a LEGJOBB ajánlat.
+3) Készíts hozzá modern, frappáns, kreatív magyar plakát-szöveget.
+
+A VÉGÉN válaszolj PONTOSAN ebben a JSON-ban (utána semmi):
+{
+  "product_id": "a lista szerinti id",
+  "headline": "ütos plakát-cím, max ~40 karakter",
+  "badge": "rövid kiemelés, pl. PIAC ALATTI ÁR",
+  "market_note": "1-2 mondat: mihez képest jó az ár (számokkal)",
+  "caption": "Facebook poszt szöveg, 2-4 mondat, lelkes, emojikkal, hashtagekkel, vitechcompkft.hu-ra hívva",
+  "reason": "miért ezt választottad"
+}`,
+      },
+    ],
+  });
+  const text = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  try {
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    if (!j.product_id) return null;
+    return {
+      product_id: String(j.product_id),
+      headline: j.headline || "",
+      badge: j.badge || "AKCIÓ",
+      market_note: j.market_note || "",
+      caption: j.caption || "",
+      reason: j.reason || "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** LUCA: elbírálja Klári napi ajánlatát (jóváhagy / elutasít). */
+export async function lucaJudgeDeal(
+  deal: { name: string; price?: string; headline: string; market_note: string; caption: string; reason: string },
+  persona: { name: string; persona: string }
+): Promise<{ approve: boolean; verdict: string }> {
+  const anthropic = client();
+  const msg = await anthropic.messages.create({
+    model: SMART,
+    max_tokens: 400,
+    system:
+      buildSystem(persona.name, persona.persona) +
+      "\n\nTE VAGY LUCA, a marketingfonök. Klári beosztottad hozott egy napi ajánlatot — bíráld el szakmailag, röviden.",
+    messages: [
+      {
+        role: "user",
+        content: `Klári javaslata:
+Termék: ${deal.name} (${deal.price || "?"} Ft)
+Plakát-cím: ${deal.headline}
+Piaci összevetés: ${deal.market_note}
+FB szöveg: ${deal.caption}
+Indok: ${deal.reason}
+
+Jóváhagyod megjelenésre? Válaszolj PONTOSAN ebben a JSON-ban:
+{ "approve": true, "verdict": "rövid vezetoi vélemény Klárinak, 1-2 mondat" }`,
+      },
+    ],
+  });
+  const text = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  try {
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return { approve: !!j.approve, verdict: j.verdict || "" };
+  } catch {
+    return { approve: false, verdict: "Nem sikerült elbírálni a javaslatot." };
+  }
+}
+
 export { SMART, FAST };

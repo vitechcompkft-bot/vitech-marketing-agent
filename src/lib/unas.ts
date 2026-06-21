@@ -31,6 +31,7 @@ export interface UnasProduct {
   sku?: string;
   name: string;
   url?: string;
+  imageUrl?: string;
   priceGross?: string;
   metaTitle?: string;
   metaDescription?: string;
@@ -62,11 +63,14 @@ export async function unasGetProducts(
     .map((b): UnasProduct => {
       const meta = (b.match(/<Meta>([\s\S]*?)<\/Meta>/) || [])[1] || "";
       const priceBlock = (b.match(/<Price>([\s\S]*?)<\/Price>/) || [])[1] || "";
+      const imagesBlock = (b.match(/<Images>([\s\S]*?)<\/Images>/) || [])[1] || "";
+      const imgMatch = imagesBlock.match(/<Medium>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/Medium>/);
       return {
         id: (b.match(/<Id>(\d+)<\/Id>/) || [])[1] || "",
         sku: field(b, "Sku"),
         name: field(b, "Name") || "",
         url: field(b, "Url"),
+        imageUrl: imgMatch ? imgMatch[1].trim() : undefined,
         priceGross: field(priceBlock, "Gross"),
         metaTitle: field(meta, "Title"),
         metaDescription: field(meta, "Description"),
