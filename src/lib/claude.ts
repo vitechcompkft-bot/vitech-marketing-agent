@@ -615,8 +615,8 @@ Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true, "issue": "ha nem ok, mi a ba
     const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
     const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
     return { ok: !!j.ok, issue: j.issue || "" };
-  } catch {
-    return { ok: false, issue: "a vizuális ellenorzés nem sikerült" };
+  } catch (e: any) {
+    return { ok: false, issue: "vision hiba: " + (e?.message || "ismeretlen").slice(0, 160) };
   }
 }
 
