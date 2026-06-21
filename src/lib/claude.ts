@@ -578,4 +578,46 @@ Triázsold. Válaszolj PONTOSAN ebben a JSON-ban:
   }
 }
 
+/** LUCA vizuális ellenorzés: a generált hirdetés-KÉPEN a szöveg helyes-e (vision). */
+export async function lucaVerifyAd(
+  imageUrl: string,
+  expected: { headline: string; price: string; brand: string }
+): Promise<{ ok: boolean; issue: string }> {
+  const anthropic = client();
+  try {
+    const img = await fetch(imageUrl);
+    if (!img.ok) return { ok: false, issue: "kép nem töltheto le" };
+    const b64 = Buffer.from(await img.arrayBuffer()).toString("base64");
+    const ct = img.headers.get("content-type") || "image/webp";
+    const mediaType = (ct.includes("png") ? "image/png" : ct.includes("jpeg") || ct.includes("jpg") ? "image/jpeg" : "image/webp") as
+      | "image/png"
+      | "image/jpeg"
+      | "image/webp";
+
+    const msg = await anthropic.messages.create({
+      model: SMART,
+      max_tokens: 250,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } },
+            {
+              type: "text",
+              text: `Ez egy AI-generált hirdetés-plakát. Elvárt szövegek: cím ~"${expected.headline}", ár ~"${expected.price}", márka "${expected.brand}".
+Nézd meg a KÉPEN a szöveget: HELYESEN, olvashatóan, elgépelés/torzulás/halandzsa NÉLKÜL jelenik meg, és nagyjából a fentiek szerepelnek? Ha bármi szöveg torz vagy értelmetlen, az NEM jó.
+Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true, "issue": "ha nem ok, mi a baj röviden" }`,
+            },
+          ],
+        },
+      ],
+    });
+    const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return { ok: !!j.ok, issue: j.issue || "" };
+  } catch {
+    return { ok: false, issue: "a vizuális ellenorzés nem sikerült" };
+  }
+}
+
 export { SMART, FAST };

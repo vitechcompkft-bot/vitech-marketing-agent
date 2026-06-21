@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
-import { klariResearch, klariCompose, lucaJudgeDeal } from "./claude";
+import { klariResearch, klariCompose, lucaJudgeDeal, lucaVerifyAd } from "./claude";
+import { generateAdImage, buildAdPrompt } from "./falai";
 import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
 import { removeBg } from "./removebg";
@@ -87,24 +88,47 @@ export async function runKlariDaily(): Promise<KlariResult> {
   let posterUrl: string | null = null;
   let cutoutOk = false;
   if (judge.approve) {
-    // Háttér eltávolítása a termékfotóról (remove.bg) → átlátszó, fehér keret nélkül.
-    const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
-    cutoutOk = !!cutout;
-    // AI-generált iroda-jelenet háttér a készletbol (ha van).
-    const bgUrl = await getRandomBackgroundUrl().catch(() => null);
-    const pdata = {
-      imageUrl: product.imageUrl,
-      cutout: cutout || undefined,
-      bgUrl: bgUrl || undefined,
-      productName: product.name,
-      headline: deal.headline,
-      priceHuf,
-      badges: deal.badges,
-      features: deal.features,
-      specs: deal.specs,
-    };
-    posterUrl = await renderPosterPng(pdata).catch(() => null);
-    posterSvg = buildDealPoster(pdata);
+    const priceTxt = priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(priceHuf)) + " Ft" : "";
+
+    // 4a) Elsodleges: TELJES AI-hirdetés (fal.ai/Recraft) + Luca vizuális ellenorzése.
+    if (process.env.FAL_KEY) {
+      const adUrl = await generateAdImage(buildAdPrompt(product.name, deal.headline, priceTxt)).catch(() => null);
+      if (adUrl) {
+        const v = await lucaVerifyAd(adUrl, { headline: deal.headline, price: priceTxt, brand: "VITECH COMP" }).catch(() => ({ ok: false, issue: "" }));
+        if (v.ok) posterUrl = adUrl;
+      }
+    }
+
+    if (posterUrl) {
+      // AI-hirdetés rendben → SVG csak biztonsági másolat.
+      posterSvg = buildDealPoster({
+        imageUrl: product.imageUrl,
+        productName: product.name,
+        headline: deal.headline,
+        priceHuf,
+        badges: deal.badges,
+        features: deal.features,
+        specs: deal.specs,
+      });
+    } else {
+      // 4b) Visszaesés (nincs fal kulcs, vagy Luca elvetette a szöveget): kivágott termék + megbízható sablon.
+      const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
+      cutoutOk = !!cutout;
+      const bgUrl = await getRandomBackgroundUrl().catch(() => null);
+      const pdata = {
+        imageUrl: product.imageUrl,
+        cutout: cutout || undefined,
+        bgUrl: bgUrl || undefined,
+        productName: product.name,
+        headline: deal.headline,
+        priceHuf,
+        badges: deal.badges,
+        features: deal.features,
+        specs: deal.specs,
+      };
+      posterUrl = await renderPosterPng(pdata).catch(() => null);
+      posterSvg = buildDealPoster(pdata);
+    }
   }
 
   await sb.from("klari_posts").insert({
