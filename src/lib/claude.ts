@@ -324,7 +324,7 @@ export async function klariRevise(
 ): Promise<KlariDealOut> {
   const anthropic = client();
   const msg = await anthropic.messages.create({
-    model: FAST,
+    model: SMART,
     max_tokens: 1200,
     system:
       buildSystem(persona.name, persona.persona) +
