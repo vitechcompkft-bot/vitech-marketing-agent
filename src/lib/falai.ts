@@ -3,14 +3,14 @@ import { ensureBucket } from "./sceneBg";
 
 const BUCKET = "poster-bg";
 
-/** Jelenet-prompt: prémium iroda + nyitott üzleti LAPTOP a JOBB oldalon; a logót/szöveget a sablon teszi rá. */
+/** HÁTTÉR-jelenet prompt (ÜRES asztal — a VALÓDI terméket + logót + szöveget a sablon teszi rá). */
 export function buildScenePrompt(): string {
   return [
-    "Premium modern office advertising scene, photorealistic.",
-    "A sleek open modern business laptop on a clean desk, placed on the RIGHT side of the frame, screen on, soft natural daylight from a large window, a subtle plant and blurred bokeh in the background, shallow depth of field.",
-    "The LEFT half is clean and relatively empty / softly darker (room for text overlay).",
-    "Deep navy blue and bright blue tones with white accents, high-end corporate mood.",
-    "IMPORTANT: NO text, NO letters, NO numbers, NO logos, NO watermarks, NO people. Just the laptop and the office scene.",
+    "Premium modern office advertising background, photorealistic.",
+    "A clean empty desk surface in the foreground, soft natural daylight from a large window, a subtle plant and blurred bokeh in the background, shallow depth of field.",
+    "The RIGHT side has clean empty desk space (a product will be placed there); the LEFT side is cleaner/softly darker for text.",
+    "Deep navy blue and bright blue tones with white accents, high-end corporate mood, lots of clean negative space.",
+    "IMPORTANT: NO laptop, NO computer, NO devices, NO text, NO letters, NO numbers, NO logos, NO watermarks, NO people. Just an empty premium office scene.",
     "Sharp, realistic, advertising quality.",
   ].join(" ");
 }

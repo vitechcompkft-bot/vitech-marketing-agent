@@ -95,27 +95,22 @@ export async function runKlariDaily(): Promise<KlariResult> {
     // HIBRID: a HÁTTÉR fal.ai (Recraft) prémium jelenet; a VALÓDI Vitech logó + termékfotó +
     // pontos spec + ár a sablonból kerül rá (mindig pontos, a saját logóddal).
     let bgUrl: string | null = null;
-    let productInScene = false;
     if (process.env.FAL_KEY) {
       bgUrl = await generateAdImage(buildScenePrompt()).catch((e) => {
         falNote = "fal hiba: " + (e?.message || "?");
         return null;
       });
-      if (bgUrl) {
-        posterSource = "fal-bg";
-        productInScene = true; // a fal.ai jelenetben MÁR benne van a laptop
-      }
+      if (bgUrl) posterSource = "fal-bg";
     }
-    // Ha nincs fal háttér → OpenAI készlet/CSS, és a valódi terméket kivágva tesszük rá.
+    // Ha nincs fal háttér → OpenAI készlet/CSS. A VALÓDI terméket mindig kivágva tesszük rá (teljesen látszik).
     if (!bgUrl) bgUrl = await getRandomBackgroundUrl().catch(() => null);
-    const cutout = !productInScene && product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
+    const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
     cutoutOk = !!cutout;
 
     const pdata = {
       imageUrl: product.imageUrl,
       cutout: cutout || undefined,
       bgUrl: bgUrl || undefined,
-      productInScene,
       productName: product.name,
       headline: deal.headline,
       priceHuf,

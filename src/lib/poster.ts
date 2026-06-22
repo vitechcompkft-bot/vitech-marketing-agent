@@ -128,11 +128,12 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   .pedestal { position:absolute; left:50%; top:50%; width:520px; height:300px; transform:translate(-50%,-45%);
     background:radial-gradient(ellipse at center, rgba(220,235,255,.95) 0%, rgba(220,235,255,.35) 42%, transparent 70%); filter:blur(2px); }
   .product img:not(.cut) { position:relative; max-width:520px; max-height:380px; display:block; margin:0 auto; filter:drop-shadow(0 24px 40px rgba(0,0,0,.45)); }
-  .foot { position:absolute; left:0; right:0; bottom:0; height:104px; padding:0 44px; display:flex; align-items:center; justify-content:space-between;
+  .foot { position:absolute; left:0; right:0; bottom:0; height:104px; padding:0 44px; display:flex; align-items:center; justify-content:space-between; gap:24px;
     background:linear-gradient(0deg, rgba(3,10,26,.92), rgba(3,10,26,.55)); }
-  .pname { font-size:24px; font-weight:700; }
-  .contact { font-size:17px; color:#a9c8ff; margin-top:4px; }
-  .price { font-size:62px; font-weight:900; color:#fff; text-shadow:0 4px 24px rgba(92,200,255,.6); }
+  .foot-left { flex:1; min-width:0; }
+  .pname { font-size:18px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .contact { font-size:15px; color:#a9c8ff; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .price { flex-shrink:0; font-size:60px; font-weight:900; color:#fff; text-shadow:0 4px 24px rgba(92,200,255,.6); }
   `;
 
   return { html, css };
