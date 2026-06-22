@@ -1,7 +1,6 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
 import { klariResearch, klariCompose, lucaJudgeDeal, lucaReviewPoster } from "./claude";
-import { generateAdImage, buildScenePrompt } from "./falai";
 import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
 import { removeBg } from "./removebg";
@@ -90,10 +89,9 @@ export async function runKlariDaily(): Promise<KlariResult> {
   let cutoutOk = false;
   let posterSource = "template";
   let falNote = "";
+  let visualOk = true;
   if (judge.approve) {
-    // HIBRID: a HÁTTÉR fal.ai (Recraft) prémium jelenet; a VALÓDI Vitech logó + termékfotó +
-    // pontos spec + ár a sablonból kerül rá (mindig pontos, a saját logóddal).
-    // VALÓDI termékfotó kivágva (mindig — teljesen látszik).
+    // Prémium STÚDIÓ-plakát: valódi termék kivágva, tükrözodéssel + árnyékkal a felületen áll (nem lebeg).
     const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
     cutoutOk = !!cutout;
     const base = {
@@ -107,31 +105,19 @@ export async function runKlariDaily(): Promise<KlariResult> {
       specs: deal.specs,
     };
     posterSvg = buildDealPoster(base);
+    posterUrl = await renderPosterPng(base).catch(() => null);
+    posterSource = "studio";
 
-    // 4a) fal.ai STÚDIÓ-háttér → render → Luca SZIGORÚ vizuális ellenorzés (lebeg-e a termék?).
-    let done = false;
-    if (process.env.FAL_KEY) {
-      const bgUrl = await generateAdImage(buildScenePrompt()).catch(() => null);
-      if (bgUrl) {
-        const url1 = await renderPosterPng({ ...base, bgUrl }).catch(() => null);
-        if (url1) {
-          const qc = await lucaReviewPoster(url1).catch(() => ({ ok: false, issue: "QC hiba" }));
-          if (qc.ok) {
-            posterUrl = url1;
-            posterSource = "fal-bg";
-            done = true;
-          } else {
-            falNote = "Luca elvetette a fal-hátteret: " + qc.issue;
-          }
-        }
+    // Luca SZIGORÚ vizuális ellenorzés: ha a termék lebeg / nem valós kinézetu → NEM hagyja jóvá.
+    if (posterUrl) {
+      const qc = await lucaReviewPoster(posterUrl).catch(() => ({ ok: true, issue: "" }));
+      if (!qc.ok) {
+        visualOk = false;
+        falNote = "Luca vizuálisan elvetette: " + qc.issue;
       }
     }
-    // 4b) Ha Luca elvetette (vagy nincs fal): tiszta, dizájnolt háttér (a termék itt sosem lebeg).
-    if (!done) {
-      posterUrl = await renderPosterPng(base).catch(() => null);
-      posterSource = "template";
-    }
   }
+  const approved = judge.approve && visualOk;
 
   await sb.from("klari_posts").insert({
     product_id: product.id,
@@ -143,22 +129,24 @@ export async function runKlariDaily(): Promise<KlariResult> {
     headline: deal.headline,
     caption: deal.caption,
     poster_svg: posterSvg,
-    poster_url: posterUrl,
-    luca_verdict: judge.verdict,
-    status: judge.approve ? "approved" : "rejected",
+    poster_url: approved ? posterUrl : null,
+    luca_verdict: visualOk ? judge.verdict : `${judge.verdict} | ${falNote}`,
+    status: approved ? "approved" : "rejected",
   });
 
   await setAgentStatus(
     "klari",
-    judge.approve ? "done" : "waiting",
-    judge.approve
+    approved ? "done" : "waiting",
+    approved
       ? `Kész: ${product.name.slice(0, 38)} — plakát posztolásra kész`
-      : "Luca elutasította — holnap új javaslat"
+      : visualOk
+      ? "Luca elutasította a szöveget — holnap új javaslat"
+      : "Luca elvetette a plakátot (vizuális) — újra próbálom"
   );
 
   return {
     ran: true,
-    status: judge.approve ? "approved" : "rejected",
+    status: approved ? "approved" : "rejected",
     product: product.name,
     verdict: judge.verdict,
     posterUrl,
