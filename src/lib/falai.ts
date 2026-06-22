@@ -3,15 +3,14 @@ import { ensureBucket } from "./sceneBg";
 
 const BUCKET = "poster-bg";
 
-/** HÁTTÉR-jelenet prompt (ÜRES asztal — a VALÓDI terméket + logót + szöveget a sablon teszi rá). */
+/** STÚDIÓ-háttér prompt (NEM szoba/asztal — sima gradiens stúdió, hogy a rátett termék NE lebegjen). */
 export function buildScenePrompt(): string {
   return [
-    "Premium modern office advertising background, photorealistic.",
-    "A clean empty desk surface in the foreground, soft natural daylight from a large window, a subtle plant and blurred bokeh in the background, shallow depth of field.",
-    "The RIGHT side has clean empty desk space (a product will be placed there); the LEFT side is cleaner/softly darker for text.",
-    "Deep navy blue and bright blue tones with white accents, high-end corporate mood, lots of clean negative space.",
-    "IMPORTANT: NO laptop, NO computer, NO devices, NO text, NO letters, NO numbers, NO logos, NO watermarks, NO people. Just an empty premium office scene.",
-    "Sharp, realistic, advertising quality.",
+    "Premium product photography STUDIO backdrop, abstract and minimal.",
+    "Smooth deep navy blue to bright blue gradient, soft top lighting, gentle bokeh light spots, and a faint subtle reflective dark surface along the bottom (a studio floor).",
+    "High-end, clean, lots of empty negative space.",
+    "IMPORTANT: this is only a smooth studio BACKDROP — NO room, NO window, NO desk, NO furniture, NO laptop, NO devices, NO objects, NO text, NO letters, NO numbers, NO logos, NO people.",
+    "Sharp, professional studio background.",
   ].join(" ");
 }
 

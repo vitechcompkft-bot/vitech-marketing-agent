@@ -607,4 +607,29 @@ Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true, "issue": "ha nem ok, mi a ba
   }
 }
 
+/** LUCA SZIGORÚ vizuális minoség-ellenorzés a KÉSZ plakáton (vision): reális-e a termék elhelyezése. */
+export async function lucaReviewPoster(imageUrl: string): Promise<{ ok: boolean; issue: string }> {
+  const anthropic = client();
+  try {
+    const content: any[] = [
+      { type: "image", source: { type: "url", url: imageUrl } },
+      {
+        type: "text",
+        text: `Te vagy Luca, a NAGYON kritikus marketingfonök. Ez egy kész termék-hirdetés plakát.
+SZIGORÚAN ítéld meg a VIZUÁLIS minoséget:
+- A termék (laptop/gép) REÁLISAN, egy felületen ÁLLVA helyezkedik el (van alatta árnyék, talajon van)? VAGY a LEVEGOBEN LEBEG / oda van ragasztva / nem illik a háttérbe?
+- Profi, eladható a kompozíció? A szöveg olvasható, nem takarja a termék?
+Ha a termék LEBEG, gányoltnak/odaragasztottnak tunik, vagy a kép nem valós/nem profi → ok=false.
+Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true, "issue": "ha nem ok, mi a baj röviden" }`,
+      },
+    ];
+    const msg = await anthropic.messages.create({ model: SMART, max_tokens: 250, messages: [{ role: "user", content: content as any }] });
+    const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return { ok: !!j.ok, issue: j.issue || "" };
+  } catch (e: any) {
+    return { ok: false, issue: "vizuális ellenorzés hiba: " + (e?.message || "").slice(0, 120) };
+  }
+}
+
 export { SMART, FAST };

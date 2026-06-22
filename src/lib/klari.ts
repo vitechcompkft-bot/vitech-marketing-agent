@@ -1,11 +1,10 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
-import { klariResearch, klariCompose, lucaJudgeDeal } from "./claude";
+import { klariResearch, klariCompose, lucaJudgeDeal, lucaReviewPoster } from "./claude";
 import { generateAdImage, buildScenePrompt } from "./falai";
 import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
 import { removeBg } from "./removebg";
-import { getRandomBackgroundUrl } from "./sceneBg";
 import { setAgentStatus } from "./team";
 
 export interface KlariResult {
@@ -94,23 +93,12 @@ export async function runKlariDaily(): Promise<KlariResult> {
   if (judge.approve) {
     // HIBRID: a HÁTTÉR fal.ai (Recraft) prémium jelenet; a VALÓDI Vitech logó + termékfotó +
     // pontos spec + ár a sablonból kerül rá (mindig pontos, a saját logóddal).
-    let bgUrl: string | null = null;
-    if (process.env.FAL_KEY) {
-      bgUrl = await generateAdImage(buildScenePrompt()).catch((e) => {
-        falNote = "fal hiba: " + (e?.message || "?");
-        return null;
-      });
-      if (bgUrl) posterSource = "fal-bg";
-    }
-    // Ha nincs fal háttér → OpenAI készlet/CSS. A VALÓDI terméket mindig kivágva tesszük rá (teljesen látszik).
-    if (!bgUrl) bgUrl = await getRandomBackgroundUrl().catch(() => null);
+    // VALÓDI termékfotó kivágva (mindig — teljesen látszik).
     const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
     cutoutOk = !!cutout;
-
-    const pdata = {
+    const base = {
       imageUrl: product.imageUrl,
       cutout: cutout || undefined,
-      bgUrl: bgUrl || undefined,
       productName: product.name,
       headline: deal.headline,
       priceHuf,
@@ -118,8 +106,31 @@ export async function runKlariDaily(): Promise<KlariResult> {
       features: deal.features,
       specs: deal.specs,
     };
-    posterUrl = await renderPosterPng(pdata).catch(() => null);
-    posterSvg = buildDealPoster(pdata);
+    posterSvg = buildDealPoster(base);
+
+    // 4a) fal.ai STÚDIÓ-háttér → render → Luca SZIGORÚ vizuális ellenorzés (lebeg-e a termék?).
+    let done = false;
+    if (process.env.FAL_KEY) {
+      const bgUrl = await generateAdImage(buildScenePrompt()).catch(() => null);
+      if (bgUrl) {
+        const url1 = await renderPosterPng({ ...base, bgUrl }).catch(() => null);
+        if (url1) {
+          const qc = await lucaReviewPoster(url1).catch(() => ({ ok: false, issue: "QC hiba" }));
+          if (qc.ok) {
+            posterUrl = url1;
+            posterSource = "fal-bg";
+            done = true;
+          } else {
+            falNote = "Luca elvetette a fal-hátteret: " + qc.issue;
+          }
+        }
+      }
+    }
+    // 4b) Ha Luca elvetette (vagy nincs fal): tiszta, dizájnolt háttér (a termék itt sosem lebeg).
+    if (!done) {
+      posterUrl = await renderPosterPng(base).catch(() => null);
+      posterSource = "template";
+    }
   }
 
   await sb.from("klari_posts").insert({

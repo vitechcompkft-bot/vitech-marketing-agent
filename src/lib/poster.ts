@@ -116,14 +116,15 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   .specs li { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
   .specs li i { font-size:26px; font-style:normal; width:34px; text-align:center; }
   .specs li span { font-size:25px; font-weight:600; color:#e9f2ff; }
-  /* a termék az ASZTALON ül (aljához igazítva), nem a levegoben lóg */
-  .product { position:absolute; right:40px; bottom:150px; width:560px; height:400px;
+  /* a termék egy felületen ÁLL (eros kontakt-árnyék + reflexió), nem lebeg */
+  .product { position:absolute; right:55px; bottom:165px; width:540px; height:380px;
     display:flex; align-items:flex-end; justify-content:center; }
-  .product .cut { position:relative; max-width:540px; max-height:380px; display:block;
-    filter:drop-shadow(0 12px 12px rgba(0,0,0,.45)); }
-  /* kontakt-árnyék közvetlenül a termék talpa alatt → "rajta van a felületen" */
-  .product .shadow { position:absolute; left:50%; bottom:-10px; width:430px; height:44px; transform:translateX(-50%);
-    background:radial-gradient(ellipse at center, rgba(0,0,0,.62) 0%, rgba(0,0,0,.28) 45%, transparent 72%); filter:blur(9px); }
+  .product .cut { position:relative; max-width:520px; max-height:330px; display:block;
+    filter: drop-shadow(0 6px 5px rgba(0,0,0,.55));
+    -webkit-box-reflect: below 2px linear-gradient(to bottom, transparent 64%, rgba(255,255,255,0.10)); }
+  /* eros, lágy kontakt-árnyék a termék talpa alatt → "rajta van a felületen" */
+  .product .shadow { position:absolute; left:50%; bottom:-14px; width:470px; height:64px; transform:translateX(-50%);
+    background:radial-gradient(ellipse at center, rgba(0,0,0,.7) 0%, rgba(0,0,0,.35) 42%, transparent 70%); filter:blur(11px); }
   /* fallback (ha nincs kivágás): light pedestal a fehér hátteru fotóhoz */
   .pedestal { position:absolute; left:50%; top:50%; width:520px; height:300px; transform:translate(-50%,-45%);
     background:radial-gradient(ellipse at center, rgba(220,235,255,.95) 0%, rgba(220,235,255,.35) 42%, transparent 70%); filter:blur(2px); }
