@@ -58,7 +58,7 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
           o.productInScene
             ? "" /* a laptop már a fal.ai jelenetben van → nincs külön termék-overlay */
             : o.cutout
-            ? `<div class="shadow"></div><img class="cut" src="${o.cutout}"/>`
+            ? `<div class="floor"></div><div class="shadow"></div><div class="prodwrap"><img class="cut" src="${o.cutout}"/><img class="reflect" src="${o.cutout}"/></div>`
             : o.imageUrl
             ? `<div class="pedestal"></div><img src="${esc(o.imageUrl)}"/>`
             : ""
@@ -116,15 +116,21 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   .specs li { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
   .specs li i { font-size:26px; font-style:normal; width:34px; text-align:center; }
   .specs li span { font-size:25px; font-weight:600; color:#e9f2ff; }
-  /* a termék egy felületen ÁLL (eros kontakt-árnyék + reflexió), nem lebeg */
-  .product { position:absolute; right:55px; bottom:165px; width:540px; height:380px;
+  /* a termék egy FÉNYES FELÜLETEN áll: pódium-fény + valódi tükrözodés + kontakt-árnyék → nem lebeg */
+  .product { position:absolute; right:55px; bottom:120px; width:550px; height:410px;
     display:flex; align-items:flex-end; justify-content:center; }
-  .product .cut { position:relative; max-width:520px; max-height:330px; display:block;
-    filter: drop-shadow(0 6px 5px rgba(0,0,0,.55));
-    -webkit-box-reflect: below 2px linear-gradient(to bottom, transparent 64%, rgba(255,255,255,0.10)); }
-  /* eros, lágy kontakt-árnyék a termék talpa alatt → "rajta van a felületen" */
-  .product .shadow { position:absolute; left:50%; bottom:-14px; width:470px; height:64px; transform:translateX(-50%);
-    background:radial-gradient(ellipse at center, rgba(0,0,0,.7) 0%, rgba(0,0,0,.35) 42%, transparent 70%); filter:blur(11px); }
+  /* fényes felület-folt (pódium) a termék alatt */
+  .product .floor { position:absolute; left:50%; bottom:30px; width:540px; height:150px; transform:translateX(-50%); z-index:0;
+    background:radial-gradient(ellipse 76% 64% at 50% 32%, rgba(118,166,246,.22) 0%, rgba(118,166,246,.06) 46%, transparent 74%); }
+  /* eros, lágy kontakt-árnyék a talp vonalában */
+  .product .shadow { position:absolute; left:50%; bottom:84px; width:430px; height:48px; transform:translateX(-50%); z-index:1;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,.62) 0%, rgba(0,0,0,.28) 44%, transparent 72%); filter:blur(10px); }
+  /* termék + tükrözodés egymás alatt */
+  .product .prodwrap { position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; }
+  .product .cut { max-width:485px; max-height:265px; display:block; filter:drop-shadow(0 14px 13px rgba(0,0,0,.42)); }
+  .product .reflect { max-width:485px; max-height:265px; display:block; transform:scaleY(-1); margin-top:-4px; opacity:.20;
+    -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.6) 0%, transparent 36%);
+            mask-image:linear-gradient(to bottom, rgba(0,0,0,.6) 0%, transparent 36%); }
   /* fallback (ha nincs kivágás): light pedestal a fehér hátteru fotóhoz */
   .pedestal { position:absolute; left:50%; top:50%; width:520px; height:300px; transform:translate(-50%,-45%);
     background:radial-gradient(ellipse at center, rgba(220,235,255,.95) 0%, rgba(220,235,255,.35) 42%, transparent 70%); filter:blur(2px); }
