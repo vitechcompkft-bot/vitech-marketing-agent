@@ -129,6 +129,7 @@ const LOGO_URL = `${APP_URL}/avatars/vitech-logo.png`;
  */
 export function buildDealPoster(o: {
   imageUrl?: string;
+  productInScene?: boolean;
   productName: string;
   headline: string;
   priceHuf?: number;
@@ -188,7 +189,9 @@ export function buildDealPoster(o: {
     tileY = 300,
     tileW = 510,
     tileH = 380;
-  const photo = o.imageUrl
+  const photo = o.productInScene
+    ? ""
+    : o.imageUrl
     ? `<rect x="${tileX}" y="${tileY}" width="${tileW}" height="${tileH}" rx="24" fill="#ffffff"/>` +
       `<image href="${esc(o.imageUrl)}" x="${tileX + 24}" y="${tileY + 24}" width="${tileW - 48}" height="${tileH - 48}" preserveAspectRatio="xMidYMid meet"/>`
     : "";

@@ -7,6 +7,7 @@ export interface PosterData {
   imageUrl?: string;
   cutout?: string; // háttér nélküli termék (data URI) — ha van, EZT használjuk
   bgUrl?: string; // AI-generált jelenet-háttér (URL) — ha van, EZ a háttér
+  productInScene?: boolean; // ha a háttérben MÁR benne van a laptop → ne tegyünk rá külön terméket
   productName: string;
   headline: string;
   priceHuf?: number;
@@ -54,7 +55,9 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
       </ul>
       <div class="product">
         ${
-          o.cutout
+          o.productInScene
+            ? "" /* a laptop már a fal.ai jelenetben van → nincs külön termék-overlay */
+            : o.cutout
             ? `<div class="shadow"></div><img class="cut" src="${o.cutout}"/>`
             : o.imageUrl
             ? `<div class="pedestal"></div><img src="${esc(o.imageUrl)}"/>`
@@ -98,8 +101,8 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
       linear-gradient(90deg, rgba(5,14,33,.94) 0%, rgba(5,14,33,.80) 36%, rgba(5,14,33,.40) 68%, rgba(5,14,33,.30) 100%),
       linear-gradient(0deg, rgba(5,14,33,.90) 0%, rgba(5,14,33,.0) 42%); }
   .top { position:absolute; top:36px; left:44px; right:44px; display:flex; justify-content:space-between; align-items:flex-start; }
-  .logo { background:#fff; border-radius:16px; padding:12px 18px; box-shadow:0 12px 30px rgba(0,0,0,.35); }
-  .logo img { height:86px; display:block; }
+  /* Logó háttér NÉLKÜL, fehér változatban (jól látszik a sötét jeleneten) */
+  .logo img { height:92px; display:block; filter: brightness(0) invert(1) drop-shadow(0 2px 5px rgba(0,0,0,.55)); }
   .badges { display:flex; gap:10px; }
   .badges span {
     font-weight:800; font-size:17px; letter-spacing:.3px; padding:10px 16px; border-radius:24px;
