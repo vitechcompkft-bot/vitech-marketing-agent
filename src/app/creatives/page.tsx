@@ -121,8 +121,8 @@ export default function CreativesPage() {
                     <span className="text-sm font-semibold">{k.product_name?.slice(0, 40)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`badge ${k.status === "approved" ? "bg-green-500/20 text-green-300" : k.status === "posted" ? "bg-blue-500/20 text-blue-300" : "bg-white/10 text-white/50"}`}>
-                      {k.status === "approved" ? "Luca jóváhagyta" : k.status === "posted" ? "kiposztolva" : k.status === "rejected" ? "elvetve" : k.status}
+                    <span className={`badge ${k.status === "approved" ? "bg-green-500/20 text-green-300" : k.status === "posted" ? "bg-blue-500/20 text-blue-300" : k.status === "pending_image" ? "bg-amber-500/20 text-amber-200" : "bg-white/10 text-white/50"}`}>
+                      {k.status === "approved" ? "Luca jóváhagyta" : k.status === "posted" ? "kiposztolva" : k.status === "rejected" ? "elvetve" : k.status === "pending_image" ? "⏳ plakát készül…" : k.status}
                     </span>
                     <button onClick={() => deletePost(k.id)} title="Törlés" className="rounded-lg border border-white/15 px-2 py-1 text-xs text-white/60 hover:bg-red-500/20 hover:text-red-200">🗑</button>
                   </div>

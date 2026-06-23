@@ -9,24 +9,40 @@ import { setAgentStatus } from "./team";
 export interface KlariResult {
   ran: boolean;
   reason?: string;
-  status?: "approved" | "rejected";
+  phase?: "text" | "image";
+  status?: "approved" | "rejected" | "pending_image";
   product?: string;
   verdict?: string;
   posterUrl?: string | null;
   cutoutOk?: boolean;
   posterSource?: string;
   falNote?: string;
+  postId?: number;
+  renderData?: RenderData;
+}
+
+/** A kép-fázishoz szükséges renderelési adatok (a szöveg-fázis állítja elo, a kép-fázis használja). */
+export interface RenderData {
+  productId: string;
+  productName: string;
+  productUrl?: string | null;
+  imageUrl?: string;
+  priceHuf?: number;
+  headline: string;
+  badges?: string[];
+  features?: string[];
+  specs?: Record<string, string | undefined>;
 }
 
 /**
- * KLÁRI napi feladata (reggel 7):
- *  1) Beolvas egy adag Vitech terméket (ár + fotó).
- *  2) Web-kereséssel megkeresi a piachoz képest legjobb áru ajánlatot + plakát-szöveget.
- *  3) Eloterjeszti LUCÁNAK, aki jóváhagyja vagy elutasítja.
- *  4) Jóváhagyás esetén plakátot készít (termékfotóval) → a dashboardon posztolásra kész.
- * Klári mindig Lucának jelent. (A Facebook-posztolást egyelore te végzed egy kattintással.)
+ * KÉTLÉPCSOS futás (Vercel Hobby 60s limit miatt):
+ *  - runKlariText(): kutatás → ajánlat-szöveg → Luca jóváhagyás → 'pending_image' sor (gyors).
+ *  - runKlariImage(): kivágás → render → Luca VIZUÁLIS QC → sor frissítése (gyors).
+ * A két fázis KÜLÖN HTTP-invokáció, mindegyiknek saját 60s budget-je van.
  */
-export async function runKlariDaily(): Promise<KlariResult> {
+
+/** 1. FÁZIS — szöveg: a legjobb ajánlat + Luca jóváhagyás, majd 'pending_image' sor mentése. */
+export async function runKlariText(): Promise<KlariResult> {
   const sb = supabaseAdmin();
   const { data: cfg } = await sb.from("agent_config").select("*").eq("id", 1).single();
   if (!cfg) return { ran: false, reason: "Nincs konfiguráció." };
@@ -82,76 +98,163 @@ export async function runKlariDaily(): Promise<KlariResult> {
   const product = live.find((p) => p.id === deal.product_id) || live[0];
   const priceHuf = product.priceGross ? Number(product.priceGross) : undefined;
 
-  // 4) Jóváhagyás esetén plakát: elsodlegesen PROFI renderelt PNG (htmlcsstoimage),
-  //    SVG mindig fallbacknek (ha nincs HCTI kulcs).
-  let posterSvg: string | null = null;
-  let posterUrl: string | null = null;
-  let cutoutOk = false;
-  let posterSource = "template";
-  let falNote = "";
-  let visualOk = true;
-  if (judge.approve) {
-    // Prémium STÚDIÓ-plakát: valódi termék kivágva, tükrözodéssel + árnyékkal a felületen áll (nem lebeg).
-    const cutout = product.imageUrl ? await removeBg(product.imageUrl).catch(() => null) : null;
-    cutoutOk = !!cutout;
-    const base = {
-      imageUrl: product.imageUrl,
-      cutout: cutout || undefined,
-      productName: product.name,
+  // Ha Luca a szöveget elutasítja → 'rejected' sor, kép-fázis nem kell.
+  if (!judge.approve) {
+    await sb.from("klari_posts").insert({
+      product_id: product.id,
+      product_name: product.name,
+      product_url: product.url ?? null,
+      image_url: product.imageUrl ?? null,
+      price_huf: priceHuf ?? null,
+      market_note: deal.market_note,
       headline: deal.headline,
-      priceHuf,
-      badges: deal.badges,
-      features: deal.features,
-      specs: deal.specs,
-    };
-    posterSvg = buildDealPoster(base);
-    posterUrl = await renderPosterPng(base).catch(() => null);
-    posterSource = "studio";
+      caption: deal.caption,
+      poster_svg: null,
+      poster_url: null,
+      luca_verdict: judge.verdict,
+      status: "rejected",
+    });
+    await setAgentStatus("klari", "waiting", "Luca elutasította a szöveget — holnap új javaslat");
+    return { ran: true, phase: "text", status: "rejected", product: product.name, verdict: judge.verdict };
+  }
 
-    // Luca SZIGORÚ vizuális ellenorzés: ha a termék lebeg / nem valós kinézetu → NEM hagyja jóvá.
-    if (posterUrl) {
-      const qc = await lucaReviewPoster(posterUrl).catch(() => ({ ok: true, issue: "" }));
-      if (!qc.ok) {
-        visualOk = false;
-        falNote = "Luca vizuálisan elvetette: " + qc.issue;
-      }
+  // Jóváhagyott szöveg → 'pending_image' sor + render_data a kép-fázishoz.
+  const renderData: RenderData = {
+    productId: product.id,
+    productName: product.name,
+    productUrl: product.url ?? null,
+    imageUrl: product.imageUrl,
+    priceHuf,
+    headline: deal.headline,
+    badges: deal.badges,
+    features: deal.features,
+    specs: deal.specs,
+  };
+  const posterSvg = buildDealPoster({
+    imageUrl: product.imageUrl,
+    productName: product.name,
+    headline: deal.headline,
+    priceHuf,
+    badges: deal.badges,
+    features: deal.features,
+    specs: deal.specs,
+  });
+
+  const { data: ins } = await sb
+    .from("klari_posts")
+    .insert({
+      product_id: product.id,
+      product_name: product.name,
+      product_url: product.url ?? null,
+      image_url: product.imageUrl ?? null,
+      price_huf: priceHuf ?? null,
+      market_note: deal.market_note,
+      headline: deal.headline,
+      caption: deal.caption,
+      poster_svg: posterSvg,
+      poster_url: null,
+      luca_verdict: judge.verdict,
+      status: "pending_image",
+      render_data: renderData,
+    })
+    .select("id")
+    .single();
+
+  await setAgentStatus("klari", "working", `Szöveg kész (${product.name.slice(0, 30)}) — plakát készítése…`);
+
+  return {
+    ran: true,
+    phase: "text",
+    status: "pending_image",
+    product: product.name,
+    verdict: judge.verdict,
+    postId: ins?.id,
+    renderData,
+  };
+}
+
+/** 2. FÁZIS — kép: a 'pending_image' sorhoz plakát + Luca VIZUÁLIS QC, majd a sor véglegesítése. */
+export async function runKlariImage(opts?: { postId?: number; renderData?: RenderData }): Promise<KlariResult> {
+  const sb = supabaseAdmin();
+
+  // A feldolgozandó sor: postId alapján, vagy a legutóbbi 'pending_image'.
+  let row: any = null;
+  if (opts?.postId) {
+    row = (await sb.from("klari_posts").select("*").eq("id", opts.postId).maybeSingle()).data;
+  } else {
+    row = (await sb.from("klari_posts").select("*").eq("status", "pending_image").order("id", { ascending: false }).limit(1).maybeSingle()).data;
+  }
+  if (!row) return { ran: false, reason: "Nincs feldolgozandó (pending_image) plakát." };
+
+  const rd: RenderData | null = opts?.renderData || row.render_data || null;
+  if (!rd) {
+    await sb.from("klari_posts").update({ status: "rejected", luca_verdict: (row.luca_verdict || "") + " | Hiányzó render_data." }).eq("id", row.id);
+    return { ran: false, reason: "Hiányzó render_data a kép-fázishoz." };
+  }
+
+  // Prémium STÚDIÓ-plakát: valódi termék kivágva, tükrözodéssel + árnyékkal a felületen áll (nem lebeg).
+  const cutout = rd.imageUrl ? await removeBg(rd.imageUrl).catch(() => null) : null;
+  const base = {
+    imageUrl: rd.imageUrl,
+    cutout: cutout || undefined,
+    productName: rd.productName,
+    headline: rd.headline,
+    priceHuf: rd.priceHuf,
+    badges: rd.badges,
+    features: rd.features,
+    specs: rd.specs,
+  };
+  const posterUrl = await renderPosterPng(base).catch(() => null);
+
+  // Luca SZIGORÚ vizuális ellenorzés: ha a termék lebeg / nem valós kinézetu → NEM hagyja jóvá.
+  let visualOk = true;
+  let falNote = "";
+  if (posterUrl) {
+    const qc = await lucaReviewPoster(posterUrl).catch(() => ({ ok: true, issue: "" }));
+    if (!qc.ok) {
+      visualOk = false;
+      falNote = "Luca vizuálisan elvetette: " + qc.issue;
     }
   }
-  const approved = judge.approve && visualOk;
+  const approved = visualOk && !!posterUrl;
 
-  await sb.from("klari_posts").insert({
-    product_id: product.id,
-    product_name: product.name,
-    product_url: product.url ?? null,
-    image_url: product.imageUrl ?? null,
-    price_huf: priceHuf ?? null,
-    market_note: deal.market_note,
-    headline: deal.headline,
-    caption: deal.caption,
-    poster_svg: posterSvg,
-    poster_url: approved ? posterUrl : null,
-    luca_verdict: visualOk ? judge.verdict : `${judge.verdict} | ${falNote}`,
-    status: approved ? "approved" : "rejected",
-  });
+  await sb
+    .from("klari_posts")
+    .update({
+      poster_url: approved ? posterUrl : null,
+      poster_svg: row.poster_svg || buildDealPoster(base),
+      luca_verdict: visualOk ? row.luca_verdict : `${row.luca_verdict} | ${falNote}`,
+      status: approved ? "approved" : "rejected",
+    })
+    .eq("id", row.id);
 
   await setAgentStatus(
     "klari",
     approved ? "done" : "waiting",
     approved
-      ? `Kész: ${product.name.slice(0, 38)} — plakát posztolásra kész`
-      : visualOk
-      ? "Luca elutasította a szöveget — holnap új javaslat"
-      : "Luca elvetette a plakátot (vizuális) — újra próbálom"
+      ? `Kész: ${rd.productName.slice(0, 38)} — plakát posztolásra kész`
+      : "Luca elvetette a plakátot (vizuális) — holnap új javaslat"
   );
 
   return {
     ran: true,
+    phase: "image",
     status: approved ? "approved" : "rejected",
-    product: product.name,
-    verdict: judge.verdict,
+    product: rd.productName,
+    verdict: row.luca_verdict,
     posterUrl,
-    cutoutOk,
-    posterSource,
+    cutoutOk: !!cutout,
+    posterSource: "studio",
     falNote,
+    postId: row.id,
   };
+}
+
+/** Kényelmi wrapper (mindkét fázis egy folyamatban) — kézi/lokális használatra. A Vercel route a kétlépcsost használja. */
+export async function runKlariDaily(): Promise<KlariResult> {
+  const t = await runKlariText();
+  if (t.status === "pending_image") {
+    return await runKlariImage({ postId: t.postId, renderData: t.renderData });
+  }
+  return t;
 }
