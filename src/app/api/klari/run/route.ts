@@ -25,7 +25,9 @@ async function handle(req: NextRequest) {
   try {
     const result = await runKlariText();
 
-    // Jóváhagyott szöveg → kép-fázis külön invokációban (a választ NEM várjuk meg végig).
+    // Jóváhagyott szöveg → kép-fázis KÜLÖN invokációban. A render azonnal válaszol
+    // ('accepted'), a tényleges renderelést waitUntil-lel a háttérben futtatja (saját 60s),
+    // így ez a hívás gyorsan visszatér, és a render mégis biztosan lefut.
     if (result.status === "pending_image") {
       const url = `${baseUrl()}/api/klari/render`;
       await fetch(url, {
@@ -35,9 +37,7 @@ async function handle(req: NextRequest) {
           ...(secret ? { authorization: `Bearer ${secret}` } : {}),
         },
         body: JSON.stringify({ postId: result.postId, renderData: result.renderData }),
-        // 4s alatt a kérés beérkezik és a render-invokáció elindul; utána már nem várunk rá
-        // (a Vercel function a kliens lecsatlakozása után is lefut a végéig).
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(12000),
       }).catch(() => {});
     }
 

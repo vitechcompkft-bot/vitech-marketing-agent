@@ -13,6 +13,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@supabase/supabase-js": "^2.45.4",
+    "@vercel/functions": "^3.7.3",
     "google-ads-api": "^17.1.0",
     "imapflow": "^1.4.2",
     "mailparser": "^3.9.11",
