@@ -615,12 +615,13 @@ export async function lucaReviewPoster(imageUrl: string): Promise<{ ok: boolean;
       { type: "image", source: { type: "url", url: imageUrl } },
       {
         type: "text",
-        text: `Te vagy Luca, a NAGYON kritikus marketingfonök. Ez egy kész termék-hirdetés plakát.
-SZIGORÚAN ítéld meg a VIZUÁLIS minoséget:
-- A termék (laptop/gép) REÁLISAN, egy felületen ÁLLVA helyezkedik el (van alatta árnyék, talajon van)? VAGY a LEVEGOBEN LEBEG / oda van ragasztva / nem illik a háttérbe?
-- Profi, eladható a kompozíció? A szöveg olvasható, nem takarja a termék?
-Ha a termék LEBEG, gányoltnak/odaragasztottnak tunik, vagy a kép nem valós/nem profi → ok=false.
-Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true, "issue": "ha nem ok, mi a baj röviden" }`,
+        text: `Te vagy Luca, a kritikus marketingfonök. Ez egy TERMÉK-HIRDETÉS plakát (product ad), ahol a termék kivágva, STÚDIÓ-háttéren szerepel — mint a webshopok/Apple hirdetései. Ez a stílus PROFI és teljesen ELFOGADHATÓ.
+Reálisan, NE túl szigorúan ítélj. CSAK akkor utasítsd el (ok=false), ha KONKRÉT, súlyos hiba van:
+- a termék TÉNYLEG lebeg: NINCS alatta SEMMILYEN árnyék ÉS nincs tükrözodés/felület-jelzés (teljesen a semmiben lóg); VAGY
+- valami ÁTFEDI egymást (a termék rálóg a logóra/badge-re/szövegre), vagy egy felirat LE VAN VÁGVA; VAGY
+- a szöveg olvashatatlan.
+Ha a terméknek VAN árnyéka és/vagy tükrözodése egy felületen, az ELFOGADHATÓ → ok=true (a kivágott-termék look önmagában NEM hiba).
+Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true, "issue": "ha nem ok, mi a konkrét baj röviden" }`,
       },
     ];
     const msg = await anthropic.messages.create({ model: SMART, max_tokens: 250, messages: [{ role: "user", content: content as any }] });
