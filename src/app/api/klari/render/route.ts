@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { runKlariImage } from "@/lib/klari";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,8 +30,19 @@ async function handle(req: NextRequest) {
   } catch {
     /* GET vagy üres body → legutóbbi pending_image */
   }
+  // Diagnosztika: hány 'pending_image' sor vár feldolgozásra (NEM mutál).
+  if (req.nextUrl.searchParams.get("peek") === "1") {
+    const sb = supabaseAdmin();
+    const { data } = await sb
+      .from("klari_posts")
+      .select("id, status, created_at")
+      .eq("status", "pending_image")
+      .order("id", { ascending: false });
+    return NextResponse.json({ ok: true, pending: data?.length || 0, rows: data || [] });
+  }
+
   const args = { postId: body?.postId, renderData: body?.renderData };
-  const sync = req.method === "GET" || req.nextUrl.searchParams.get("sync") === "1";
+  const sync = req.nextUrl.searchParams.get("sync") === "1";
 
   if (sync) {
     try {
