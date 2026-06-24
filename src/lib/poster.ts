@@ -117,22 +117,22 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   .specs li i { font-size:26px; font-style:normal; width:34px; text-align:center; }
   .specs li span { font-size:25px; font-weight:600; color:#e9f2ff; }
   /* a termék egy FÉNYES FELÜLETEN áll: pódium-fény + valódi tükrözodés + kontakt-árnyék → nem lebeg.
-     Abszolút pozicionálás, a "kontakt-vonal" (talp) ~96px a .product aljától. */
-  .product { position:absolute; right:60px; bottom:135px; width:480px; height:360px; }
+     Abszolút pozicionálás, a "kontakt-vonal" (talp) ~104px a .product aljától. Nagyobb, arányos termék. */
+  .product { position:absolute; right:48px; bottom:122px; width:585px; height:445px; }
   /* fényes felület-folt a talp körül */
-  .product .floor { position:absolute; left:50%; bottom:34px; width:470px; height:140px; transform:translateX(-50%); z-index:0;
+  .product .floor { position:absolute; left:50%; bottom:36px; width:565px; height:165px; transform:translateX(-50%); z-index:0;
     background:radial-gradient(ellipse 74% 58% at 50% 42%, rgba(120,165,245,.20) 0%, rgba(120,165,245,.05) 48%, transparent 74%); }
   /* kontakt-árnyék a talp vonalában */
-  .product .shadow { position:absolute; left:50%; bottom:84px; width:400px; height:44px; transform:translateX(-50%); z-index:1;
-    background:radial-gradient(ellipse at center, rgba(0,0,0,.6) 0%, rgba(0,0,0,.27) 44%, transparent 72%); filter:blur(9px); }
-  /* termék: a talpa a 96px-es kontakt-vonalon */
-  .product .cut { position:absolute; left:0; right:0; bottom:96px; margin:0 auto; max-width:470px; max-height:250px;
-    display:block; z-index:3; filter:drop-shadow(0 14px 14px rgba(0,0,0,.42)); }
+  .product .shadow { position:absolute; left:50%; bottom:92px; width:485px; height:52px; transform:translateX(-50%); z-index:1;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,.6) 0%, rgba(0,0,0,.27) 44%, transparent 72%); filter:blur(10px); }
+  /* termék: a talpa a 104px-es kontakt-vonalon */
+  .product .cut { position:absolute; left:0; right:0; bottom:104px; margin:0 auto; max-width:565px; max-height:325px;
+    display:block; z-index:3; filter:drop-shadow(0 16px 16px rgba(0,0,0,.42)); }
   /* valódi tükrözodés: levágott, halványuló doboz a talp ALATT */
-  .product .reflbox { position:absolute; left:0; right:0; bottom:8px; margin:0 auto; width:470px; height:86px; overflow:hidden; z-index:2;
+  .product .reflbox { position:absolute; left:0; right:0; bottom:10px; margin:0 auto; width:565px; height:96px; overflow:hidden; z-index:2;
     -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.5) 0%, transparent 86%);
             mask-image:linear-gradient(to bottom, rgba(0,0,0,.5) 0%, transparent 86%); }
-  .product .reflbox img { width:auto; max-width:470px; max-height:250px; display:block; margin:0 auto;
+  .product .reflbox img { width:auto; max-width:565px; max-height:325px; display:block; margin:0 auto;
     transform:scaleY(-1); transform-origin:top center; opacity:.5; }
   /* fallback (ha nincs kivágás): light pedestal a fehér hátteru fotóhoz */
   .pedestal { position:absolute; left:50%; top:50%; width:520px; height:300px; transform:translate(-50%,-45%);
