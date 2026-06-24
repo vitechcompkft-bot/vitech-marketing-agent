@@ -37,7 +37,9 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   <div class="poster">
     ${
       o.bgUrl
-        ? `<img class="scene" src="${esc(o.bgUrl)}"/><div class="scene-shade"></div><div class="deskband"></div><div class="deskedge"></div>`
+        ? `<img class="scene" src="${esc(o.bgUrl)}"/><div class="scene-shade"></div>${
+            o.productInScene ? "" : `<div class="deskband"></div><div class="deskedge"></div>`
+          }`
         : `<div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grid"></div><div class="desk"></div>`
     }
 

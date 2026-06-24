@@ -1,11 +1,11 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
-import { klariResearch, klariCompose, lucaJudgeDeal, lucaReviewPoster } from "./claude";
-import { generateAdImage, buildScenePrompt } from "./falai";
+import { klariResearch, klariCompose, lucaJudgeDeal, gyulaReviewPoster } from "./claude";
+import { generateProductScene } from "./falai";
 import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
-import { removeBg } from "./removebg";
 import { setAgentStatus } from "./team";
+import { sendTelegram } from "./telegram";
 
 export interface KlariResult {
   ran: boolean;
@@ -193,11 +193,9 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
     return { ran: false, reason: "Hiányzó render_data a kép-fázishoz." };
   }
 
-  // Valódi termék kivágva (tükrözodéssel + árnyékkal áll a felületen — nem lebeg).
-  const cutout = rd.imageUrl ? await removeBg(rd.imageUrl).catch(() => null) : null;
+  // A sablon csak a logót + szöveget teszi rá; a LAPTOP magában a Bria-jelenetben van (productInScene).
   const base = {
     imageUrl: rd.imageUrl,
-    cutout: cutout || undefined,
     productName: rd.productName,
     headline: rd.headline,
     priceHuf: rd.priceHuf,
@@ -207,62 +205,73 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
   };
 
   let posterUrl: string | null = null;
-  let posterSource = "studio";
-  let falNote = "";
+  let posterSource = "bria-scene";
+  let approved = false;
+  let gyulaIssue = "";
 
-  // 1) IRODA-háttér (fal.ai, elmosott) + grounding → Luca SZIGORÚ vizuális QC.
-  if (process.env.FAL_KEY) {
-    const bgUrl = await generateAdImage(buildScenePrompt()).catch(() => null);
-    if (bgUrl) {
-      const officeUrl = await renderPosterPng({ ...base, bgUrl }).catch(() => null);
-      if (officeUrl) {
-        const qc = await lucaReviewPoster(officeUrl).catch(() => ({ ok: true, issue: "" }));
-        if (qc.ok) {
-          posterUrl = officeUrl;
-          posterSource = "office-bg";
-        } else {
-          falNote = "Iroda-háttér elvetve (Luca): " + qc.issue + " → stúdió-háttér";
-        }
+  await setAgentStatus("gyula", "working", `Hirdetés ellenorzése: ${rd.productName.slice(0, 30)}…`);
+
+  // 1) Bria product-shot: a VALÓDI terméket az ASZTALRA teszi → render → GYULA szigorú QC. Max 2 próba.
+  if (process.env.FAL_KEY && rd.imageUrl) {
+    for (let attempt = 0; attempt < 2 && !approved; attempt++) {
+      const sceneUrl = await generateProductScene(rd.imageUrl).catch(() => null);
+      if (!sceneUrl) continue;
+      const url = await renderPosterPng({ ...base, bgUrl: sceneUrl, productInScene: true }).catch(() => null);
+      if (!url) continue;
+      const qc = await gyulaReviewPoster(url).catch(() => ({ ok: false, issue: "QC technikai hiba" }));
+      if (qc.ok) {
+        posterUrl = url;
+        approved = true;
+      } else {
+        gyulaIssue = qc.issue;
       }
     }
+  } else {
+    gyulaIssue = "Hiányzó FAL_KEY vagy termékfotó — nem készült AI-jelenet.";
   }
 
-  // 2) Ha nincs iroda-verzió (vagy Luca elvetette): tiszta STÚDIÓ-gradiens (megbízhatóan grounded).
-  if (!posterUrl) {
-    posterUrl = await renderPosterPng(base).catch(() => null);
-    posterSource = "studio";
-  }
-
-  const approved = !!posterUrl;
-
+  // 2) Eredmény mentése: CSAK Gyula jóváhagyásával publikálunk (szigorú kapuor).
   await sb
     .from("klari_posts")
     .update({
       poster_url: approved ? posterUrl : null,
       poster_svg: row.poster_svg || buildDealPoster(base),
-      luca_verdict: row.luca_verdict,
+      luca_verdict: approved
+        ? `${row.luca_verdict} | Gyula (IT) jóváhagyta a képet.`
+        : `${row.luca_verdict} | Gyula NEM hagyta jóvá: ${gyulaIssue}`,
       status: approved ? "approved" : "rejected",
     })
     .eq("id", row.id);
 
   await setAgentStatus(
+    "gyula",
+    approved ? "done" : "waiting",
+    approved ? `Hirdetés jóváhagyva: ${rd.productName.slice(0, 34)}` : `Hirdetés elutasítva: ${gyulaIssue.slice(0, 44)}`
+  );
+  await setAgentStatus(
     "klari",
     approved ? "done" : "waiting",
-    approved
-      ? `Kész: ${rd.productName.slice(0, 38)} — plakát posztolásra kész (${posterSource === "office-bg" ? "iroda" : "stúdió"})`
-      : "Nem sikerült plakátot renderelni — holnap új javaslat"
+    approved ? `Kész + Gyula jóváhagyta: ${rd.productName.slice(0, 30)}` : "Gyula elutasította a képet — holnap új próba"
   );
+
+  // 3) Gyula Telegramon szól, HA jóváhagyta (mert megfelel az elvárásoknak).
+  if (approved && posterUrl) {
+    const price = rd.priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(rd.priceHuf)) + " Ft" : "";
+    await sendTelegram(
+      `✅ *Gyula jóváhagyta a napi hirdetést* — megfelel az elvárásoknak.\n\n🖥️ ${rd.productName}\n💰 ${price}\n\n${posterUrl}`
+    ).catch(() => {});
+  }
 
   return {
     ran: true,
     phase: "image",
     status: approved ? "approved" : "rejected",
     product: rd.productName,
-    verdict: row.luca_verdict,
+    verdict: approved ? "Gyula jóváhagyta" : `Gyula elutasította: ${gyulaIssue}`,
     posterUrl,
-    cutoutOk: !!cutout,
+    cutoutOk: false,
     posterSource,
-    falNote,
+    falNote: gyulaIssue,
     postId: row.id,
   };
 }

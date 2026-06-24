@@ -17,6 +17,60 @@ export function buildScenePrompt(): string {
   ].join(" ");
 }
 
+/** Letölti a fal-képet és tartós URL-re re-hostolja (Supabase Storage). Hiba esetén az eredeti URL. */
+async function rehost(url: string, prefix: string): Promise<string> {
+  try {
+    const img = await fetch(url);
+    if (img.ok) {
+      const buf = Buffer.from(await img.arrayBuffer());
+      await ensureBucket();
+      const sb = supabaseAdmin();
+      const path = `${prefix}-${Date.now()}.png`;
+      const up = await sb.storage.from(BUCKET).upload(path, buf, { contentType: "image/png", upsert: true });
+      if (!up.error) {
+        const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
+        if (data?.publicUrl) return data.publicUrl;
+      }
+    }
+  } catch {
+    /* marad az eredeti URL */
+  }
+  return url;
+}
+
+/**
+ * VALÓDI termék jelenetbe helyezése (fal.ai / Bria product-shot): a megadott termékfotót
+ * (image_url) egy iroda-jelenetbe teszi az ASZTALRA, helyes perspektívával/árnyékkal — NEM lebeg.
+ * A kész jelenet (a logót + szöveget már a sablon teszi rá). FAL_KEY hiányában null.
+ */
+export async function generateProductScene(productImageUrl: string): Promise<string | null> {
+  const key = process.env.FAL_KEY;
+  if (!key || !productImageUrl) return null;
+  try {
+    const res = await fetch("https://fal.run/fal-ai/bria/product-shot", {
+      method: "POST",
+      headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image_url: productImageUrl,
+        scene_description:
+          "a modern bright corporate office, the laptop standing on a glossy dark desk on the RIGHT side, large window with a city skyline, soft natural daylight, a subtle plant, realistic contact shadow and reflection under the laptop, the LEFT side is calm empty office space, premium advertising photography, navy and blue tones",
+        placement_type: "manual_placement",
+        manual_placement_selection: "right_center",
+        shot_size: [1200, 800],
+        fast: true,
+        optimize_description: true,
+        num_results: 1,
+      }),
+    });
+    const j = await res.json();
+    const url = j?.images?.[0]?.url || j?.result?.images?.[0]?.url || j?.image?.url;
+    if (!url) return null;
+    return await rehost(url, "scene");
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Teljes AI-hirdetés generálása (fal.ai / Recraft V4) → tartós URL (Supabase Storage-ba re-hostolva).
  * FAL_KEY hiányában null (a hívó visszaesik a sablonra).

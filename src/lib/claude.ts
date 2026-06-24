@@ -639,4 +639,42 @@ Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true, "issue": "ha nem ok, mi a ko
   return { ok: true, issue: "QC kihagyva (hiba): " + lastErr };
 }
 
+/**
+ * GYULA (informatikus) vizuális ellenorzése a KÉSZ hirdetésen (vision).
+ * CSAK akkor hagyja jóvá (ok=true), ha mindhárom teljesül:
+ *  1) a laptop ELÉG NAGY a képen,
+ *  2) a laptop a háttérben látható ASZTALON áll (nem lebeg, illik a jelenethez),
+ *  3) a hirdetés SZÖVEGE jól olvasható.
+ */
+export async function gyulaReviewPoster(imageUrl: string): Promise<{ ok: boolean; issue: string }> {
+  const anthropic = client();
+  const content: any[] = [
+    { type: "image", source: { type: "url", url: imageUrl } },
+    {
+      type: "text",
+      text: `Te vagy Gyula, a precíz informatikus, aki a kész termék-hirdetést ELLENORZI kiadás elott.
+CSAK akkor hagyd jóvá (ok=true), ha MINDHÁROM feltétel teljesül:
+1) A laptop ELÉG NAGY és hangsúlyos a képen (nem apró, jól látszik a termék).
+2) A laptop a háttérben látható ASZTALON/felületen áll, REÁLISAN (van árnyéka/tükrözodése, NEM lebeg a levegoben, illeszkedik a jelenethez).
+3) A hirdetés SZÖVEGE (cím, specifikációk, ár, lábléc) jól OLVASHATÓ (jó kontraszt, semmi nem takarja, nincs levágva).
+Ha BÁRMELYIK nem teljesül → ok=false, és írd le röviden, KONKRÉTAN melyik és miért.
+Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true/false, "issue": "ha nem ok, mi a baj röviden" }`,
+    },
+  ];
+  let lastErr = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const msg = await anthropic.messages.create({ model: SMART, max_tokens: 250, messages: [{ role: "user", content: content as any }] });
+      const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+      const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+      return { ok: !!j.ok, issue: j.issue || "" };
+    } catch (e: any) {
+      lastErr = (e?.message || "").slice(0, 140);
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
+  // Tartós infra-hiba: ne blokkoljunk vég nélkül — de jelezzük, hogy az ellenorzés kimaradt.
+  return { ok: false, issue: "Gyula nem tudta ellenorizni (technikai hiba): " + lastErr };
+}
+
 export { SMART, FAST };
