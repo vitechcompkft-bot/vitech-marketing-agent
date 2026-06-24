@@ -16,7 +16,7 @@ export async function GET() {
       .from("emails")
       .select("id, route, subject, summary, gyula_note, from_addr, date, handled, is_shop, urgency, mailbox")
       .in("route", ["gyula", "erika"])
-      .order("handled", { ascending: true })
+      .eq("handled", false) // a kipipáltak (kész) archiválódnak → nem jelennek meg
       .order("date", { ascending: false })
       .limit(60);
     return NextResponse.json({ tasks: data || [] });

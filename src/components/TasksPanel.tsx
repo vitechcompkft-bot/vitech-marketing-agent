@@ -38,19 +38,18 @@ export default function TasksPanel() {
     refresh();
   }, []);
 
-  async function toggle(id: number, handled: boolean) {
-    setTasks((arr) => arr.map((t) => (t.id === id ? { ...t, handled } : t)));
+  async function archive(id: number) {
+    const prev = tasks;
+    // azonnal eltüntetjük (kipipált = kész → archiválva)
+    setTasks((arr) => arr.filter((t) => t.id !== id));
     const r = await fetch("/api/emails/handle", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, handled }),
+      body: JSON.stringify({ id, handled: true }),
     })
       .then((x) => x.json())
       .catch(() => ({ ok: false }));
-    if (!r.ok) {
-      // visszaállítás hiba esetén
-      setTasks((arr) => arr.map((t) => (t.id === id ? { ...t, handled: !handled } : t)));
-    }
+    if (!r.ok) setTasks(prev); // hiba esetén visszatesszük
   }
 
   const gyula = tasks.filter((t) => t.route === "gyula");
@@ -66,33 +65,30 @@ export default function TasksPanel() {
         <span className="badge bg-white/10 text-white/60">{openCount(list)} nyitott</span>
       </div>
       {list.length === 0 ? (
-        <div className="text-sm text-white/45">Nincs feladat.</div>
+        <div className="text-sm text-white/45">Nincs nyitott feladat. ✔</div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {list
-            .slice()
-            .sort((a, b) => Number(a.handled) - Number(b.handled))
-            .map((t) => (
-              <li key={t.id} className={`flex gap-3 rounded-lg border border-white/10 p-3 ${t.handled ? "opacity-45" : "bg-white/5"}`}>
-                <input
-                  type="checkbox"
-                  checked={t.handled}
-                  onChange={(e) => toggle(t.id, e.target.checked)}
-                  className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-emerald-500"
-                  title={t.handled ? "Kész — kattints a visszavonáshoz" : "Pipáld ki, ha kész"}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className={`text-sm font-semibold ${t.handled ? "line-through" : ""}`}>{t.subject}</div>
-                  <div className="mt-0.5 text-sm text-white/70">{(t[noteKey] || t.summary || "").toString()}</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/40">
-                    {t.is_shop && <span className="badge bg-amber-500/20 text-amber-200">🏬 bolt</span>}
-                    {t.urgency === "magas" && <span className="badge bg-red-500/20 text-red-200">sürgős</span>}
-                    <span>{t.from_addr}</span>
-                    <span>· {fmtDate(t.date)}</span>
-                  </div>
+          {list.map((t) => (
+            <li key={t.id} className="flex gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
+              <input
+                type="checkbox"
+                checked={false}
+                onChange={() => archive(t.id)}
+                className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-emerald-500"
+                title="Pipáld ki, ha kész (archiválódik)"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold">{t.subject}</div>
+                <div className="mt-0.5 text-sm text-white/70">{(t[noteKey] || t.summary || "").toString()}</div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/40">
+                  {t.is_shop && <span className="badge bg-amber-500/20 text-amber-200">🏬 bolt</span>}
+                  {t.urgency === "magas" && <span className="badge bg-red-500/20 text-red-200">sürgős</span>}
+                  <span>{t.from_addr}</span>
+                  <span>· {fmtDate(t.date)}</span>
                 </div>
-              </li>
-            ))}
+              </div>
+            </li>
+          ))}
         </ul>
       )}
     </div>
