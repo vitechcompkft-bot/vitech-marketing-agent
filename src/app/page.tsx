@@ -62,7 +62,7 @@ export default async function Overview() {
       </div>
 
       {/* Szervezet */}
-      <section>
+      <Panel accent="#1a73e8">
         <h2 className="section-title">🏢 A Vitech AI-csapat</h2>
 
         {/* Titkárság — Erika (a kapcsolattartó) */}
@@ -88,14 +88,16 @@ export default async function Overview() {
             <Member avatar={mihaly?.avatar} name={mihaly?.name ?? "Mihály"} role={mihaly?.role ?? "Gazdasági vezető · bevétel + kiadás"} lead status={st("mihaly")} />
           </Dept>
         </div>
-      </section>
+      </Panel>
 
       {/* Feladatok — Gyula (Informatika) + Erika (Egyéb), pipálható */}
-      <TasksPanel />
+      <Panel accent="#a855f7">
+        <TasksPanel />
+      </Panel>
 
       {/* Valós eladások (webshop, minden csatorna) */}
       {orders.ok && (
-        <section>
+        <Panel accent="#16a34a">
           <h2 className="section-title">💰 Valós eladások (webshop · minden csatorna)</h2>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Kpi title="Mai bevétel" value={ft(orders.todayRevenue)} accent={orders.todayRevenue > 0 ? "good" : undefined} />
@@ -123,11 +125,11 @@ export default async function Overview() {
             </div>
           )}
           <div className="mt-2 text-xs text-white/40">A „Valós eladások" minden csatornát tartalmaz. A lenti Google Ads blokk csak a hirdetésből származó részt mutatja.</div>
-        </section>
+        </Panel>
       )}
 
       {/* Gazdasági — Mihály (bevétel vs. hirdetési költés) */}
-      <section>
+      <Panel accent="#14b8a6">
         <h2 className="section-title">💼 Gazdasági — Mihály</h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Kpi title="Mai bevétel" value={ft(orders.todayRevenue)} accent={orders.todayRevenue > 0 ? "good" : undefined} />
@@ -157,10 +159,10 @@ export default async function Overview() {
           {st("mihaly")?.status_note || "Mihály minden nap elemzi a bevételt/kiadást és Telegramon jelent."}
           {!billingo.ok && billingo.note ? ` · ${billingo.note}` : ""} (Banki tételek: open-banking — bekötés folyamatban.)
         </div>
-      </section>
+      </Panel>
 
       {/* Google Ads összesített KPI-k */}
-      <div>
+      <Panel accent="#3b82f6">
         <h2 className="section-title">📣 Google Ads (csak a hirdetésből)</h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Kpi title="Mai költés" value={ft(totalCost)} />
@@ -168,10 +170,10 @@ export default async function Overview() {
           <Kpi title="ROAS" value={totalRoas ? `${totalRoas}×` : "—"} accent={totalRoas >= 3 ? "good" : totalRoas > 0 ? "warn" : undefined} />
           <Kpi title="Konverziók" value={num(totalConv)} />
         </div>
-      </div>
+      </Panel>
 
       {/* Kampányok */}
-      <section>
+      <Panel accent="#6366f1">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Kampányok</h2>
         <div className="flex flex-col gap-3">
           {metrics.length === 0 && <div className="card text-white/60">Nincs kampány-adat.</div>}
@@ -192,18 +194,18 @@ export default async function Overview() {
             </div>
           ))}
         </div>
-      </section>
+      </Panel>
 
       {/* Javaslatok (jóváhagyásra) */}
       {proposed.length > 0 && (
-        <section>
+        <Panel accent="#f59e0b">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Jóváhagyásra váró javaslatok</h2>
           <div className="grid gap-3 md:grid-cols-2">
             {proposed.map((a) => (
               <ProposedAction key={a.id} id={a.id!} label={humanize(a.type, a.params)} reasoning={a.reasoning} />
             ))}
           </div>
-        </section>
+        </Panel>
       )}
 
     </main>
@@ -265,6 +267,16 @@ function Member({ avatar, name, role, lead, status }: { avatar?: string | null; 
   );
 }
 
+function Panel({ accent, children }: { accent: string; children: ReactNode }) {
+  return (
+    <section
+      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-5"
+      style={{ borderLeftColor: accent, borderLeftWidth: 4 }}
+    >
+      {children}
+    </section>
+  );
+}
 function Kpi({ title, value, accent }: { title: string; value: string; accent?: "good" | "warn" }) {
   return (
     <div className="card">

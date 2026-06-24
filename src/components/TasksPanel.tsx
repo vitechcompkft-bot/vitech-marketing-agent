@@ -95,7 +95,7 @@ export default function TasksPanel() {
   );
 
   return (
-    <section>
+    <div>
       <h2 className="section-title">✅ Feladatok</h2>
       {!loaded ? (
         <div className="card text-sm text-white/45">Betöltés…</div>
@@ -105,6 +105,6 @@ export default function TasksPanel() {
           <Column title="📋 Egyéb — Erika" accent="#22c55e" list={erika} noteKey="summary" />
         </div>
       )}
-    </section>
+    </div>
   );
 }
