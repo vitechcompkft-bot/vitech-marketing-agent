@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkInbox } from "@/lib/email";
+import { watchNewOrders } from "@/lib/orders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,5 +19,7 @@ export async function GET(req: NextRequest) {
   }
   const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") || 3), 4);
   const result = await checkInbox(limit);
-  return NextResponse.json(result);
+  // Ugyanezen a 30 perces körön: új Unas-rendelések figyelése → Telegram.
+  const orders = await watchNewOrders().catch(() => ({ ok: false, newCount: 0 }));
+  return NextResponse.json({ ...result, orders });
 }

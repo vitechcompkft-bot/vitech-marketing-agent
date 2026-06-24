@@ -26,6 +26,7 @@ export default async function Overview() {
   const { metrics, actions, config, agents, statuses, orders, supabaseReady, mock } = await loadDashboard();
   const erika = agents.find((a) => a.key === "erika");
   const gyula = agents.find((a) => a.key === "gyula");
+  const mihaly = agents.find((a) => a.key === "mihaly");
   const st = (k: string) => statuses.find((s) => s.key === k);
   const proposed = actions.filter((a) => a.status === "proposed");
 
@@ -84,7 +85,7 @@ export default async function Overview() {
             <Member avatar={gyula?.avatar} name={gyula?.name ?? "Gyula"} role={gyula?.role ?? "IT vezető · automatizálás"} lead status={st("gyula")} />
           </Dept>
           <Dept title="Gazdasági" accent="#22c55e">
-            <div className="text-xs text-white/45">Vezető hamarosan…</div>
+            <Member avatar={mihaly?.avatar} name={mihaly?.name ?? "Mihály"} role={mihaly?.role ?? "Gazdasági vezető · bevétel + kiadás"} lead status={st("mihaly")} />
           </Dept>
         </div>
       </section>
@@ -124,6 +125,20 @@ export default async function Overview() {
           <div className="mt-2 text-xs text-white/40">A „Valós eladások" minden csatornát tartalmaz. A lenti Google Ads blokk csak a hirdetésből származó részt mutatja.</div>
         </section>
       )}
+
+      {/* Gazdasági — Mihály (bevétel vs. hirdetési költés) */}
+      <section>
+        <h2 className="section-title">💼 Gazdasági — Mihály</h2>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <Kpi title="Mai bevétel" value={ft(orders.todayRevenue)} accent={orders.todayRevenue > 0 ? "good" : undefined} />
+          <Kpi title="Havi bevétel" value={ft(orders.monthRevenue)} accent={orders.monthRevenue > 0 ? "good" : undefined} />
+          <Kpi title="Mai hirdetési költés" value={ft(totalCost)} />
+          <Kpi title="Mai eredmény (bev. − Ads)" value={ft(orders.todayRevenue - totalCost)} accent={orders.todayRevenue - totalCost >= 0 ? "good" : "warn"} />
+        </div>
+        <div className="mt-2 text-xs text-white/40">
+          {st("mihaly")?.status_note || "Mihály minden nap elemzi a bevételt/kiadást és Telegramon jelent. (Számlák: Billingo, banki tételek: open-banking — bekötés folyamatban.)"}
+        </div>
+      </section>
 
       {/* Google Ads összesített KPI-k */}
       <div>

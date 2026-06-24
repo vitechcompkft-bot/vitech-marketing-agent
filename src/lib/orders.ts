@@ -1,4 +1,6 @@
 import { unasLogin, unasGetOrders, type UnasOrder } from "./unas";
+import { supabaseAdmin } from "./supabase";
+import { sendTelegram } from "./telegram";
 
 export interface OrderStats {
   ok: boolean;
@@ -65,4 +67,41 @@ export async function getOrderStats(): Promise<OrderStats> {
   } catch {
     return EMPTY;
   }
+}
+
+const ftHuf = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) + " Ft";
+
+/**
+ * Új rendelések figyelése: az utolsó látott rendelés óta beérkezetteket Telegramon jelzi.
+ * Az állapotot az app_state.last_order_key tárolja (eloso futáskor csak alapot állít, nem spammel).
+ */
+export async function watchNewOrders(): Promise<{ ok: boolean; newCount: number }> {
+  const stats = await getOrderStats();
+  if (!stats.ok || stats.recent.length === 0) return { ok: false, newCount: 0 };
+  const newestKey = stats.recent[0].key;
+  const sb = supabaseAdmin();
+
+  const { data: stateRow } = await sb.from("app_state").select("value").eq("key", "last_order_key").maybeSingle();
+  const lastKey = stateRow?.value || null;
+
+  // Elso futás: csak rögzítjük az alapot, nem küldünk értesítést a régiekrol.
+  if (!lastKey) {
+    await sb.from("app_state").upsert({ key: "last_order_key", value: newestKey, updated_at: new Date().toISOString() });
+    return { ok: true, newCount: 0 };
+  }
+
+  // recent: legújabb elöl → az utolsó látottig minden ÚJ.
+  const fresh: typeof stats.recent = [];
+  for (const o of stats.recent) {
+    if (o.key === lastKey) break;
+    fresh.push(o);
+  }
+
+  for (const o of [...fresh].reverse()) {
+    await sendTelegram(`🛒 *Új rendelés!*\n💰 ${ftHuf(o.sumGross)} · ${o.status}\n#${o.key} · ${o.date}`).catch(() => {});
+  }
+  if (fresh.length) {
+    await sb.from("app_state").upsert({ key: "last_order_key", value: newestKey, updated_at: new Date().toISOString() });
+  }
+  return { ok: true, newCount: fresh.length };
 }

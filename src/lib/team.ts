@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./supabase";
 
-export type AgentStatusKey = "luca" | "klari" | "gyula" | "erika";
+export type AgentStatusKey = "luca" | "klari" | "gyula" | "erika" | "mihaly";
 
 export interface AgentStatusRow {
   key: string;
@@ -52,28 +52,46 @@ export async function gyulaDailyCheck(): Promise<void> {
 
     const lastData = live && live[0]?.updated_at ? new Date(live[0].updated_at) : null;
     const ageMin = lastData ? Math.round((Date.now() - lastData.getTime()) / 60000) : null;
-    const dataOk = ageMin !== null && ageMin < 180; // 3 órán belül friss
-    const dataTxt =
-      ageMin === null
-        ? "még nincs beérkezett adat"
-        : ageMin < 90
-        ? `adatszinkron friss (${ageMin} perce)`
-        : `adatszinkron ${Math.round(ageMin / 60)} órája frissült`;
+    const adsOk = ageMin !== null && ageMin < 180; // 3 órán belül friss
+
+    // KAPCSOLATOK pingelése: Unas (login) + e-mail (friss levél az elmúlt ~24h-ban).
+    const { unasLogin } = await import("./unas");
+    let unasOk = false;
+    try {
+      await unasLogin();
+      unasOk = true;
+    } catch {
+      unasOk = false;
+    }
+
+    const { data: lastEmail } = await sb.from("emails").select("date").order("date", { ascending: false }).limit(1);
+    const emailConfigured = !!(process.env.IMAP_HOST || process.env.GMAIL_USER);
+    const emailAgeH = lastEmail && lastEmail[0]?.date ? (Date.now() - new Date(lastEmail[0].date).getTime()) / 3600000 : null;
+    const emailOk = emailConfigured && (emailAgeH === null || emailAgeH < 48);
 
     // A PMax-sitelink/kiemelo hibák már javítva (csak javaslat) → ezeket NEM számoljuk valódi hibának.
     const realFails = (failed || []).filter((f) => f.type !== "add_sitelinks" && f.type !== "add_callouts").length;
 
-    let note: string;
+    const conn = [
+      `Unas ${unasOk ? "✅" : "❌"}`,
+      `Google Ads ${adsOk ? "✅" : "⚠️"}`,
+      `E-mail ${emailOk ? "✅" : emailConfigured ? "⚠️" : "—"}`,
+    ].join(" · ");
+
+    const allOk = unasOk && adsOk && emailOk && realFails === 0;
     let status: string;
-    if (dataOk && realFails === 0) {
+    let note: string;
+    if (allOk) {
       status = "done";
-      note = `Rendszer-ellenorzés kész ✅ — ${dataTxt}, az AI-szolgáltatások és a rendelés-szinkron rendben. Nincs valódi hiba.`;
-    } else if (!dataOk) {
-      status = "waiting";
-      note = `Figyelem: ${dataTxt}. Ellenorizni kell, hogy a Google Ads szkript óránként fut-e.`;
+      note = `Kapcsolatok rendben ✅ — ${conn}. Nincs valódi hiba.`;
     } else {
       status = "waiting";
-      note = `${dataTxt}, de ${realFails} valódi hibát találtam 24 órában — átnézem.`;
+      const issues: string[] = [];
+      if (!unasOk) issues.push("Unas nem elérheto");
+      if (!adsOk) issues.push("Google Ads adat nem friss (fut-e a szkript óránként?)");
+      if (!emailOk) issues.push("e-mail csatorna gyanús");
+      if (realFails > 0) issues.push(`${realFails} valódi hiba 24h-ban`);
+      note = `Kapcsolatok: ${conn}. Teendo: ${issues.join("; ")}.`;
     }
 
     await setAgentStatus("gyula", status, note);

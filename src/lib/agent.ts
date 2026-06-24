@@ -208,9 +208,9 @@ async function sendDailyReport(
 
   // Csapat napi státuszai (Erika gyujti össze).
   const statuses = await getAgentStatuses();
-  const NAMES: Record<string, string> = { luca: "Luca", klari: "Klári", gyula: "Gyula", erika: "Erika" };
+  const NAMES: Record<string, string> = { luca: "Luca", klari: "Klári", gyula: "Gyula", mihaly: "Mihály", erika: "Erika" };
   const ICON: Record<string, string> = { working: "⏳", done: "✅", waiting: "⏸️", error: "⚠️", idle: "⚪" };
-  const order = ["luca", "klari", "gyula"];
+  const order = ["luca", "klari", "gyula", "mihaly"];
   const teamLines = order
     .map((k) => statuses.find((s) => s.key === k))
     .filter(Boolean)

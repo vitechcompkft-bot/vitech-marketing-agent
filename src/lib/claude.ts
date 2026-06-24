@@ -692,4 +692,52 @@ Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true/false, "issue": "ha nem ok, m
   return { ok: true, issue: "QC kihagyva (hiba): " + lastErr };
 }
 
+/**
+ * MIHÁLY — gazdasági osztályvezeto (határozott könyvelo) napi pénzügyi elemzése.
+ * A célja: minél több BEVÉTEL + a kiadások kordában tartása. Konkrét, számokra épülo
+ * javaslatokat ad a spórolásra és a bevétel növelésére.
+ */
+export async function mihalyAnalyze(fin: {
+  todayRevenue: number;
+  todayCount: number;
+  monthRevenue: number;
+  monthCount: number;
+  todayAdSpend: number;
+  monthAdSpend: number;
+  note?: string;
+}): Promise<{ summary: string; suggestions: string[] }> {
+  const anthropic = client();
+  const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) + " Ft";
+  try {
+    const msg = await anthropic.messages.create({
+      model: SMART,
+      max_tokens: 500,
+      system:
+        "Te vagy Mihály, a Vitech Comp Kft. gazdasági osztályvezetoje — határozott, precíz könyvelo. A célod minél több BEVÉTEL és a költségek kordában tartása. Magyarul, tömören, SZÁMOKRA építve írsz a tulajdonosnak.",
+      messages: [
+        {
+          role: "user",
+          content: `Mai adatok:
+- Mai bevétel (webshop, minden csatorna): ${ft(fin.todayRevenue)} (${fin.todayCount} rendelés)
+- Havi bevétel: ${ft(fin.monthRevenue)} (${fin.monthCount} rendelés)
+- Mai hirdetési költés (Google Ads): ${ft(fin.todayAdSpend)}
+- Havi hirdetési költés: ${ft(fin.monthAdSpend)}
+${fin.note ? "- Megjegyzés: " + fin.note : ""}
+
+Készíts NAPI pénzügyi értékelést. Válaszolj PONTOSAN ebben a JSON-ban:
+{ "summary": "2-4 mondatos magyar elemzés számokkal (bevétel/kiadás arány, trend, mire figyeljünk)", "suggestions": ["1-3 konkrét, számszeru spórolási vagy bevétel-növelo javaslat"] }`,
+        },
+      ],
+    });
+    const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return {
+      summary: j.summary || "(nincs elemzés)",
+      suggestions: Array.isArray(j.suggestions) ? j.suggestions.slice(0, 3) : [],
+    };
+  } catch {
+    return { summary: "(Mihály elemzése most nem készült el)", suggestions: [] };
+  }
+}
+
 export { SMART, FAST };

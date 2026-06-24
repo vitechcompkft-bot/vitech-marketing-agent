@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runMonitorCycle } from "@/lib/agent";
 import { runSeoAudit } from "@/lib/seo";
 import { gyulaDailyCheck } from "@/lib/team";
+import { runMihalyDaily } from "@/lib/finance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,9 +25,11 @@ async function handle(req: NextRequest) {
     const seo = await runSeoAudit({ limit: 5 }).catch((e) => ({ ran: false, reason: e?.message }));
     // 1b) Gyula napi rendszer-ellenorzése (a státusza bekerüljön Erika jelentésébe).
     await gyulaDailyCheck().catch(() => {});
+    // 1c) Mihály napi pénzügyi jelentése (bevétel/kiadás + javaslatok → Telegram + státusz).
+    const finance = await runMihalyDaily().catch((e) => ({ summary: "Mihály jelentése nem futott le: " + (e?.message || "?"), suggestions: [] }));
     // 2) Google Ads ciklus + Erika napi jelentés (csapat-státuszokkal).
     const result = await runMonitorCycle({ sendReport: true });
-    return NextResponse.json({ ok: true, seo, ...result });
+    return NextResponse.json({ ok: true, seo, finance, ...result });
   } catch (e: any) {
     console.error("[cron/monitor] hiba:", e);
     return NextResponse.json({ ok: false, error: e?.message ?? "hiba" }, { status: 500 });
