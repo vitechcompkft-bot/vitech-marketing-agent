@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMonitorCycle } from "@/lib/agent";
-import { runSeoAudit } from "@/lib/seo";
 import { gyulaDailyCheck } from "@/lib/team";
 
 function baseUrl(): string {
   return process.env.PUBLIC_BASE_URL || "https://vitech-marketing-agent.vercel.app";
+}
+
+/** Háttér-invokáció indítása (saját 60s budget), a fo ciklus nem várja meg a végét. */
+async function fireBg(secret: string | undefined, path: string) {
+  await fetch(`${baseUrl()}${path}`, {
+    method: "POST",
+    headers: secret ? { authorization: `Bearer ${secret}` } : {},
+    signal: AbortSignal.timeout(10000),
+  }).catch(() => {});
 }
 
 export const runtime = "nodejs";
@@ -24,19 +32,15 @@ async function handle(req: NextRequest) {
     }
   }
   try {
-    // 1) SEO-átvilágítás egy adag termékre (a jelentés ELOTT, hogy bekerüljön).
-    const seo = await runSeoAudit({ limit: 3 }).catch((e) => ({ ran: false, reason: e?.message }));
-    // 1b) Gyula napi rendszer-/kapcsolat-ellenorzése (a státusza bekerüljön Erika jelentésébe).
+    // 1) Gyula napi rendszer-/kapcsolat-ellenorzése (a státusza bekerüljön Erika jelentésébe).
     await gyulaDailyCheck().catch(() => {});
-    // 1c) Mihály napi pénzügyi jelentése — KÜLÖN invokációban (saját 60s budget), hogy ez ne ússzon el.
-    await fetch(`${baseUrl()}/api/finance/run`, {
-      method: "POST",
-      headers: secret ? { authorization: `Bearer ${secret}` } : {},
-      signal: AbortSignal.timeout(12000),
-    }).catch(() => {});
+    // 1b) SEO-átvilágítás + Mihály pénzügyi jelentése — KÜLÖN invokációkban (saját 60s budget),
+    //     hogy a fo ciklus + Erika jelentés biztosan beférjen 60s-be.
+    await fireBg(secret, "/api/seo/audit");
+    await fireBg(secret, "/api/finance/run");
     // 2) Google Ads ciklus + Erika napi jelentés (csapat-státuszokkal).
     const result = await runMonitorCycle({ sendReport: true });
-    return NextResponse.json({ ok: true, seo, ...result });
+    return NextResponse.json({ ok: true, ...result });
   } catch (e: any) {
     console.error("[cron/monitor] hiba:", e);
     return NextResponse.json({ ok: false, error: e?.message ?? "hiba" }, { status: 500 });
