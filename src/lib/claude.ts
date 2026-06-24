@@ -704,10 +704,17 @@ export async function mihalyAnalyze(fin: {
   monthCount: number;
   todayAdSpend: number;
   monthAdSpend: number;
+  unpaidCount?: number;
+  unpaidTotalHuf?: number;
+  expiredCount?: number;
   note?: string;
 }): Promise<{ summary: string; suggestions: string[] }> {
   const anthropic = client();
   const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) + " Ft";
+  const unpaidLine =
+    fin.unpaidCount !== undefined
+      ? `\n- Kifizetetlen KIMENO számlák (kintlévoség): ${fin.unpaidCount} db, ebbol ${fin.expiredCount ?? 0} lejárt, ~${ft(fin.unpaidTotalHuf ?? 0)}`
+      : "";
   try {
     const msg = await anthropic.messages.create({
       model: SMART,
@@ -721,10 +728,10 @@ export async function mihalyAnalyze(fin: {
 - Mai bevétel (webshop, minden csatorna): ${ft(fin.todayRevenue)} (${fin.todayCount} rendelés)
 - Havi bevétel: ${ft(fin.monthRevenue)} (${fin.monthCount} rendelés)
 - Mai hirdetési költés (Google Ads): ${ft(fin.todayAdSpend)}
-- Havi hirdetési költés: ${ft(fin.monthAdSpend)}
+- Havi hirdetési költés: ${ft(fin.monthAdSpend)}${unpaidLine}
 ${fin.note ? "- Megjegyzés: " + fin.note : ""}
 
-Készíts NAPI pénzügyi értékelést. Válaszolj PONTOSAN ebben a JSON-ban:
+Készíts NAPI pénzügyi értékelést (ha van lejárt kintlévoség, azt emeld ki, és javasolj behajtási lépést). Válaszolj PONTOSAN ebben a JSON-ban:
 { "summary": "2-4 mondatos magyar elemzés számokkal (bevétel/kiadás arány, trend, mire figyeljünk)", "suggestions": ["1-3 konkrét, számszeru spórolási vagy bevétel-növelo javaslat"] }`,
         },
       ],

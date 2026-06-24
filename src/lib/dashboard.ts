@@ -1,6 +1,7 @@
 import { getCampaignMetrics, isMock } from "./googleAds";
 import { supabaseAdmin } from "./supabase";
 import { getOrderStats, type OrderStats } from "./orders";
+import { getBillingoSummary, type BillingoSummary } from "./billingo";
 import type { AgentStatusRow } from "./team";
 import type { AgentAction, AgentConfig, Alert, CampaignMetric } from "./types";
 
@@ -49,6 +50,7 @@ export interface DashboardData {
   statuses: AgentStatusRow[];
   emails: EmailRow[];
   orders: OrderStats;
+  billingo: BillingoSummary;
   supabaseReady: boolean;
   mock: boolean;
 }
@@ -63,6 +65,9 @@ export async function loadDashboard(): Promise<DashboardData> {
   }
 
   const orders = await getOrderStats();
+  const billingo = await getBillingoSummary().catch(
+    () => ({ ok: false, unpaidCount: 0, unpaidTotalHuf: 0, expiredCount: 0, unpaid: [] }) as BillingoSummary
+  );
 
   let actions: AgentAction[] = [];
   let alerts: Alert[] = [];
@@ -96,5 +101,5 @@ export async function loadDashboard(): Promise<DashboardData> {
     supabaseReady = false;
   }
 
-  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, supabaseReady, mock: isMock };
+  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, supabaseReady, mock: isMock };
 }

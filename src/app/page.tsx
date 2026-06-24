@@ -23,7 +23,7 @@ function humanize(type: string, p: any): string {
 }
 
 export default async function Overview() {
-  const { metrics, actions, config, agents, statuses, orders, supabaseReady, mock } = await loadDashboard();
+  const { metrics, actions, config, agents, statuses, orders, billingo, supabaseReady, mock } = await loadDashboard();
   const erika = agents.find((a) => a.key === "erika");
   const gyula = agents.find((a) => a.key === "gyula");
   const mihaly = agents.find((a) => a.key === "mihaly");
@@ -135,8 +135,28 @@ export default async function Overview() {
           <Kpi title="Mai hirdetési költés" value={ft(totalCost)} />
           <Kpi title="Mai eredmény (bev. − Ads)" value={ft(orders.todayRevenue - totalCost)} accent={orders.todayRevenue - totalCost >= 0 ? "good" : "warn"} />
         </div>
+        {billingo.ok && billingo.unpaidCount > 0 && (
+          <div className="card mt-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-semibold">🧾 Kifizetetlen (kimenő) számlák — kintlévőség</span>
+              <span className="badge bg-amber-500/20 text-amber-200">{billingo.unpaidCount} db · {billingo.expiredCount} lejárt</span>
+            </div>
+            <div className="flex flex-col divide-y divide-white/5">
+              {billingo.unpaid.slice(0, 8).map((inv) => (
+                <div key={inv.number} className="flex items-center justify-between gap-2 py-1.5 text-sm">
+                  <span className="min-w-0 truncate">
+                    <span className={inv.status === "expired" ? "text-red-300" : "text-white/80"}>{inv.status === "expired" ? "⏰ " : ""}{inv.partner}</span>
+                    <span className="text-white/40"> · {inv.number} · fiz. hat.: {inv.dueDate || "—"}</span>
+                  </span>
+                  <span className="shrink-0 font-semibold">{ft(inv.gross)}{inv.currency !== "HUF" ? ` ${inv.currency}` : ""}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-2 text-xs text-white/40">
-          {st("mihaly")?.status_note || "Mihály minden nap elemzi a bevételt/kiadást és Telegramon jelent. (Számlák: Billingo, banki tételek: open-banking — bekötés folyamatban.)"}
+          {st("mihaly")?.status_note || "Mihály minden nap elemzi a bevételt/kiadást és Telegramon jelent."}
+          {!billingo.ok && billingo.note ? ` · ${billingo.note}` : ""} (Bejövő/szállítói számla a Billingo API-ból nem érhető el; banki tételek: open-banking — folyamatban.)
         </div>
       </section>
 
