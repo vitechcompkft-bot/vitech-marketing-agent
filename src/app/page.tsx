@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { loadDashboard } from "@/lib/dashboard";
 import RunNowButton from "@/components/RunNowButton";
 import ProposedAction from "@/components/ProposedAction";
+import TasksPanel from "@/components/TasksPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,9 @@ export default async function Overview() {
           </Dept>
         </div>
       </section>
+
+      {/* Feladatok — Gyula (Informatika) + Erika (Egyéb), pipálható */}
+      <TasksPanel />
 
       {/* Postaláda — Erika triázsa */}
       {emails.length > 0 && (
