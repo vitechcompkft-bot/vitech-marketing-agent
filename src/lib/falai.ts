@@ -3,14 +3,16 @@ import { ensureBucket } from "./sceneBg";
 
 const BUCKET = "poster-bg";
 
-/** STÚDIÓ-háttér prompt (NEM szoba/asztal — sima gradiens stúdió, hogy a rátett termék NE lebegjen). */
+/**
+ * IRODA-háttér prompt: elmosott (bokeh) prémium iroda + tiszta, FÉNYES ELOTÉR-FELÜLET,
+ * amire a terméket tesszük (tükrözodéssel) — így nem lebeg.
+ */
 export function buildScenePrompt(): string {
   return [
-    "Premium product photography STUDIO backdrop, abstract and minimal.",
-    "Smooth deep navy blue to bright blue gradient, soft top lighting, gentle bokeh light spots, and a faint subtle reflective dark surface along the bottom (a studio floor).",
-    "High-end, clean, lots of empty negative space.",
-    "IMPORTANT: this is only a smooth studio BACKDROP — NO room, NO window, NO desk, NO furniture, NO laptop, NO devices, NO objects, NO text, NO letters, NO numbers, NO logos, NO people.",
-    "Sharp, professional studio background.",
+    "Premium modern office interior photographed with a wide aperture, so the background is softly BLURRED (creamy bokeh): a bright window with daylight, subtle plants, warm and blue bokeh light spots, navy and blue tones.",
+    "In the FOREGROUND there is a clean, empty, slightly glossy/reflective dark desk or counter surface with lots of empty space — a product will be placed on it later.",
+    "Cinematic depth of field, high-end advertising photography, the lower part calm and uncluttered.",
+    "IMPORTANT: NO sharp furniture in focus, NO laptop, NO computer, NO devices, NO objects on the surface, NO people, NO text, NO letters, NO numbers, NO logos, NO watermarks.",
   ].join(" ");
 }
 

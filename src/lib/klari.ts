@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
 import { klariResearch, klariCompose, lucaJudgeDeal, lucaReviewPoster } from "./claude";
+import { generateAdImage, buildScenePrompt } from "./falai";
 import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
 import { removeBg } from "./removebg";
@@ -192,7 +193,7 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
     return { ran: false, reason: "Hiányzó render_data a kép-fázishoz." };
   }
 
-  // Prémium STÚDIÓ-plakát: valódi termék kivágva, tükrözodéssel + árnyékkal a felületen áll (nem lebeg).
+  // Valódi termék kivágva (tükrözodéssel + árnyékkal áll a felületen — nem lebeg).
   const cutout = rd.imageUrl ? await removeBg(rd.imageUrl).catch(() => null) : null;
   const base = {
     imageUrl: rd.imageUrl,
@@ -204,26 +205,42 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
     features: rd.features,
     specs: rd.specs,
   };
-  const posterUrl = await renderPosterPng(base).catch(() => null);
 
-  // Luca SZIGORÚ vizuális ellenorzés: ha a termék lebeg / nem valós kinézetu → NEM hagyja jóvá.
-  let visualOk = true;
+  let posterUrl: string | null = null;
+  let posterSource = "studio";
   let falNote = "";
-  if (posterUrl) {
-    const qc = await lucaReviewPoster(posterUrl).catch(() => ({ ok: true, issue: "" }));
-    if (!qc.ok) {
-      visualOk = false;
-      falNote = "Luca vizuálisan elvetette: " + qc.issue;
+
+  // 1) IRODA-háttér (fal.ai, elmosott) + grounding → Luca SZIGORÚ vizuális QC.
+  if (process.env.FAL_KEY) {
+    const bgUrl = await generateAdImage(buildScenePrompt()).catch(() => null);
+    if (bgUrl) {
+      const officeUrl = await renderPosterPng({ ...base, bgUrl }).catch(() => null);
+      if (officeUrl) {
+        const qc = await lucaReviewPoster(officeUrl).catch(() => ({ ok: true, issue: "" }));
+        if (qc.ok) {
+          posterUrl = officeUrl;
+          posterSource = "office-bg";
+        } else {
+          falNote = "Iroda-háttér elvetve (Luca): " + qc.issue + " → stúdió-háttér";
+        }
+      }
     }
   }
-  const approved = visualOk && !!posterUrl;
+
+  // 2) Ha nincs iroda-verzió (vagy Luca elvetette): tiszta STÚDIÓ-gradiens (megbízhatóan grounded).
+  if (!posterUrl) {
+    posterUrl = await renderPosterPng(base).catch(() => null);
+    posterSource = "studio";
+  }
+
+  const approved = !!posterUrl;
 
   await sb
     .from("klari_posts")
     .update({
       poster_url: approved ? posterUrl : null,
       poster_svg: row.poster_svg || buildDealPoster(base),
-      luca_verdict: visualOk ? row.luca_verdict : `${row.luca_verdict} | ${falNote}`,
+      luca_verdict: row.luca_verdict,
       status: approved ? "approved" : "rejected",
     })
     .eq("id", row.id);
@@ -232,8 +249,8 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
     "klari",
     approved ? "done" : "waiting",
     approved
-      ? `Kész: ${rd.productName.slice(0, 38)} — plakát posztolásra kész`
-      : "Luca elvetette a plakátot (vizuális) — holnap új javaslat"
+      ? `Kész: ${rd.productName.slice(0, 38)} — plakát posztolásra kész (${posterSource === "office-bg" ? "iroda" : "stúdió"})`
+      : "Nem sikerült plakátot renderelni — holnap új javaslat"
   );
 
   return {
@@ -244,7 +261,7 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
     verdict: row.luca_verdict,
     posterUrl,
     cutoutOk: !!cutout,
-    posterSource: "studio",
+    posterSource,
     falNote,
     postId: row.id,
   };

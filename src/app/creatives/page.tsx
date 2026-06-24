@@ -47,8 +47,14 @@ export default function CreativesPage() {
   }
   async function deletePost(id: number) {
     if (!confirm("Biztosan törlöd ezt az ajánlatot?")) return;
-    setKlari((arr) => arr.filter((x) => x.id !== id)); // azonnali UI
-    await fetch(`/api/klari-posts?id=${id}`, { method: "DELETE" }).catch(() => {});
+    const r = await fetch(`/api/klari-posts?id=${id}`, { method: "DELETE" })
+      .then((x) => x.json())
+      .catch(() => ({ ok: false, error: "hálózati hiba" }));
+    if (r.ok) {
+      setKlari((arr) => arr.filter((x) => x.id !== id)); // csak sikeres törléskor
+    } else {
+      alert("A törlés nem sikerült: " + (r.error || "ismeretlen hiba"));
+    }
   }
 
   async function generate() {
