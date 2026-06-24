@@ -778,7 +778,7 @@ export async function lucaReachPlan(
   try {
     const msg = await anthropic.messages.create({
       model: SMART,
-      max_tokens: 700,
+      max_tokens: 1100,
       system:
         "Te vagy Luca, a Vitech marketing osztályvezetoje. A FOFÓKUSZOD: minél TÖBB ELÉRÉS (impresszió, új közönség) NYERESÉGESEN. A csapatodban Klári a kreatívokat (plakát/hirdetésszöveg) készíti, alád dolgozik — neki konkrét kreatív briefet adsz.",
       messages: [
