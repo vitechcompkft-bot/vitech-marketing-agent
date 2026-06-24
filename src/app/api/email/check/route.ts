@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (secret && key !== secret && auth !== `Bearer ${secret}`) {
     return NextResponse.json({ ok: false, error: "Jogosulatlan" }, { status: 401 });
   }
-  const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") || 5), 10);
+  const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") || 3), 4);
   const result = await checkInbox(limit);
   return NextResponse.json(result);
 }

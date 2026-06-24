@@ -63,26 +63,43 @@ async function checkOneMailbox(cfg: MailboxCfg, limit: number): Promise<{ checke
       const status = await client.status("INBOX", { messages: true });
       const total = status.messages || 0;
       if (!total) return { checked: 0, added: 0 };
-      const start = Math.max(1, total - 11);
-      for await (const msg of client.fetch(`${start}:*`, { envelope: true, source: true, uid: true })) {
-        checked++;
-        const uid = `${cfg.key}:${msg.uid}`;
-        const { data: exists } = await sb.from("emails").select("id").eq("uid", uid).limit(1);
-        if (exists && exists.length) continue;
-        if (added >= limit) continue;
 
-        let from = msg.envelope?.from?.[0]?.address || "";
-        let subject = msg.envelope?.subject || "(nincs tárgy)";
+      // 1. menet: CSAK fejlécek (gyors) az utolsó ~10 levélbol.
+      const start = Math.max(1, total - 9);
+      const metas: { uid: number; envelope: any }[] = [];
+      for await (const m of client.fetch(`${start}:*`, { envelope: true, uid: true })) {
+        metas.push({ uid: m.uid as number, envelope: m.envelope });
+      }
+      checked = metas.length;
+
+      // A legújabbtól indulva kiválasztjuk az ÚJ (DB-ben még nem szereplo) leveleket, max `limit` db.
+      const fresh: { uid: number; envelope: any }[] = [];
+      for (const meta of metas.reverse()) {
+        const uidKey = `${cfg.key}:${meta.uid}`;
+        const { data: exists } = await sb.from("emails").select("id").eq("uid", uidKey).limit(1);
+        if (exists && exists.length) continue;
+        fresh.push(meta);
+        if (fresh.length >= limit) break;
+      }
+
+      // 2. menet: CSAK az új leveleknél töltjük le a törzset + futtatunk AI-t.
+      for (const meta of fresh) {
+        const uid = `${cfg.key}:${meta.uid}`;
+        let from = meta.envelope?.from?.[0]?.address || "";
+        let subject = meta.envelope?.subject || "(nincs tárgy)";
         let body = "";
         try {
-          const parsed = await simpleParser(msg.source as Buffer);
-          from = from || parsed.from?.text || "";
-          subject = subject || parsed.subject || "(nincs tárgy)";
-          body = (parsed.text || (parsed.html ? parsed.html.replace(/<[^>]+>/g, " ") : "") || "").replace(/\s+/g, " ").trim();
+          const one = await client.fetchOne(String(meta.uid), { source: true }, { uid: true });
+          if (one && (one as any).source) {
+            const parsed = await simpleParser((one as any).source as Buffer);
+            from = from || parsed.from?.text || "";
+            subject = subject || parsed.subject || "(nincs tárgy)";
+            body = (parsed.text || (parsed.html ? parsed.html.replace(/<[^>]+>/g, " ") : "") || "").replace(/\s+/g, " ").trim();
+          }
         } catch {
           /* tárgyból triázsolunk */
         }
-        const date = msg.envelope?.date ? new Date(msg.envelope.date) : new Date();
+        const date = meta.envelope?.date ? new Date(meta.envelope.date) : new Date();
         const triage = await erikaTriageEmail({ from, subject, body }, erikaPersona);
 
         // ROUTE: IT/AI → Gyula; minden más → Erika.
