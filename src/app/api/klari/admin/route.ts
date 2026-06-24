@@ -43,11 +43,11 @@ async function handle(req: NextRequest) {
 
   if (action === "purge") {
     const what = req.nextUrl.searchParams.get("what") || "rejected";
-    let q = sb.from("klari_posts").delete();
+    let q = sb.from("klari_posts").delete({ count: "exact" });
     if (what === "rejected") q = q.eq("status", "rejected");
     else if (what === "all") q = q.neq("id", 0);
     else return NextResponse.json({ ok: false, error: "what=rejected|all" }, { status: 400 });
-    const { error, count } = await q.select("id", { count: "exact" });
+    const { error, count } = await q;
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, purged: count ?? "ok", what });
   }
