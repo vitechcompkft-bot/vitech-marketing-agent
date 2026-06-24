@@ -718,7 +718,7 @@ export async function mihalyAnalyze(fin: {
   try {
     const msg = await anthropic.messages.create({
       model: SMART,
-      max_tokens: 500,
+      max_tokens: 900,
       system:
         "Te vagy Mihály, a Vitech Comp Kft. gazdasági osztályvezetoje — határozott, precíz könyvelo. A célod minél több BEVÉTEL és a költségek kordában tartása. Magyarul, tömören, SZÁMOKRA építve írsz a tulajdonosnak.",
       messages: [
