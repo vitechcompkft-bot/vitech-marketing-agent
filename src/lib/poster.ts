@@ -37,7 +37,7 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   <div class="poster">
     ${
       o.bgUrl
-        ? `<img class="scene" src="${esc(o.bgUrl)}"/><div class="scene-shade"></div>`
+        ? `<img class="scene" src="${esc(o.bgUrl)}"/><div class="scene-shade"></div><div class="deskband"></div><div class="deskedge"></div>`
         : `<div class="glow glow-a"></div><div class="glow glow-b"></div><div class="grid"></div><div class="desk"></div>`
     }
 
@@ -100,6 +100,11 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
     background:
       linear-gradient(90deg, rgba(5,14,33,.92) 0%, rgba(5,14,33,.74) 32%, rgba(5,14,33,.24) 64%, rgba(5,14,33,.10) 100%),
       linear-gradient(0deg, rgba(5,14,33,.88) 0%, rgba(5,14,33,.0) 40%); }
+  /* tiszta, fényes ELOTÉR-ASZTAL az iroda alsó sávjára → a termék EZEN áll (az iroda felül látszik) */
+  .deskband { position:absolute; left:0; right:0; bottom:0; height:235px; z-index:1;
+    background:linear-gradient(0deg, rgba(7,14,30,.97) 0%, rgba(9,18,38,.82) 46%, rgba(11,22,46,.42) 80%, transparent 100%); }
+  .deskedge { position:absolute; left:0; right:0; bottom:214px; height:2px; z-index:1;
+    background:linear-gradient(90deg, transparent 4%, rgba(140,185,255,.30) 28%, rgba(150,195,255,.5) 50%, rgba(140,185,255,.30) 72%, transparent 96%); }
   .top { position:absolute; top:36px; left:44px; right:44px; display:flex; justify-content:space-between; align-items:flex-start; }
   /* Logó háttér NÉLKÜL, fehér változatban (jól látszik a sötét jeleneten) */
   .logo img { height:92px; display:block; filter: brightness(0) invert(1) drop-shadow(0 2px 5px rgba(0,0,0,.55)); }
@@ -118,22 +123,22 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   .specs li span { font-size:25px; font-weight:600; color:#e9f2ff; }
   /* a termék egy FÉNYES FELÜLETEN áll: pódium-fény + valódi tükrözodés + kontakt-árnyék → nem lebeg.
      Abszolút pozicionálás, a "kontakt-vonal" (talp) ~104px a .product aljától. Nagyobb, arányos termék. */
-  .product { position:absolute; right:48px; bottom:122px; width:585px; height:445px; }
-  /* fényes felület-folt a talp körül */
-  .product .floor { position:absolute; left:50%; bottom:36px; width:565px; height:165px; transform:translateX(-50%); z-index:0;
-    background:radial-gradient(ellipse 74% 58% at 50% 42%, rgba(120,165,245,.20) 0%, rgba(120,165,245,.05) 48%, transparent 74%); }
-  /* kontakt-árnyék a talp vonalában */
-  .product .shadow { position:absolute; left:50%; bottom:92px; width:485px; height:52px; transform:translateX(-50%); z-index:1;
-    background:radial-gradient(ellipse at center, rgba(0,0,0,.6) 0%, rgba(0,0,0,.27) 44%, transparent 72%); filter:blur(10px); }
-  /* termék: a talpa a 104px-es kontakt-vonalon */
+  .product { position:absolute; right:48px; bottom:110px; width:585px; height:455px; z-index:2; }
+  /* fényes felület-folt a talp körül (foként a stúdió-háttérhez) */
+  .product .floor { position:absolute; left:50%; bottom:60px; width:565px; height:150px; transform:translateX(-50%); z-index:0;
+    background:radial-gradient(ellipse 74% 58% at 50% 42%, rgba(120,165,245,.18) 0%, rgba(120,165,245,.05) 48%, transparent 74%); }
+  /* eros kontakt-árnyék a talp alatt (az asztalon) → nem lebeg */
+  .product .shadow { position:absolute; left:50%; bottom:96px; width:510px; height:58px; transform:translateX(-50%); z-index:1;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,.72) 0%, rgba(0,0,0,.34) 44%, transparent 72%); filter:blur(11px); }
+  /* termék: a talpa a ~214px-es asztal-él vonalán (.cut bottom 104 + .product bottom 110) */
   .product .cut { position:absolute; left:0; right:0; bottom:104px; margin:0 auto; max-width:565px; max-height:325px;
-    display:block; z-index:3; filter:drop-shadow(0 16px 16px rgba(0,0,0,.42)); }
-  /* valódi tükrözodés: levágott, halványuló doboz a talp ALATT */
-  .product .reflbox { position:absolute; left:0; right:0; bottom:10px; margin:0 auto; width:565px; height:96px; overflow:hidden; z-index:2;
+    display:block; z-index:3; filter:drop-shadow(0 16px 16px rgba(0,0,0,.45)); }
+  /* valódi tükrözodés az asztalon: levágott, halványuló doboz a talp ALATT */
+  .product .reflbox { position:absolute; left:0; right:0; bottom:16px; margin:0 auto; width:565px; height:88px; overflow:hidden; z-index:2;
     -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.5) 0%, transparent 86%);
             mask-image:linear-gradient(to bottom, rgba(0,0,0,.5) 0%, transparent 86%); }
   .product .reflbox img { width:auto; max-width:565px; max-height:325px; display:block; margin:0 auto;
-    transform:scaleY(-1); transform-origin:top center; opacity:.5; }
+    transform:scaleY(-1); transform-origin:top center; opacity:.45; }
   /* fallback (ha nincs kivágás): light pedestal a fehér hátteru fotóhoz */
   .pedestal { position:absolute; left:50%; top:50%; width:520px; height:300px; transform:translate(-50%,-45%);
     background:radial-gradient(ellipse at center, rgba(220,235,255,.95) 0%, rgba(220,235,255,.35) 42%, transparent 70%); filter:blur(2px); }
