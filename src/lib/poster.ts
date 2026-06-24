@@ -53,17 +53,18 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
       <ul class="specs">
         ${specRows.slice(0, 7).map(([ic, t]) => `<li><i>${ic}</i><span>${esc(t)}</span></li>`).join("")}
       </ul>
-      <div class="product">
-        ${
-          o.productInScene
-            ? "" /* a laptop már a fal.ai jelenetben van → nincs külön termék-overlay */
-            : o.cutout
-            ? `<div class="floor"></div><div class="shadow"></div><img class="cut" src="${o.cutout}"/><div class="reflbox"><img src="${o.cutout}"/></div>`
-            : o.imageUrl
-            ? `<div class="pedestal"></div><img src="${esc(o.imageUrl)}"/>`
-            : ""
-        }
-      </div>
+    </div>
+
+    <div class="product">
+      ${
+        o.productInScene
+          ? "" /* a laptop már a fal.ai jelenetben van → nincs külön termék-overlay */
+          : o.cutout
+          ? `<div class="floor"></div><div class="shadow"></div><img class="cut" src="${o.cutout}"/><div class="reflbox"><img src="${o.cutout}"/></div>`
+          : o.imageUrl
+          ? `<div class="pedestal"></div><img src="${esc(o.imageUrl)}"/>`
+          : ""
+      }
     </div>
 
     <div class="foot">
@@ -100,10 +101,11 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
     background:
       linear-gradient(90deg, rgba(5,14,33,.92) 0%, rgba(5,14,33,.74) 32%, rgba(5,14,33,.24) 64%, rgba(5,14,33,.10) 100%),
       linear-gradient(0deg, rgba(5,14,33,.88) 0%, rgba(5,14,33,.0) 40%); }
-  /* tiszta, fényes ELOTÉR-ASZTAL az iroda alsó sávjára → a termék EZEN áll (az iroda felül látszik) */
-  .deskband { position:absolute; left:0; right:0; bottom:0; height:235px; z-index:1;
+  /* tiszta, fényes ELOTÉR-ASZTAL az iroda alsó sávjára → a termék EZEN áll (az iroda felül látszik).
+     NINCS z-index → a DOM-sorrend miatt a háttér fölött, de a szöveg/termék/lábléc MÖGÖTT marad. */
+  .deskband { position:absolute; left:0; right:0; bottom:0; height:235px;
     background:linear-gradient(0deg, rgba(7,14,30,.97) 0%, rgba(9,18,38,.82) 46%, rgba(11,22,46,.42) 80%, transparent 100%); }
-  .deskedge { position:absolute; left:0; right:0; bottom:214px; height:2px; z-index:1;
+  .deskedge { position:absolute; left:0; right:0; bottom:214px; height:2px;
     background:linear-gradient(90deg, transparent 4%, rgba(140,185,255,.30) 28%, rgba(150,195,255,.5) 50%, rgba(140,185,255,.30) 72%, transparent 96%); }
   .top { position:absolute; top:36px; left:44px; right:44px; display:flex; justify-content:space-between; align-items:flex-start; }
   /* Logó háttér NÉLKÜL, fehér változatban (jól látszik a sötét jeleneten) */
@@ -123,7 +125,7 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   .specs li span { font-size:25px; font-weight:600; color:#e9f2ff; }
   /* a termék egy FÉNYES FELÜLETEN áll: pódium-fény + valódi tükrözodés + kontakt-árnyék → nem lebeg.
      Abszolút pozicionálás, a "kontakt-vonal" (talp) ~104px a .product aljától. Nagyobb, arányos termék. */
-  .product { position:absolute; right:48px; bottom:110px; width:585px; height:455px; z-index:2; }
+  .product { position:absolute; right:48px; bottom:110px; width:585px; height:455px; }
   /* fényes felület-folt a talp körül (foként a stúdió-háttérhez) */
   .product .floor { position:absolute; left:50%; bottom:60px; width:565px; height:150px; transform:translateX(-50%); z-index:0;
     background:radial-gradient(ellipse 74% 58% at 50% 42%, rgba(120,165,245,.18) 0%, rgba(120,165,245,.05) 48%, transparent 74%); }
