@@ -1,8 +1,9 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { supabaseAdmin } from "./supabase";
-import { erikaTriageEmail } from "./claude";
+import { erikaTriageEmail, gyulaAnalyzeEmail } from "./claude";
 import { setAgentStatus } from "./team";
+import { sendTelegram } from "./telegram";
 
 export interface InboxResult {
   ok: boolean;
@@ -83,6 +84,33 @@ async function checkOneMailbox(cfg: MailboxCfg, limit: number): Promise<{ checke
         }
         const date = msg.envelope?.date ? new Date(msg.envelope.date) : new Date();
         const triage = await erikaTriageEmail({ from, subject, body }, erikaPersona);
+
+        // ROUTE: IT/AI → Gyula; minden más → Erika.
+        let gyulaNote: string | null = null;
+        let isShop = false;
+        let notified = false;
+        const short = `📧 ${from}\n📌 ${subject}`;
+
+        if (triage.route === "gyula") {
+          const g = await gyulaAnalyzeEmail({ from, subject, body });
+          isShop = g.isShop;
+          gyulaNote = g.problem;
+          // Gyula a BOLTI ügyeket jelzi Telegramon a tulajdonosnak.
+          if (isShop) {
+            await sendTelegram(`🛠️ *Gyula — bolti IT-probléma*\n${short}\n\n${g.problem}`).catch(() => {});
+            notified = true;
+          }
+          await setAgentStatus(
+            "gyula",
+            "working",
+            isShop ? `Bolti IT-ügy: ${subject.slice(0, 40)}` : `IT/AI e-mail elemezve: ${subject.slice(0, 36)}`
+          );
+        } else if (triage.notify) {
+          // Erika a saját (érdemi) ügyeit jelzi Telegramon.
+          await sendTelegram(`📨 *Erika — új e-mail* (${triage.urgency})\n${short}\n\n${triage.summary}`).catch(() => {});
+          notified = true;
+        }
+
         await sb.from("emails").insert({
           uid,
           mailbox: cfg.label,
@@ -91,8 +119,12 @@ async function checkOneMailbox(cfg: MailboxCfg, limit: number): Promise<{ checke
           date: date.toISOString(),
           snippet: body.slice(0, 200),
           summary: triage.summary,
-          department: triage.department,
+          department: triage.route === "gyula" ? "Informatika" : triage.department,
           urgency: triage.urgency,
+          route: triage.route,
+          gyula_note: gyulaNote,
+          is_shop: isShop,
+          notified,
         });
         added++;
       }

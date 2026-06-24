@@ -547,13 +547,13 @@ Válaszolj PONTOSAN ebben a JSON-ban, utána semmi:
 export async function erikaTriageEmail(
   email: { from: string; subject: string; body: string },
   persona: string
-): Promise<{ summary: string; department: string; urgency: string }> {
+): Promise<{ summary: string; department: string; urgency: string; route: "gyula" | "erika"; notify: boolean }> {
   const anthropic = client();
   try {
     const msg = await anthropic.messages.create({
       model: FAST,
-      max_tokens: 300,
-      system: `Te vagy Erika, a Vitech/HUNOR titkárnoje. ${persona}\nBeérkezo e-maileket triázsolsz a tulajdonosnak.`,
+      max_tokens: 320,
+      system: `Te vagy Erika, a Vitech/HUNOR titkárnoje. ${persona}\nBeérkezo e-maileket triázsolsz és irányítasz a tulajdonosnak.`,
       messages: [
         {
           role: "user",
@@ -561,8 +561,13 @@ export async function erikaTriageEmail(
 Tárgy: ${email.subject}
 Tartalom (részlet): ${email.body.slice(0, 1500)}
 
-Triázsold. Válaszolj PONTOSAN ebben a JSON-ban:
-{ "summary": "1 mondat magyar összegzés", "department": "Informatika | Gazdasagi | Marketing | Titkarsag | Egyeb", "urgency": "alacsony | kozepes | magas" }`,
+Triázsold és döntsd el, KIHEZ tartozik:
+- "gyula" → INFORMATIKAI jellegu (hibajelentés, rendszer, hálózat, szoftver, hardver, weboldal, kamera, nyomtató STB.) VAGY AI/mesterséges intelligencia témájú.
+- "erika" → minden más (gazdasági, számla, partneri, hivatalos, általános).
+Döntsd el azt is, kell-e róla a tulajdonost ÉRTESÍTENI (notify): true ha valódi, érdemi ügy; false ha hírlevél / reklám / promóció / automatikus / lényegtelen.
+
+Válaszolj PONTOSAN ebben a JSON-ban:
+{ "summary": "1 mondat magyar összegzés", "department": "Informatika | Gazdasagi | Marketing | Titkarsag | Egyeb", "urgency": "alacsony | kozepes | magas", "route": "gyula | erika", "notify": true }`,
         },
       ],
     });
@@ -572,9 +577,48 @@ Triázsold. Válaszolj PONTOSAN ebben a JSON-ban:
       summary: j.summary || "(nincs összegzés)",
       department: j.department || "Egyeb",
       urgency: ["alacsony", "kozepes", "magas"].includes(j.urgency) ? j.urgency : "alacsony",
+      route: j.route === "gyula" ? "gyula" : "erika",
+      notify: j.notify !== false,
     };
   } catch {
-    return { summary: "(triázs nem sikerült)", department: "Egyeb", urgency: "alacsony" };
+    return { summary: "(triázs nem sikerült)", department: "Egyeb", urgency: "alacsony", route: "erika", notify: false };
+  }
+}
+
+/**
+ * GYULA (informatikus) elemzi az IT/AI-témájú e-mailt: bolttól jött-e (üzlet hibajelentése),
+ * és mi a technikai probléma röviden. (A bolti ügyeket Gyula Telegramon jelzi a tulajdonosnak.)
+ */
+export async function gyulaAnalyzeEmail(
+  email: { from: string; subject: string; body: string }
+): Promise<{ isShop: boolean; problem: string }> {
+  const anthropic = client();
+  try {
+    const msg = await anthropic.messages.create({
+      model: FAST,
+      max_tokens: 320,
+      system:
+        "Te vagy Gyula, a precíz informatikus. A cég ÜZLETEKET/BOLTOKAT (HUNOR coop boltok, AIR üzletek, trafikok) szolgál ki IT-ben. Beérkezo IT/AI e-maileket elemzel.",
+      messages: [
+        {
+          role: "user",
+          content: `Feladó: ${email.from}
+Tárgy: ${email.subject}
+Tartalom (részlet): ${email.body.slice(0, 1500)}
+
+Elemezd:
+- isShop: a cég egyik ÜZLETÉTOL/BOLTJÁTÓL jött-e (pl. hibát, problémát jelent egy bolt)? true/false.
+- problem: 1-3 tömör magyar mondat: MI a technikai probléma / kérés, és ha tudsz, mi a teendo.
+Válaszolj PONTOSAN ebben a JSON-ban:
+{ "isShop": true/false, "problem": "rövid magyar összefoglaló a problémáról és teendoről" }`,
+        },
+      ],
+    });
+    const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return { isShop: !!j.isShop, problem: j.problem || "(nincs részlet)" };
+  } catch {
+    return { isShop: false, problem: "(Gyula elemzése nem sikerült)" };
   }
 }
 
