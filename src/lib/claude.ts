@@ -493,10 +493,12 @@ Keress rá néhány modellre a piacon (Árukereso, eMAG, használt-laptop oldala
 export async function klariCompose(
   products: { id: string; name: string; priceGross?: string }[],
   research: string,
-  persona: { name: string; persona: string }
+  persona: { name: string; persona: string },
+  lucaBrief?: string
 ): Promise<KlariDealOut | null> {
   const anthropic = client();
   const list = products.map((p) => `- [${p.id}] ${p.name} — ${p.priceGross || "?"} Ft`).join("\n");
+  const briefBlock = lucaBrief ? `\n\nLUCA (osztályvezeto) BRIEFJE — a TÖBB ELÉRÉSÉRT, KÖTELEZO figyelembe venni:\n${lucaBrief}\n` : "";
   const msg = await anthropic.messages.create({
     model: SMART,
     max_tokens: 1500,
@@ -508,7 +510,7 @@ export async function klariCompose(
 ${list}
 
 KLÁRI PIACKUTATÁSA:
-${research || "(nincs külön piaci adat — a belso ár/konfiguráció alapján válassz)"}
+${research || "(nincs külön piaci adat — a belso ár/konfiguráció alapján válassz)"}${briefBlock}
 
 Válaszd ki a LEGJOBB ajánlatot, és készíts hozzá kifogástalan plakát-tartalmat.
 SZABÁLYOK:
@@ -752,6 +754,58 @@ Készíts NAPI pénzügyi értékelést. A lejárt KINTLÉVOSÉGRE javasolj beha
     };
   } catch {
     return { summary: "(Mihály elemzése most nem készült el)", suggestions: [] };
+  }
+}
+
+/**
+ * LUCA elérés-terve: a hirdetési ADATOKBÓL (impresszió, CTR, kattintás, költés) megnézi,
+ * hogyan lehet TÖBB ELÉRÉST szerezni, és egy részét DELEGÁLJA Klárinak (kreatív brief).
+ */
+export async function lucaReachPlan(
+  metrics: CampaignMetric[],
+  config: AgentConfig
+): Promise<{ reachSummary: string; reachActions: string[]; klariBrief: string }> {
+  const anthropic = client();
+  const data = metrics.map((m) => ({
+    nev: m.campaign_name,
+    impresszio: m.impressions,
+    kattintas: m.clicks,
+    ctr: m.ctr,
+    koltes: m.cost_huf,
+    konverzio: m.conversions,
+    napi_keret: m.budget_huf,
+  }));
+  try {
+    const msg = await anthropic.messages.create({
+      model: SMART,
+      max_tokens: 700,
+      system:
+        "Te vagy Luca, a Vitech marketing osztályvezetoje. A FOFÓKUSZOD: minél TÖBB ELÉRÉS (impresszió, új közönség) NYERESÉGESEN. A csapatodban Klári a kreatívokat (plakát/hirdetésszöveg) készíti, alád dolgozik — neki konkrét kreatív briefet adsz.",
+      messages: [
+        {
+          role: "user",
+          content: `Hirdetési adatok (kampányonként): ${JSON.stringify(data)}
+Korlátok: max napi keret ${config.max_daily_budget_huf} Ft, keret-változás max ${config.max_budget_change_pct}%.
+
+Elemezd az ELÉRÉST (impresszió, CTR, közönség) és tervezz, hogyan legyen TÖBB elérés nyereségesen.
+Add vissza PONTOSAN ebben a JSON-ban:
+{
+  "reachSummary": "2-3 mondat magyar helyzetkép az elérésrol, számokkal (impresszió/CTR), és a fo lehetoség a növelésre",
+  "reachActions": ["1-3 konkrét lépés, amit TE (Luca) teszel az elérésért: pl. kulcsszó/közönség bovítés, keret-emelés javaslat, új hirdetésbovítmény"],
+  "klariBrief": "1 konkrét KREATÍV BRIEF Klárinak a mai plakáthoz, ami az elérést támogatja (milyen terméktípus/üzenet/szög emelje a kattintást és az elérést — pl. 'emeld ki az ingyenes kiszállítást és a 12 hó garanciát, fiatalos, üzleti hangvétel')"
+}`,
+        },
+      ],
+    });
+    const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return {
+      reachSummary: j.reachSummary || "(nincs elérés-elemzés)",
+      reachActions: Array.isArray(j.reachActions) ? j.reachActions.slice(0, 3) : [],
+      klariBrief: j.klariBrief || "",
+    };
+  } catch {
+    return { reachSummary: "(Luca elérés-terve most nem készült el)", reachActions: [], klariBrief: "" };
   }
 }
 

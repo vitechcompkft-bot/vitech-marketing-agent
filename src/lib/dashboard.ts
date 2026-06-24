@@ -51,6 +51,8 @@ export interface DashboardData {
   emails: EmailRow[];
   orders: OrderStats;
   billingo: BillingoSummary;
+  lucaReach: string;
+  klariBrief: string;
   supabaseReady: boolean;
   mock: boolean;
 }
@@ -76,11 +78,13 @@ export async function loadDashboard(): Promise<DashboardData> {
   let agents: OrgAgent[] = [];
   let statuses: AgentStatusRow[] = [];
   let emails: EmailRow[] = [];
+  let lucaReach = "";
+  let klariBrief = "";
   let supabaseReady = false;
 
   try {
     const sb = supabaseAdmin();
-    const [a, al, c, k, ag, st, em] = await Promise.all([
+    const [a, al, c, k, ag, st, em, rs, dt] = await Promise.all([
       sb.from("actions").select("*").order("created_at", { ascending: false }).limit(20),
       sb.from("alerts").select("*").order("created_at", { ascending: false }).limit(10),
       sb.from("agent_config").select("*").eq("id", 1).single(),
@@ -88,6 +92,8 @@ export async function loadDashboard(): Promise<DashboardData> {
       sb.from("agents").select("key,name,role,department,avatar,is_lead").eq("active", true).order("sort", { ascending: true }),
       sb.from("agent_status").select("*"),
       sb.from("emails").select("id,mailbox,from_addr,subject,date,summary,department,urgency").order("date", { ascending: false }).limit(10),
+      sb.from("app_state").select("value").eq("key", "luca_reach_summary").maybeSingle(),
+      sb.from("delegated_tasks").select("brief").eq("to_key", "klari").eq("status", "open").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     actions = (a.data as AgentAction[]) || [];
     alerts = (al.data as Alert[]) || [];
@@ -96,10 +102,12 @@ export async function loadDashboard(): Promise<DashboardData> {
     agents = (ag.data as OrgAgent[]) || [];
     statuses = (st.data as AgentStatusRow[]) || [];
     emails = (em.data as EmailRow[]) || [];
+    lucaReach = (rs?.data as any)?.value || "";
+    klariBrief = (dt?.data as any)?.brief || "";
     supabaseReady = !c.error;
   } catch {
     supabaseReady = false;
   }
 
-  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, supabaseReady, mock: isMock };
+  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, lucaReach, klariBrief, supabaseReady, mock: isMock };
 }

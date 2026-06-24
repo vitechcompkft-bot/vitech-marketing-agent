@@ -38,6 +38,7 @@ async function handle(req: NextRequest) {
     //     hogy a fo ciklus + Erika jelentés biztosan beférjen 60s-be.
     await fireBg(secret, "/api/seo/audit");
     await fireBg(secret, "/api/finance/run");
+    await fireBg(secret, "/api/luca/reach");
     // 2) Google Ads ciklus + Erika napi jelentés (csapat-státuszokkal).
     const result = await runMonitorCycle({ sendReport: true });
     return NextResponse.json({ ok: true, ...result });

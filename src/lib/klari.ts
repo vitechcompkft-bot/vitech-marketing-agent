@@ -63,11 +63,27 @@ export async function runKlariText(): Promise<KlariResult> {
     return { ran: false, reason: "Nincs feldolgozható termék." };
   }
 
+  // Luca delegált briefje (több elérésért) — ha van nyitott, beépítjük és lezárjuk.
+  let lucaBrief = "";
+  const { data: deleg } = await sb
+    .from("delegated_tasks")
+    .select("id, brief")
+    .eq("to_key", "klari")
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (deleg?.brief) {
+    lucaBrief = deleg.brief;
+    await sb.from("delegated_tasks").update({ status: "done" }).eq("id", deleg.id);
+    await setAgentStatus("klari", "working", "Luca briefje alapján dolgozom (több elérés)…");
+  }
+
   // 2) Klári: gyors piackutatás (web-keresés, szabad szöveg) → kifogástalan ajánlat összeállítása (eros modell).
   const productList = live.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross }));
   const research = await klariResearch(productList, klariPersona);
   await setAgentStatus("klari", "working", "Ajánlat összeállítása + Luca jóváhagyása…");
-  let deal = await klariCompose(productList, research, klariPersona);
+  let deal = await klariCompose(productList, research, klariPersona, lucaBrief);
   if (!deal) {
     await setAgentStatus("klari", "error", "Nem sikerült ajánlatot összeállítani.");
     return { ran: false, reason: "Klári most nem tudott ajánlatot összeállítani." };
@@ -88,7 +104,8 @@ export async function runKlariText(): Promise<KlariResult> {
     const d2 = await klariCompose(
       productList,
       research + "\n\nLUCA KORÁBBI KRITIKÁJA (KÖTELEZO kijavítani, ne ismételd a hibát):\n" + judge.verdict,
-      klariPersona
+      klariPersona,
+      lucaBrief
     );
     if (d2) {
       deal = d2;

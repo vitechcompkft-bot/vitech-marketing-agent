@@ -23,7 +23,7 @@ function humanize(type: string, p: any): string {
 }
 
 export default async function Overview() {
-  const { metrics, actions, config, agents, statuses, orders, billingo, supabaseReady, mock } = await loadDashboard();
+  const { metrics, actions, config, agents, statuses, orders, billingo, lucaReach, klariBrief, supabaseReady, mock } = await loadDashboard();
   const erika = agents.find((a) => a.key === "erika");
   const gyula = agents.find((a) => a.key === "gyula");
   const mihaly = agents.find((a) => a.key === "mihaly");
@@ -88,6 +88,19 @@ export default async function Overview() {
             <Member avatar={mihaly?.avatar} name={mihaly?.name ?? "Mihály"} role={mihaly?.role ?? "Gazdasági vezető · bevétel + kiadás"} lead status={st("mihaly")} />
           </Dept>
         </div>
+
+        {(lucaReach || klariBrief) && (
+          <div className="mt-3 rounded-xl border border-white/10 bg-[#1a73e8]/5 p-3 text-sm">
+            <div className="mb-1 font-semibold text-[#5ca0ff]">🎯 Luca elérés-terve</div>
+            {lucaReach && <div className="text-white/80">{lucaReach}</div>}
+            {klariBrief && (
+              <div className="mt-2 text-white/70">
+                <span className="text-white/45">👉 Klárinak delegálva (mai plakát iránya): </span>
+                {klariBrief}
+              </div>
+            )}
+          </div>
+        )}
       </Panel>
 
       {/* Feladatok — Gyula (Informatika) + Erika (Egyéb), pipálható */}
