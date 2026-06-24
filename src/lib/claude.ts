@@ -704,17 +704,25 @@ export async function mihalyAnalyze(fin: {
   monthCount: number;
   todayAdSpend: number;
   monthAdSpend: number;
-  unpaidCount?: number;
-  unpaidTotalHuf?: number;
-  expiredCount?: number;
+  receivableCount?: number;
+  receivableHuf?: number;
+  receivableExpired?: number;
+  payableCount?: number;
+  payableHuf?: number;
+  payableExpired?: number;
   note?: string;
 }): Promise<{ summary: string; suggestions: string[] }> {
   const anthropic = client();
   const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) + " Ft";
-  const unpaidLine =
-    fin.unpaidCount !== undefined
-      ? `\n- Kifizetetlen KIMENO számlák (kintlévoség): ${fin.unpaidCount} db, ebbol ${fin.expiredCount ?? 0} lejárt, ~${ft(fin.unpaidTotalHuf ?? 0)}`
+  const recvLine =
+    fin.receivableCount !== undefined
+      ? `\n- KINTLÉVOSÉG (kifizetetlen KIMENO számlák, nekünk tartoznak): ${fin.receivableCount} db, ebbol ${fin.receivableExpired ?? 0} lejárt, ~${ft(fin.receivableHuf ?? 0)}`
       : "";
+  const payLine =
+    fin.payableCount !== undefined
+      ? `\n- UTALANDÓ (kifizetetlen BEJÖVO/szállítói számlák, mi tartozunk): ${fin.payableCount} db, ebbol ${fin.payableExpired ?? 0} lejárt, ~${ft(fin.payableHuf ?? 0)}`
+      : "";
+  const unpaidLine = recvLine + payLine;
   try {
     const msg = await anthropic.messages.create({
       model: SMART,
@@ -731,7 +739,7 @@ export async function mihalyAnalyze(fin: {
 - Havi hirdetési költés: ${ft(fin.monthAdSpend)}${unpaidLine}
 ${fin.note ? "- Megjegyzés: " + fin.note : ""}
 
-Készíts NAPI pénzügyi értékelést (ha van lejárt kintlévoség, azt emeld ki, és javasolj behajtási lépést). Válaszolj PONTOSAN ebben a JSON-ban:
+Készíts NAPI pénzügyi értékelést. A lejárt KINTLÉVOSÉGRE javasolj behajtást; a lejárt/közeli UTALANDÓ (bejövo) számlákra hívd fel a figyelmet (mit kell utalni, meddig). Válaszolj PONTOSAN ebben a JSON-ban:
 { "summary": "2-4 mondatos magyar elemzés számokkal (bevétel/kiadás arány, trend, mire figyeljünk)", "suggestions": ["1-3 konkrét, számszeru spórolási vagy bevétel-növelo javaslat"] }`,
         },
       ],

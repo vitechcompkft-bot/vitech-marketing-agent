@@ -66,7 +66,7 @@ export async function loadDashboard(): Promise<DashboardData> {
 
   const orders = await getOrderStats();
   const billingo = await getBillingoSummary().catch(
-    () => ({ ok: false, unpaidCount: 0, unpaidTotalHuf: 0, expiredCount: 0, unpaid: [] }) as BillingoSummary
+    () => ({ ok: false, outCount: 0, outTotalHuf: 0, outExpired: 0, out: [], inCount: 0, inTotalHuf: 0, inExpired: 0, in: [] }) as BillingoSummary
   );
 
   let actions: AgentAction[] = [];

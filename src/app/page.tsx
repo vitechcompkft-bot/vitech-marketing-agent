@@ -135,28 +135,27 @@ export default async function Overview() {
           <Kpi title="Mai hirdetési költés" value={ft(totalCost)} />
           <Kpi title="Mai eredmény (bev. − Ads)" value={ft(orders.todayRevenue - totalCost)} accent={orders.todayRevenue - totalCost >= 0 ? "good" : "warn"} />
         </div>
-        {billingo.ok && billingo.unpaidCount > 0 && (
-          <div className="card mt-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-semibold">🧾 Kifizetetlen (kimenő) számlák — kintlévőség</span>
-              <span className="badge bg-amber-500/20 text-amber-200">{billingo.unpaidCount} db · {billingo.expiredCount} lejárt</span>
-            </div>
-            <div className="flex flex-col divide-y divide-white/5">
-              {billingo.unpaid.slice(0, 8).map((inv) => (
-                <div key={inv.number} className="flex items-center justify-between gap-2 py-1.5 text-sm">
-                  <span className="min-w-0 truncate">
-                    <span className={inv.status === "expired" ? "text-red-300" : "text-white/80"}>{inv.status === "expired" ? "⏰ " : ""}{inv.partner}</span>
-                    <span className="text-white/40"> · {inv.number} · fiz. hat.: {inv.dueDate || "—"}</span>
-                  </span>
-                  <span className="shrink-0 font-semibold">{ft(inv.gross)}{inv.currency !== "HUF" ? ` ${inv.currency}` : ""}</span>
-                </div>
-              ))}
-            </div>
+        {billingo.ok && (billingo.inCount > 0 || billingo.outCount > 0) && (
+          <div className="mt-3 grid gap-4 md:grid-cols-2">
+            <InvoiceList
+              title="💸 Utalandó (bejövő) számlák"
+              count={billingo.inCount}
+              expired={billingo.inExpired}
+              total={billingo.inTotalHuf}
+              items={billingo.in}
+            />
+            <InvoiceList
+              title="🧾 Kintlévőség (kimenő) számlák"
+              count={billingo.outCount}
+              expired={billingo.outExpired}
+              total={billingo.outTotalHuf}
+              items={billingo.out}
+            />
           </div>
         )}
         <div className="mt-2 text-xs text-white/40">
           {st("mihaly")?.status_note || "Mihály minden nap elemzi a bevételt/kiadást és Telegramon jelent."}
-          {!billingo.ok && billingo.note ? ` · ${billingo.note}` : ""} (Bejövő/szállítói számla a Billingo API-ból nem érhető el; banki tételek: open-banking — folyamatban.)
+          {!billingo.ok && billingo.note ? ` · ${billingo.note}` : ""} (Banki tételek: open-banking — bekötés folyamatban.)
         </div>
       </section>
 
@@ -279,6 +278,46 @@ function Mini({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-xs text-white/50">{label}</div>
       <div className="font-medium">{value}</div>
+    </div>
+  );
+}
+function InvoiceList({
+  title,
+  count,
+  expired,
+  total,
+  items,
+}: {
+  title: string;
+  count: number;
+  expired: number;
+  total: number;
+  items: { number: string; partner: string; gross: number; currency: string; dueDate: string; expired: boolean }[];
+}) {
+  return (
+    <div className="card">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold">{title}</span>
+        <span className="badge bg-amber-500/20 text-amber-200">{count} db{expired ? ` · ${expired} lejárt` : ""}</span>
+      </div>
+      {count === 0 ? (
+        <div className="text-sm text-white/45">Nincs fizetetlen tétel. ✔</div>
+      ) : (
+        <>
+          <div className="flex flex-col divide-y divide-white/5">
+            {items.slice(0, 8).map((inv) => (
+              <div key={inv.number} className="flex items-center justify-between gap-2 py-1.5 text-sm">
+                <span className="min-w-0 truncate">
+                  <span className={inv.expired ? "text-red-300" : "text-white/80"}>{inv.expired ? "⏰ " : ""}{inv.partner}</span>
+                  <span className="text-white/40"> · {inv.number} · hat.: {inv.dueDate || "—"}</span>
+                </span>
+                <span className="shrink-0 font-semibold">{ft(inv.gross)}{inv.currency !== "HUF" ? ` ${inv.currency}` : ""}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-right text-xs text-white/50">Összesen (HUF): <b className="text-white/80">{ft(total)}</b></div>
+        </>
+      )}
     </div>
   );
 }
