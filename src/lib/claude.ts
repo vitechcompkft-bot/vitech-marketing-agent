@@ -607,20 +607,29 @@ Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true, "issue": "ha nem ok, mi a ba
   }
 }
 
-/** LUCA SZIGORÚ vizuális minoség-ellenorzés a KÉSZ plakáton (vision): reális-e a termék elhelyezése. */
+/**
+ * LUCA — a marketing fonök VÉGSO döntése a kész hirdetésen (vision). Tiéd a döntés joga.
+ * A technikai részt (a terméket az asztalra helyezo AI-jelenetet) GYULA készítette elo.
+ * Hagyd jóvá (ok=true) CSAK akkor, ha mind teljesül:
+ *  1) a laptop ELÉG NAGY és hangsúlyos,
+ *  2) a laptop a háttérben látható ASZTALON áll, reálisan (nem lebeg, illik a jelenethez),
+ *  3) a hirdetés SZÖVEGE (cím, spec, ár, lábléc) jól OLVASHATÓ, semmi nincs takarva/levágva,
+ *  4) márkához méltó, profi, eladható összhatás.
+ */
 export async function lucaReviewPoster(imageUrl: string): Promise<{ ok: boolean; issue: string }> {
   const anthropic = client();
   const content: any[] = [
     { type: "image", source: { type: "url", url: imageUrl } },
     {
       type: "text",
-      text: `Te vagy Luca, a kritikus marketingfonök. Ez egy TERMÉK-HIRDETÉS plakát (product ad), ahol a termék kivágva, iroda/stúdió-háttéren szerepel — mint a webshopok/Apple hirdetései. Ez a stílus PROFI és teljesen ELFOGADHATÓ.
-Reálisan, NE túl szigorúan ítélj. CSAK akkor utasítsd el (ok=false), ha KONKRÉT, súlyos hiba van:
-- a termék TÉNYLEG lebeg: NINCS alatta SEMMILYEN árnyék ÉS nincs tükrözodés/felület-jelzés (teljesen a semmiben lóg); VAGY
-- valami ÁTFEDI egymást (a termék rálóg a logóra/badge-re/szövegre), vagy egy felirat LE VAN VÁGVA; VAGY
-- a szöveg olvashatatlan.
-Ha a terméknek VAN árnyéka és/vagy tükrözodése egy felületen, az ELFOGADHATÓ → ok=true (a kivágott-termék look önmagában NEM hiba).
-Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true, "issue": "ha nem ok, mi a konkrét baj röviden" }`,
+      text: `Te vagy Luca, a Vitech marketing fonöke — TIÉD a VÉGSO döntés, hogy ez a termék-hirdetés kimehet-e. A technikai elokészítést (a laptopot az asztalra helyezo AI-jelenet) Gyula, az informatikus csinálta; te a marketinges/minoségi döntést hozod.
+Hagyd jóvá (ok=true) CSAK akkor, ha MIND a négy teljesül:
+1) A laptop ELÉG NAGY és hangsúlyos a képen (jól látszik a termék, nem apró).
+2) A laptop a háttérben látható ASZTALON/felületen áll, REÁLISAN (van árnyéka/tükrözodése, NEM lebeg, illeszkedik a jelenethez).
+3) A SZÖVEG (cím, specifikációk, ár, lábléc) jól OLVASHATÓ — jó kontraszt, semmi nincs takarva vagy levágva.
+4) Márkához méltó, profi, eladható az összhatás.
+Ha BÁRMELYIK nem teljesül → ok=false, és írd le röviden, KONKRÉTAN mi a baj (ezt Gyula technikailag javítja).
+Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true/false, "issue": "ha nem ok, mi a konkrét baj röviden" }`,
     },
   ];
   let lastErr = "";
@@ -637,44 +646,6 @@ Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true, "issue": "ha nem ok, mi a ko
   }
   // Tartós infra-hiba: NE dobjuk el emiatt a (jó) képet — a renderelés maga rendben van.
   return { ok: true, issue: "QC kihagyva (hiba): " + lastErr };
-}
-
-/**
- * GYULA (informatikus) vizuális ellenorzése a KÉSZ hirdetésen (vision).
- * CSAK akkor hagyja jóvá (ok=true), ha mindhárom teljesül:
- *  1) a laptop ELÉG NAGY a képen,
- *  2) a laptop a háttérben látható ASZTALON áll (nem lebeg, illik a jelenethez),
- *  3) a hirdetés SZÖVEGE jól olvasható.
- */
-export async function gyulaReviewPoster(imageUrl: string): Promise<{ ok: boolean; issue: string }> {
-  const anthropic = client();
-  const content: any[] = [
-    { type: "image", source: { type: "url", url: imageUrl } },
-    {
-      type: "text",
-      text: `Te vagy Gyula, a precíz informatikus, aki a kész termék-hirdetést ELLENORZI kiadás elott.
-CSAK akkor hagyd jóvá (ok=true), ha MINDHÁROM feltétel teljesül:
-1) A laptop ELÉG NAGY és hangsúlyos a képen (nem apró, jól látszik a termék).
-2) A laptop a háttérben látható ASZTALON/felületen áll, REÁLISAN (van árnyéka/tükrözodése, NEM lebeg a levegoben, illeszkedik a jelenethez).
-3) A hirdetés SZÖVEGE (cím, specifikációk, ár, lábléc) jól OLVASHATÓ (jó kontraszt, semmi nem takarja, nincs levágva).
-Ha BÁRMELYIK nem teljesül → ok=false, és írd le röviden, KONKRÉTAN melyik és miért.
-Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true/false, "issue": "ha nem ok, mi a baj röviden" }`,
-    },
-  ];
-  let lastErr = "";
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const msg = await anthropic.messages.create({ model: SMART, max_tokens: 250, messages: [{ role: "user", content: content as any }] });
-      const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
-      const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-      return { ok: !!j.ok, issue: j.issue || "" };
-    } catch (e: any) {
-      lastErr = (e?.message || "").slice(0, 140);
-      await new Promise((r) => setTimeout(r, 1500));
-    }
-  }
-  // Tartós infra-hiba: ne blokkoljunk vég nélkül — de jelezzük, hogy az ellenorzés kimaradt.
-  return { ok: false, issue: "Gyula nem tudta ellenorizni (technikai hiba): " + lastErr };
 }
 
 export { SMART, FAST };
