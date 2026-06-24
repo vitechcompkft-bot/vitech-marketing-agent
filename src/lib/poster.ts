@@ -98,8 +98,8 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   .scene { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
   .scene-shade { position:absolute; inset:0;
     background:
-      linear-gradient(90deg, rgba(5,14,33,.94) 0%, rgba(5,14,33,.80) 36%, rgba(5,14,33,.40) 68%, rgba(5,14,33,.30) 100%),
-      linear-gradient(0deg, rgba(5,14,33,.90) 0%, rgba(5,14,33,.0) 42%); }
+      linear-gradient(90deg, rgba(5,14,33,.92) 0%, rgba(5,14,33,.74) 32%, rgba(5,14,33,.24) 64%, rgba(5,14,33,.10) 100%),
+      linear-gradient(0deg, rgba(5,14,33,.88) 0%, rgba(5,14,33,.0) 40%); }
   .top { position:absolute; top:36px; left:44px; right:44px; display:flex; justify-content:space-between; align-items:flex-start; }
   /* Logó háttér NÉLKÜL, fehér változatban (jól látszik a sötét jeleneten) */
   .logo img { height:92px; display:block; filter: brightness(0) invert(1) drop-shadow(0 2px 5px rgba(0,0,0,.55)); }

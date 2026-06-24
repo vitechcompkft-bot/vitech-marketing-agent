@@ -9,10 +9,11 @@ const BUCKET = "poster-bg";
  */
 export function buildScenePrompt(): string {
   return [
-    "Premium modern office interior photographed with a wide aperture, so the background is softly BLURRED (creamy bokeh): a bright window with daylight, subtle plants, warm and blue bokeh light spots, navy and blue tones.",
-    "In the FOREGROUND there is a clean, empty, slightly glossy/reflective dark desk or counter surface with lots of empty space — a product will be placed on it later.",
-    "Cinematic depth of field, high-end advertising photography, the lower part calm and uncluttered.",
-    "IMPORTANT: NO sharp furniture in focus, NO laptop, NO computer, NO devices, NO objects on the surface, NO people, NO text, NO letters, NO numbers, NO logos, NO watermarks.",
+    "Premium modern office interior, clearly RECOGNIZABLE: a bright window with daylight and a city/office view, desks, subtle plants, modern furniture, navy and blue tones.",
+    "Use only a MODERATE, gentle depth of field — the background is softly atmospheric but still CLEARLY READABLE as an office (NOT heavily blurred, NOT abstract bokeh).",
+    "In the FOREGROUND there is a clean, empty, slightly glossy/reflective dark desk or counter surface with empty space — a product will be placed on it later.",
+    "High-end advertising photography, balanced and uncluttered.",
+    "IMPORTANT: NO laptop, NO computer, NO devices, NO objects on the front surface, NO people, NO text, NO letters, NO numbers, NO logos, NO watermarks.",
   ].join(" ");
 }
 
