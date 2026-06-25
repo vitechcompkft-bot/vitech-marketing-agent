@@ -141,14 +141,26 @@ export async function runBankSync(): Promise<BankSnapshot> {
     let currency = "HUF";
     let in30 = 0;
     let out30 = 0;
+    let balDebug = "";
     const recent: BankSnapshot["recent"] = [];
 
+    const amtOf = (x: any) => x?.balance_amount || x?.balanceAmount || (x?.amount !== undefined ? x : null);
+
     for (const uid of session.accounts) {
-      const bal = await ebFetch(`/accounts/${uid}/balances`).catch(() => null);
-      const b = bal?.balances?.find((x: any) => ["CLBD", "ITAV", "CLAV"].includes(x.balance_type)) || bal?.balances?.[0];
-      if (b?.balance_amount) {
-        balance = (balance || 0) + Number(b.balance_amount.amount || 0);
-        currency = b.balance_amount.currency || currency;
+      const bal = await ebFetch(`/accounts/${uid}/balances`).catch((e: any) => {
+        balDebug = "balances hiba: " + (e?.message || "").slice(0, 120);
+        return null;
+      });
+      const arr: any[] = bal?.balances || [];
+      if (!balDebug && !arr.length) balDebug = "üres balances válasz: " + JSON.stringify(bal).slice(0, 160);
+      const pref = ["CLBD", "ITBD", "ITAV", "CLAV", "XPCD", "OTHR", "PRCD", "OPBD"];
+      const chosen = arr.find((x) => pref.includes(x.balance_type)) || arr[0];
+      const a = amtOf(chosen);
+      if (a && a.amount !== undefined) {
+        balance = (balance || 0) + Number(a.amount || 0);
+        currency = a.currency || currency;
+      } else if (!balDebug && chosen) {
+        balDebug = "ismeretlen balance-alak: " + JSON.stringify(chosen).slice(0, 160);
       }
 
       let contKey: string | undefined;
@@ -183,6 +195,7 @@ export async function runBankSync(): Promise<BankSnapshot> {
       out30,
       recent: recent.slice(0, 10),
       asOf: new Date().toISOString(),
+      note: balance === null && balDebug ? balDebug : undefined,
     };
     await sb.from("app_state").upsert({ key: "bank_snapshot", value: JSON.stringify(snap), updated_at: new Date().toISOString() });
     return snap;
