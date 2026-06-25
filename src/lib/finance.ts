@@ -54,8 +54,9 @@ export async function runMihalyDaily(): Promise<{ summary: string; suggestions: 
   const f = await getFinanceSnapshot();
   const b = f.billingo;
   const bk = f.bank;
+  const bankBal = bk.balance != null ? `~${ft(bk.balance)} ${bk.currency}` : "n/a (a K&H nem ad egyenleget az AIS-en)";
   const bankNote = bk.connected
-    ? `Banki egyenleg (K&H): ~${ft(bk.balance || 0)} ${bk.currency}. Utolsó 30 nap: bevétel ~${ft(bk.in30)}, kiadás ~${ft(bk.out30)}.`
+    ? `K&H bankszámla — egyenleg: ${bankBal}; utolsó 30 nap: bevétel ~${ft(bk.in30)}, kiadás ~${ft(bk.out30)}.`
     : "A K&H banki hozzáférés még nincs összekötve.";
   const note =
     (b.ok
@@ -86,7 +87,9 @@ export async function runMihalyDaily(): Promise<{ summary: string; suggestions: 
   const sug = analysis.suggestions.length ? "\n\n💡 " + analysis.suggestions.map((s) => "• " + s).join("\n") : "";
   const outLine = b.ok && b.outCount > 0 ? `\n🧾 Kintlévoség (kimeno): ${b.outCount} db (${b.outExpired} lejárt) ~${ft(b.outTotalHuf)}` : "";
   const inLine = b.ok && b.inCount > 0 ? `\n💸 Utalandó (bejövo): ${b.inCount} db (${b.inExpired} lejárt) ~${ft(b.inTotalHuf)}` : "";
-  const bankLine = bk.connected ? `\n🏦 K&H egyenleg: ~${ft(bk.balance || 0)} ${bk.currency} (30n: +${ft(bk.in30)} / -${ft(bk.out30)})` : "";
+  const bankLine = bk.connected
+    ? `\n🏦 K&H (30 nap): bevétel +${ft(bk.in30)} / kiadás -${ft(bk.out30)}${bk.balance != null ? ` · egyenleg ~${ft(bk.balance)} ${bk.currency}` : ""}`
+    : "";
   await sendTelegram(
     `📊 *Mihály — napi pénzügyi jelentés*\n\n💰 Mai bevétel: ${ft(f.todayRevenue)} (${f.todayCount} rendelés)\n📅 Havi bevétel: ${ft(f.monthRevenue)} (${f.monthCount} rendelés)\n📣 Mai hirdetési költés: ${ft(f.todayAdSpend)}${outLine}${inLine}${bankLine}\n\n${analysis.summary}${sug}`
   ).catch(() => {});

@@ -720,8 +720,8 @@ export async function mihalyAnalyze(fin: {
   const anthropic = client();
   const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) + " Ft";
   const bankLine =
-    fin.bankBalance !== undefined
-      ? `\n- BANKI EGYENLEG (K&H): ~${ft(fin.bankBalance)}; utolsó 30 nap bankszámla-forgalom: bevétel ~${ft(fin.bankIn30 ?? 0)}, kiadás ~${ft(fin.bankOut30 ?? 0)}`
+    fin.bankIn30 !== undefined
+      ? `\n- K&H BANKSZÁMLA — utolsó 30 nap forgalom: bevétel ~${ft(fin.bankIn30 ?? 0)}, kiadás ~${ft(fin.bankOut30 ?? 0)}${fin.bankBalance !== undefined ? `; egyenleg ~${ft(fin.bankBalance)}` : " (egyenleget a K&H nem ad az AIS-en)"}`
       : "";
   const recvLine =
     fin.receivableCount !== undefined

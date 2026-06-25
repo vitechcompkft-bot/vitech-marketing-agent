@@ -195,7 +195,7 @@ export async function runBankSync(): Promise<BankSnapshot> {
       out30,
       recent: recent.slice(0, 10),
       asOf: new Date().toISOString(),
-      note: balance === null && balDebug ? balDebug : undefined,
+      note: balance === null ? "A K&H az AIS-en nem ad egyenleget — a forgalom (be/ki) és a tételek alapján elemzünk." : undefined,
     };
     await sb.from("app_state").upsert({ key: "bank_snapshot", value: JSON.stringify(snap), updated_at: new Date().toISOString() });
     return snap;
