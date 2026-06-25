@@ -22,6 +22,7 @@ const SITES = [
   { id: "kereskedelmi", url: "http://10.49.8.2:3000/" },
   { id: "munkaugyi", url: "http://10.49.8.43:3001/" },
   { id: "nyomtato", url: "http://10.49.8.2:3300/nyomtatok/allasok" },
+  { id: "garancia", url: "http://localhost:8000/" },
 ];
 
 async function pingOne(url) {

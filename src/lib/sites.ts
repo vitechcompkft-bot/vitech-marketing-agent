@@ -19,4 +19,5 @@ export const MONITORED_SITES: MonitoredSite[] = [
   { id: "kereskedelmi", name: "Kereskedelmi dashboard", url: "http://10.49.8.2:3000/", scope: "lan" },
   { id: "munkaugyi", name: "Munkaügyi dashboard", url: "http://10.49.8.43:3001/", scope: "lan" },
   { id: "nyomtato", name: "Nyomtató dashboard", url: "http://10.49.8.2:3300/nyomtatok/allasok", scope: "lan" },
+  { id: "garancia", name: "Garancia-készíto (helyi)", url: "http://localhost:8000/", scope: "lan" },
 ];

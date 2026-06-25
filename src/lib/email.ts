@@ -175,3 +175,47 @@ export async function checkInbox(limit = 5): Promise<InboxResult> {
   if (added > 0) await setAgentStatus("erika", "working", `${added} új e-mail rendezve a postaládá(k)ból.`);
   return { ok: true, checked, added, per };
 }
+
+/**
+ * A Vitech Gmail-bol a legutóbbi RENDELÉS-értesíto e-mailek TELJES szövege (a garancia-app számára).
+ * Így a helyi garancia-app a MÁR bekötött Gmail-bol kapja az adatot, külön jelszó nélkül.
+ */
+export async function fetchOrderEmails(limit = 15): Promise<{ subject: string; from: string; body: string }[]> {
+  const boxes = mailboxes().filter((b) => b.key === "vitech");
+  const out: { subject: string; from: string; body: string }[] = [];
+  for (const cfg of boxes) {
+    const client = new ImapFlow({ host: cfg.host, port: cfg.port, secure: true, auth: { user: cfg.user, pass: cfg.pass }, logger: false });
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock("INBOX");
+      try {
+        const status = await client.status("INBOX", { messages: true });
+        const total = status.messages || 0;
+        if (!total) continue;
+        const start = Math.max(1, total - (limit - 1));
+        for await (const msg of client.fetch(`${start}:*`, { envelope: true, source: true, uid: true })) {
+          const subject = msg.envelope?.subject || "";
+          let body = "";
+          try {
+            const parsed = await simpleParser(msg.source as Buffer);
+            body = (parsed.text || (parsed.html ? parsed.html.replace(/<[^>]+>/g, " ") : "") || "").replace(/\r\n/g, "\n");
+          } catch {
+            /* tárgyból nem tudunk garancialevelet csinálni — kihagyjuk */
+          }
+          const hay = (subject + " " + body).toLowerCase();
+          if (hay.includes("megrendel") && body.toLowerCase().includes("megrendelt term")) {
+            out.push({ subject, from: msg.envelope?.from?.[0]?.address || "", body });
+          }
+        }
+      } finally {
+        lock.release();
+      }
+      await client.logout();
+    } catch {
+      try {
+        await client.logout();
+      } catch {}
+    }
+  }
+  return out;
+}
