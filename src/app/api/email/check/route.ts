@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkInbox } from "@/lib/email";
 import { watchNewOrders } from "@/lib/orders";
+import { checkPublicSites } from "@/lib/health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +20,8 @@ export async function GET(req: NextRequest) {
   }
   const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") || 3), 4);
   const result = await checkInbox(limit);
-  // Ugyanezen a 30 perces körön: új Unas-rendelések figyelése → Telegram.
+  // Ugyanezen a 30 perces körön: új Unas-rendelések + Gyula publikus oldal-figyelése.
   const orders = await watchNewOrders().catch(() => ({ ok: false, newCount: 0 }));
-  return NextResponse.json({ ...result, orders });
+  const sites = await checkPublicSites().catch(() => ({ checked: 0, up: 0, down: 0 }));
+  return NextResponse.json({ ...result, orders, sites });
 }

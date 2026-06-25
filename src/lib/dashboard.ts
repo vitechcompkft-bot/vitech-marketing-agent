@@ -2,6 +2,7 @@ import { getCampaignMetrics, isMock } from "./googleAds";
 import { supabaseAdmin } from "./supabase";
 import { getOrderStats, type OrderStats } from "./orders";
 import { getBillingoSummary, type BillingoSummary } from "./billingo";
+import { getSiteHealth, type SiteHealthRow } from "./health";
 import type { AgentStatusRow } from "./team";
 import type { AgentAction, AgentConfig, Alert, CampaignMetric } from "./types";
 
@@ -53,6 +54,7 @@ export interface DashboardData {
   billingo: BillingoSummary;
   lucaReach: string;
   klariBrief: string;
+  sites: SiteHealthRow[];
   supabaseReady: boolean;
   mock: boolean;
 }
@@ -70,6 +72,7 @@ export async function loadDashboard(): Promise<DashboardData> {
   const billingo = await getBillingoSummary().catch(
     () => ({ ok: false, outCount: 0, outTotalHuf: 0, outExpired: 0, out: [], inCount: 0, inTotalHuf: 0, inExpired: 0, in: [] }) as BillingoSummary
   );
+  const sites = await getSiteHealth().catch(() => []);
 
   let actions: AgentAction[] = [];
   let alerts: Alert[] = [];
@@ -109,5 +112,5 @@ export async function loadDashboard(): Promise<DashboardData> {
     supabaseReady = false;
   }
 
-  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, lucaReach, klariBrief, supabaseReady, mock: isMock };
+  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, lucaReach, klariBrief, sites, supabaseReady, mock: isMock };
 }

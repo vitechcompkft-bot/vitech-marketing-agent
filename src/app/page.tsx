@@ -23,7 +23,7 @@ function humanize(type: string, p: any): string {
 }
 
 export default async function Overview() {
-  const { metrics, actions, config, agents, statuses, orders, billingo, lucaReach, klariBrief, supabaseReady, mock } = await loadDashboard();
+  const { metrics, actions, config, agents, statuses, orders, billingo, lucaReach, klariBrief, sites, supabaseReady, mock } = await loadDashboard();
   const erika = agents.find((a) => a.key === "erika");
   const gyula = agents.find((a) => a.key === "gyula");
   const mihaly = agents.find((a) => a.key === "mihaly");
@@ -106,6 +106,38 @@ export default async function Overview() {
       {/* Feladatok — Gyula (Informatika) + Erika (Egyéb), pipálható */}
       <Panel accent="#a855f7">
         <TasksPanel />
+      </Panel>
+
+      {/* Felügyelt oldalak — Gyula (uptime) */}
+      <Panel accent="#22d3ee">
+        <h2 className="section-title">🖥️ Felügyelt oldalak — Gyula</h2>
+        <div className="grid gap-2 md:grid-cols-2">
+          {sites.map((s) => {
+            const dot = s.status === "up" ? "🟢" : s.status === "down" ? "🔴" : "⚪";
+            return (
+              <a
+                key={s.id}
+                href={s.url}
+                target="_blank"
+                rel="noreferrer"
+                className="card card-hover flex items-center justify-between gap-2 py-2.5"
+              >
+                <span className="min-w-0">
+                  <span className="text-sm font-medium">{dot} {s.name}</span>
+                  <span className="block truncate text-xs text-white/45">{s.url}</span>
+                </span>
+                <span className="shrink-0 text-right text-xs text-white/50">
+                  <span className="badge bg-white/10 text-white/60">{s.scope === "lan" ? "LAN" : "publikus"}</span>
+                  {s.status === "down" && s.note ? <span className="block text-red-300">{s.note}</span> : null}
+                  {s.latency_ms != null && s.status === "up" ? <span className="block">{s.latency_ms} ms</span> : null}
+                </span>
+              </a>
+            );
+          })}
+        </div>
+        <div className="mt-2 text-xs text-white/40">
+          A publikus oldalakat Gyula a felhőből figyeli (30 percenként). A LAN-os (10.49.8.x) oldalakat egy belső agent jelenti — leeséskor Telegram.
+        </div>
       </Panel>
 
       {/* Valós eladások (webshop, minden csatorna) */}

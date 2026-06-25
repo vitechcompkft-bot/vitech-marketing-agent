@@ -29,7 +29,8 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/api/poster-bg") ||
     pathname.startsWith("/api/email") ||
     pathname.startsWith("/api/finance") ||
-    pathname.startsWith("/api/luca")
+    pathname.startsWith("/api/luca") ||
+    pathname.startsWith("/api/health")
   ) {
     return NextResponse.next();
   }
