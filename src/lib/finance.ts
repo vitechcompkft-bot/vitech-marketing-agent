@@ -4,6 +4,7 @@ import { mihalyAnalyze } from "./claude";
 import { setAgentStatus } from "./team";
 import { sendTelegram } from "./telegram";
 import { getBillingoSummary, type BillingoSummary } from "./billingo";
+import { getBankSnapshot, type BankSnapshot } from "./bank";
 
 const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) + " Ft";
 
@@ -15,6 +16,7 @@ export interface FinanceSnapshot {
   monthCount: number;
   todayAdSpend: number;
   billingo: BillingoSummary;
+  bank: BankSnapshot;
 }
 
 /** Pénzügyi pillanatkép: bevétel (Unas rendelések) + mai hirdetési költés (live_metrics). */
@@ -31,6 +33,9 @@ export async function getFinanceSnapshot(): Promise<FinanceSnapshot> {
   const billingo = await getBillingoSummary().catch(
     () => ({ ok: false, outCount: 0, outTotalHuf: 0, outExpired: 0, out: [], inCount: 0, inTotalHuf: 0, inExpired: 0, in: [] }) as BillingoSummary
   );
+  const bank = await getBankSnapshot().catch(
+    () => ({ ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], asOf: null }) as BankSnapshot
+  );
   return {
     ok: !!orders?.ok,
     todayRevenue: orders?.todayRevenue || 0,
@@ -39,6 +44,7 @@ export async function getFinanceSnapshot(): Promise<FinanceSnapshot> {
     monthCount: orders?.monthCount || 0,
     todayAdSpend,
     billingo,
+    bank,
   };
 }
 
@@ -47,9 +53,16 @@ export async function runMihalyDaily(): Promise<{ summary: string; suggestions: 
   await setAgentStatus("mihaly", "working", "Napi bevétel/kiadás elemzése…");
   const f = await getFinanceSnapshot();
   const b = f.billingo;
-  const note = b.ok
-    ? `Kintlévoség (KIMENO fizetetlen): ${b.outCount} db (${b.outExpired} lejárt) ~${ft(b.outTotalHuf)}. Utalandó (BEJÖVO/szállítói fizetetlen): ${b.inCount} db (${b.inExpired} lejárt) ~${ft(b.inTotalHuf)}. A havi hirdetési költés és a banki tételek bekötése még folyamatban.`
-    : "A számlák (Billingo) és a banki tételek bekötése még folyamatban — egyelore a webshop-bevétel és a mai hirdetési költés ismert.";
+  const bk = f.bank;
+  const bankNote = bk.connected
+    ? `Banki egyenleg (K&H): ~${ft(bk.balance || 0)} ${bk.currency}. Utolsó 30 nap: bevétel ~${ft(bk.in30)}, kiadás ~${ft(bk.out30)}.`
+    : "A K&H banki hozzáférés még nincs összekötve.";
+  const note =
+    (b.ok
+      ? `Kintlévoség (KIMENO fizetetlen): ${b.outCount} db (${b.outExpired} lejárt) ~${ft(b.outTotalHuf)}. Utalandó (BEJÖVO/szállítói fizetetlen): ${b.inCount} db (${b.inExpired} lejárt) ~${ft(b.inTotalHuf)}.`
+      : "A számlák (Billingo) bekötése folyamatban.") +
+    " " +
+    bankNote;
 
   const analysis = await mihalyAnalyze({
     todayRevenue: f.todayRevenue,
@@ -64,20 +77,24 @@ export async function runMihalyDaily(): Promise<{ summary: string; suggestions: 
     payableCount: b.ok ? b.inCount : undefined,
     payableHuf: b.ok ? b.inTotalHuf : undefined,
     payableExpired: b.ok ? b.inExpired : undefined,
+    bankBalance: bk.connected ? bk.balance ?? undefined : undefined,
+    bankIn30: bk.connected ? bk.in30 : undefined,
+    bankOut30: bk.connected ? bk.out30 : undefined,
     note,
   });
 
   const sug = analysis.suggestions.length ? "\n\n💡 " + analysis.suggestions.map((s) => "• " + s).join("\n") : "";
   const outLine = b.ok && b.outCount > 0 ? `\n🧾 Kintlévoség (kimeno): ${b.outCount} db (${b.outExpired} lejárt) ~${ft(b.outTotalHuf)}` : "";
   const inLine = b.ok && b.inCount > 0 ? `\n💸 Utalandó (bejövo): ${b.inCount} db (${b.inExpired} lejárt) ~${ft(b.inTotalHuf)}` : "";
+  const bankLine = bk.connected ? `\n🏦 K&H egyenleg: ~${ft(bk.balance || 0)} ${bk.currency} (30n: +${ft(bk.in30)} / -${ft(bk.out30)})` : "";
   await sendTelegram(
-    `📊 *Mihály — napi pénzügyi jelentés*\n\n💰 Mai bevétel: ${ft(f.todayRevenue)} (${f.todayCount} rendelés)\n📅 Havi bevétel: ${ft(f.monthRevenue)} (${f.monthCount} rendelés)\n📣 Mai hirdetési költés: ${ft(f.todayAdSpend)}${outLine}${inLine}\n\n${analysis.summary}${sug}`
+    `📊 *Mihály — napi pénzügyi jelentés*\n\n💰 Mai bevétel: ${ft(f.todayRevenue)} (${f.todayCount} rendelés)\n📅 Havi bevétel: ${ft(f.monthRevenue)} (${f.monthCount} rendelés)\n📣 Mai hirdetési költés: ${ft(f.todayAdSpend)}${outLine}${inLine}${bankLine}\n\n${analysis.summary}${sug}`
   ).catch(() => {});
 
   await setAgentStatus(
     "mihaly",
     "done",
-    `Bevétel ma ${ft(f.todayRevenue)} · Ads ${ft(f.todayAdSpend)}${b.ok ? ` · kintlév. ${b.outCount} · utalandó ${b.inCount}` : ""}`
+    `Bevétel ma ${ft(f.todayRevenue)} · Ads ${ft(f.todayAdSpend)}${bk.connected ? ` · K&H ~${ft(bk.balance || 0)}` : ""}`
   );
   return { ...analysis, snapshot: f };
 }

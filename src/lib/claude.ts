@@ -712,10 +712,17 @@ export async function mihalyAnalyze(fin: {
   payableCount?: number;
   payableHuf?: number;
   payableExpired?: number;
+  bankBalance?: number;
+  bankIn30?: number;
+  bankOut30?: number;
   note?: string;
 }): Promise<{ summary: string; suggestions: string[] }> {
   const anthropic = client();
   const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) + " Ft";
+  const bankLine =
+    fin.bankBalance !== undefined
+      ? `\n- BANKI EGYENLEG (K&H): ~${ft(fin.bankBalance)}; utolsó 30 nap bankszámla-forgalom: bevétel ~${ft(fin.bankIn30 ?? 0)}, kiadás ~${ft(fin.bankOut30 ?? 0)}`
+      : "";
   const recvLine =
     fin.receivableCount !== undefined
       ? `\n- KINTLÉVOSÉG (kifizetetlen KIMENO számlák, nekünk tartoznak): ${fin.receivableCount} db, ebbol ${fin.receivableExpired ?? 0} lejárt, ~${ft(fin.receivableHuf ?? 0)}`
@@ -738,7 +745,7 @@ export async function mihalyAnalyze(fin: {
 - Mai bevétel (webshop, minden csatorna): ${ft(fin.todayRevenue)} (${fin.todayCount} rendelés)
 - Havi bevétel: ${ft(fin.monthRevenue)} (${fin.monthCount} rendelés)
 - Mai hirdetési költés (Google Ads): ${ft(fin.todayAdSpend)}
-- Havi hirdetési költés: ${ft(fin.monthAdSpend)}${unpaidLine}
+- Havi hirdetési költés: ${ft(fin.monthAdSpend)}${unpaidLine}${bankLine}
 ${fin.note ? "- Megjegyzés: " + fin.note : ""}
 
 Készíts NAPI pénzügyi értékelést. A lejárt KINTLÉVOSÉGRE javasolj behajtást; a lejárt/közeli UTALANDÓ (bejövo) számlákra hívd fel a figyelmet (mit kell utalni, meddig). Válaszolj PONTOSAN ebben a JSON-ban:

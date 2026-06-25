@@ -23,7 +23,7 @@ function humanize(type: string, p: any): string {
 }
 
 export default async function Overview() {
-  const { metrics, actions, config, agents, statuses, orders, billingo, lucaReach, klariBrief, sites, supabaseReady, mock } = await loadDashboard();
+  const { metrics, actions, config, agents, statuses, orders, billingo, bank, lucaReach, klariBrief, sites, supabaseReady, mock } = await loadDashboard();
   const erika = agents.find((a) => a.key === "erika");
   const gyula = agents.find((a) => a.key === "gyula");
   const mihaly = agents.find((a) => a.key === "mihaly");
@@ -200,9 +200,44 @@ export default async function Overview() {
             />
           </div>
         )}
+        {/* K&H bank (Enable Banking) */}
+        <div className="card mt-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold">🏦 K&H bankszámla</span>
+            {bank.connected ? (
+              <span className="badge bg-green-500/20 text-green-300">összekötve</span>
+            ) : (
+              <span className="badge bg-white/10 text-white/60">nincs összekötve</span>
+            )}
+          </div>
+          {bank.connected ? (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <Mini label="Egyenleg" value={bank.balance != null ? `${ft(bank.balance)} ${bank.currency}` : "—"} />
+                <Mini label="30 nap bevétel" value={`+${ft(bank.in30)}`} />
+                <Mini label="30 nap kiadás" value={`-${ft(bank.out30)}`} />
+              </div>
+              {bank.recent.length > 0 && (
+                <div className="mt-3 flex flex-col divide-y divide-white/5">
+                  {bank.recent.slice(0, 6).map((t, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 py-1.5 text-sm">
+                      <span className="min-w-0 truncate">
+                        <span className={t.dir === "in" ? "text-green-300" : "text-white/80"}>{t.dir === "in" ? "▲" : "▼"} {t.party}</span>
+                        <span className="text-white/40"> · {t.date}{t.info ? ` · ${t.info}` : ""}</span>
+                      </span>
+                      <span className={`shrink-0 font-semibold ${t.dir === "in" ? "text-green-300" : ""}`}>{t.dir === "in" ? "+" : "-"}{ft(t.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-sm text-white/55">{bank.note || "A K&H bankszámla összekötése (Enable Banking) szükséges a banki tételek elemzéséhez."}</div>
+          )}
+        </div>
         <div className="mt-2 text-xs text-white/40">
           {st("mihaly")?.status_note || "Mihály minden nap elemzi a bevételt/kiadást és Telegramon jelent."}
-          {!billingo.ok && billingo.note ? ` · ${billingo.note}` : ""} (Banki tételek: open-banking — bekötés folyamatban.)
+          {!billingo.ok && billingo.note ? ` · ${billingo.note}` : ""}
         </div>
       </Panel>
 

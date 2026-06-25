@@ -37,6 +37,7 @@ async function handle(req: NextRequest) {
     // 1b) SEO-átvilágítás + Mihály pénzügyi jelentése — KÜLÖN invokációkban (saját 60s budget),
     //     hogy a fo ciklus + Erika jelentés biztosan beférjen 60s-be.
     await fireBg(secret, "/api/seo/audit");
+    await fireBg(secret, "/api/bank/sync");
     await fireBg(secret, "/api/finance/run");
     await fireBg(secret, "/api/luca/reach");
     // 2) Google Ads ciklus + Erika napi jelentés (csapat-státuszokkal).
