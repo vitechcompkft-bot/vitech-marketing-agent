@@ -77,14 +77,14 @@ export default async function Overview() {
 
         {/* Osztályok */}
         <div className="grid gap-3 md:grid-cols-3">
-          <Dept title="Marketing" accent="#1a73e8">
+          <Dept title="Marketing" accent="#1a73e8" href="/osztaly/marketing">
             <Member avatar={config?.agent_avatar || "/avatars/luca-1.svg"} name={config?.agent_name ?? "Luca"} role="osztályvezető · hirdetés + SEO" lead status={st("luca")} />
             <Member avatar={config?.klari_avatar} name="Klári" role="napi ajánlat + plakát" status={st("klari")} />
           </Dept>
-          <Dept title="Informatika" accent="#22d3ee">
+          <Dept title="Informatika" accent="#22d3ee" href="/osztaly/informatika">
             <Member avatar={gyula?.avatar} name={gyula?.name ?? "Gyula"} role={gyula?.role ?? "IT vezető · automatizálás"} lead status={st("gyula")} />
           </Dept>
-          <Dept title="Gazdasági" accent="#22c55e">
+          <Dept title="Gazdasági" accent="#22c55e" href="/osztaly/gazdasagi">
             <Member avatar={mihaly?.avatar} name={mihaly?.name ?? "Mihály"} role={mihaly?.role ?? "Gazdasági vezető · bevétel + kiadás"} lead status={st("mihaly")} />
           </Dept>
         </div>
@@ -298,20 +298,31 @@ function Person({ avatar, name, fallback }: { avatar?: string | null; name: stri
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={avatar || FALLBACK_AVATAR(fallback)} alt={name} className="h-12 w-12 rounded-full border border-white/20 bg-white/10 object-cover" />;
 }
-function Dept({ title, accent, children }: { title: string; accent: string; children: ReactNode }) {
-  return (
-    <div
-      className="flex flex-col gap-3 rounded-2xl border p-5"
-      style={{
-        background: `linear-gradient(180deg, ${accent}26, rgba(255,255,255,0.03))`,
-        borderColor: `${accent}66`,
-        boxShadow: `0 10px 30px -18px ${accent}88`,
-      }}
-    >
-      <div className="text-xs font-bold uppercase tracking-wider" style={{ color: accent }}>
-        {title}
+function Dept({ title, accent, href, children }: { title: string; accent: string; href?: string; children: ReactNode }) {
+  const style = {
+    background: `linear-gradient(180deg, ${accent}26, rgba(255,255,255,0.03))`,
+    borderColor: `${accent}66`,
+    boxShadow: `0 10px 30px -18px ${accent}88`,
+  } as const;
+  const inner = (
+    <>
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-bold uppercase tracking-wider" style={{ color: accent }}>
+          {title}
+        </div>
+        {href && <span className="text-xs font-semibold" style={{ color: accent }}>részletek →</span>}
       </div>
       {children}
+    </>
+  );
+  const cls = "flex flex-col gap-3 rounded-2xl border p-5" + (href ? " card-hover transition" : "");
+  return href ? (
+    <a href={href} className={cls} style={style}>
+      {inner}
+    </a>
+  ) : (
+    <div className={cls} style={style}>
+      {inner}
     </div>
   );
 }
