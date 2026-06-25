@@ -1,11 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadDashboard } from "@/lib/dashboard";
+import ProposedAction from "@/components/ProposedAction";
 
 export const dynamic = "force-dynamic";
 
 const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n || 0)) + " Ft";
 const num = (n: number) => new Intl.NumberFormat("hu-HU").format(n || 0);
+
+function humanize(type: string, p: any): string {
+  switch (type) {
+    case "budget_change": return `Napi keret ${p?.from ?? "?"} → ${p?.to} Ft`;
+    case "pause_ad": return "Kampány szüneteltetése";
+    case "enable_ad": return "Kampány újraindítása";
+    case "set_target_roas": return `ROAS-cél = ${p?.to}`;
+    case "add_sitelinks": return "Sitelinkek hozzáadása";
+    case "add_callouts": return "Kiemelők hozzáadása";
+    case "seo_update": return `SEO frissítés: ${p?.product_name ?? "termék"}`;
+    default: return type;
+  }
+}
 
 const META: Record<string, { title: string; accent: string; emoji: string }> = {
   marketing: { title: "Marketing osztály", accent: "#1a73e8", emoji: "🎯" },
@@ -50,6 +64,7 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
   const totalVal = d.metrics.reduce((s, m) => s + m.conv_value_huf, 0);
   const totalConv = d.metrics.reduce((s, m) => s + m.conversions, 0);
   const totalRoas = totalCost ? +(totalVal / totalCost).toFixed(2) : 0;
+  const proposed = d.actions.filter((a) => a.status === "proposed");
 
   return (
     <main className="flex flex-col gap-6">
@@ -103,6 +118,16 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
               ))}
             </div>
           </section>
+          {proposed.length > 0 && (
+            <section>
+              <h2 className="section-title">Jóváhagyásra váró javaslatok</h2>
+              <div className="grid gap-3 md:grid-cols-2">
+                {proposed.map((a) => (
+                  <ProposedAction key={a.id} id={a.id!} label={humanize(a.type, a.params)} reasoning={a.reasoning} />
+                ))}
+              </div>
+            </section>
+          )}
           <Link className="btn btn-primary w-fit" href="/creatives">🖼️ Kreatívok / Klári plakátjai →</Link>
         </>
       )}
@@ -147,6 +172,29 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
               <Kpi title="Mai eredmény" value={ft(d.orders.todayRevenue - totalCost)} accent={d.orders.todayRevenue - totalCost >= 0 ? "good" : "warn"} />
             </div>
           </section>
+
+          {d.orders.ok && d.orders.recent.length > 0 && (
+            <section>
+              <h2 className="section-title">💰 Valós eladások (webshop · minden csatorna)</h2>
+              <div className="card overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-left text-white/50">
+                    <tr><th className="py-1">Rendelés</th><th>Dátum</th><th>Állapot</th><th className="text-right">Végösszeg</th></tr>
+                  </thead>
+                  <tbody>
+                    {d.orders.recent.map((o) => (
+                      <tr key={o.key} className="border-t border-white/5">
+                        <td className="py-2 pr-3 text-white/70">{o.key}</td>
+                        <td className="pr-3 text-white/60">{o.date}</td>
+                        <td className="pr-3"><span className="badge bg-green-500/20 text-green-300">{o.status}</span></td>
+                        <td className="text-right font-semibold">{ft(o.sumGross)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           {d.billingo.ok && (
             <section className="grid gap-4 md:grid-cols-2">
