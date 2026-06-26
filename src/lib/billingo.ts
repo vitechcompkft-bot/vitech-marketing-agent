@@ -163,6 +163,18 @@ async function recordInvoicedOrder(orderKey: string, rec: InvoicedRecord): Promi
   await sb.from("app_state").upsert({ key: "order_invoices", value: JSON.stringify(map), updated_at: new Date().toISOString() });
 }
 
+/** Név nagy kezdobetuvel, minden szóra (ékezet- és kötojel-helyes). „gazdag istván" → „Gazdag István". */
+function titlecaseNev(s: string): string {
+  return (s || "").toLowerCase().replace(/(^|[\s\-])(\p{L})/gu, (_m, sep, ch) => sep + ch.toUpperCase());
+}
+
+/** A számlára kerülo vevonév: magánszemélynél MINDIG nagy kezdobetu; céget (adószámos) nem alakítunk. */
+function buyerName(o: OrderDetail): string {
+  const raw = (o.invoice.name || o.customerName || "Vásárló").trim();
+  const tax = (o.invoice.taxNumber || "").replace(/\D/g, "");
+  return tax.length >= 8 ? raw : titlecaseNev(raw);
+}
+
 /** Unas fizetési típus/név → Billingo payment_method. */
 function mapPayment(type?: string, name?: string): string {
   const t = (type || "").toLowerCase();
@@ -185,7 +197,7 @@ async function invoiceBlockId(): Promise<number> {
 
 /** A vevo Billingo-partner: meglévot keres (adószám/név+irsz), különben létrehoz. Visszaadja a partner_id-t. */
 async function findOrCreatePartner(o: OrderDetail): Promise<number> {
-  const name = (o.invoice.name || o.customerName || "Vásárló").trim();
+  const name = buyerName(o); // magánszemély neve nagy kezdobetuvel
   const tax = (o.invoice.taxNumber || "").trim();
   const q = tax || name;
   if (q) {
@@ -325,7 +337,7 @@ export async function buildInvoicePreview(o: OrderDetail): Promise<InvoicePrevie
     alreadyInvoiced: !!existing,
     existing,
     buyer: {
-      name: o.invoice.name || o.customerName || "Vásárló",
+      name: buyerName(o),
       address: [o.invoice.country, addr].filter(Boolean).join(", "),
       taxNumber: o.invoice.taxNumber || undefined,
       email: o.email || undefined,
