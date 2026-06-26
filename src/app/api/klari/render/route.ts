@@ -7,6 +7,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+function baseUrl(): string {
+  return process.env.PUBLIC_BASE_URL || "https://vitech-marketing-agent.vercel.app";
+}
+
 /**
  * Klári napi feladata — 2. (KÉP) FÁZIS. A szöveg-fázis (/api/klari/run) indítja el
  * egy külön invokációban, body-ban a postId + renderData átadásával.
@@ -41,20 +45,43 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ ok: true, pending: data?.length || 0, rows: data || [] });
   }
 
-  const args = { postId: body?.postId, renderData: body?.renderData };
+  const args = { postId: body?.postId, renderData: body?.renderData, attempt: body?.attempt };
   const sync = req.nextUrl.searchParams.get("sync") === "1";
 
+  // Sync (kézi): addig ismétli, amíg Luca el nem fogadja (vagy el nem fogynak a próbák).
   if (sync) {
     try {
-      const result = await runKlariImage(args);
+      let result = await runKlariImage(args);
+      while (result.retry && result.nextAttempt !== undefined) {
+        result = await runKlariImage({ postId: result.postId, attempt: result.nextAttempt });
+      }
       return NextResponse.json({ ok: true, ...result });
     } catch (e: any) {
       return NextResponse.json({ ok: false, error: e?.message ?? "hiba" }, { status: 500 });
     }
   }
 
-  // Háttérben dolgozunk, azonnal válaszolunk.
-  waitUntil(runKlariImage(args).catch(() => {}));
+  // Háttérben dolgozunk, azonnal válaszolunk. Ha Luca elutasít, de van még próba,
+  // a kép-fázis ÚJRA hívja önmagát (külön invokáció = saját 60s budget), amíg Luca el nem fogadja.
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (secret) headers.authorization = `Bearer ${secret}`;
+  waitUntil(
+    (async () => {
+      try {
+        const result = await runKlariImage(args);
+        if (result.retry && result.nextAttempt !== undefined) {
+          await fetch(`${baseUrl()}/api/klari/render`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ postId: result.postId, attempt: result.nextAttempt }),
+            signal: AbortSignal.timeout(12000),
+          }).catch(() => {});
+        }
+      } catch {
+        /* a háttér-munka hibáját nyeljük */
+      }
+    })()
+  );
   return NextResponse.json({ ok: true, accepted: true });
 }
 

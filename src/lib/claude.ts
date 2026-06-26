@@ -675,6 +675,7 @@ Hagyd jóvá (ok=true) CSAK akkor, ha MIND a négy teljesül:
 3) A SZÖVEG (cím, specifikációk, ár, lábléc) jól OLVASHATÓ — jó kontraszt, semmi nincs takarva vagy levágva.
 4) Márkához méltó, profi, eladható az összhatás.
 Ha BÁRMELYIK nem teljesül → ok=false, és írd le röviden, KONKRÉTAN mi a baj (ezt Gyula technikailag javítja).
+LÉGY PRAGMATIKUS: ha a plakát kiküldheto minoségu, hagyd jóvá — NE utasítsd el apró, ízlésbeli részletek miatt. Csak VALÓDI, kiküldést akadályozó hibára mondj nem-et (pl. a termék alig látszik, lebeg, szöveg levágva/olvashatatlan). Cél, hogy MA legyen kész, használható plakát.
 Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true/false, "issue": "ha nem ok, mi a konkrét baj röviden" }`,
     },
   ];

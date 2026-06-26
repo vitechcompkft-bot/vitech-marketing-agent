@@ -14,6 +14,7 @@ export interface PosterData {
   badges?: string[];
   features?: string[];
   specs?: { cpu?: string; ram?: string; storage?: string; display?: string; ports?: string; os?: string; condition?: string; warranty?: string };
+  dateLabel?: string; // „melyik nap készült" — a plakátra kerülo dátum-bélyeg
 }
 
 const LOGO_URL = "https://vitech-marketing-agent.vercel.app/avatars/vitech-logo.png";
@@ -47,6 +48,8 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
       <div class="logo"><img src="${LOGO_URL}"/></div>
       <div class="badges">${badges.map((b) => `<span>${esc(b)}</span>`).join("")}</div>
     </div>
+
+    ${o.dateLabel ? `<div class="datestamp">📅 ${esc(o.dateLabel)}</div>` : ""}
 
     <div class="headline">${esc(o.headline)}</div>
     <div class="accent"></div>
@@ -117,6 +120,9 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
     font-weight:800; font-size:17px; letter-spacing:.3px; padding:10px 16px; border-radius:24px;
     color:#06122b; background:linear-gradient(135deg,#5cc8ff,#2f8cff); box-shadow:0 6px 20px rgba(47,140,255,.5);
   }
+  /* dátum-bélyeg: melyik nap készült a kreatív (a logó alatt, a cím fölött) */
+  .datestamp { position:absolute; top:140px; left:50px; font-size:18px; font-weight:700; color:#cfe0ff;
+    background:rgba(5,14,33,.5); padding:5px 13px; border-radius:20px; letter-spacing:.3px; }
   .headline { position:absolute; top:208px; left:48px; right:650px; font-weight:900; font-size:40px; line-height:1.08;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; max-height:92px; }
   .accent { position:absolute; top:320px; left:50px; width:120px; height:7px; border-radius:4px; background:linear-gradient(90deg,#5cc8ff,#2f8cff); }

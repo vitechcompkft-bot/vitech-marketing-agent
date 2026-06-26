@@ -136,6 +136,7 @@ export function buildDealPoster(o: {
   badges?: string[];
   features?: string[];
   specs?: { cpu?: string; ram?: string; storage?: string; display?: string; ports?: string; os?: string; condition?: string; warranty?: string };
+  dateLabel?: string; // „melyik nap készült"
 }): string {
   const w = 1200,
     h = 800;
@@ -216,6 +217,7 @@ export function buildDealPoster(o: {
   <rect x="40" y="34" width="270" height="132" rx="18" fill="#ffffff"/>
   <image href="${LOGO_URL}" x="56" y="44" width="238" height="112" preserveAspectRatio="xMidYMid meet"/>
   ${badgeSvg}
+  ${o.dateLabel ? `<text x="50" y="208" font-family="${ff}" font-weight="700" font-size="20" fill="#aecbff">📅 ${esc(o.dateLabel)}</text>` : ""}
 
   <!-- cím (fehér) -->
   ${hlLines

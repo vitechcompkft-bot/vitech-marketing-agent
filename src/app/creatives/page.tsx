@@ -38,6 +38,13 @@ export default function CreativesPage() {
   useEffect(() => { refresh(); }, []);
 
   const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) + " Ft";
+  const fd = (s?: string) => {
+    if (!s) return "";
+    const d = new Date(s);
+    return isNaN(d.getTime())
+      ? ""
+      : new Intl.DateTimeFormat("hu-HU", { timeZone: "Europe/Budapest", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  };
   async function copyCaption(id: number, text: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -124,7 +131,10 @@ export default function CreativesPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="mono h-7 w-7 text-xs" style={{ background: "linear-gradient(135deg,#1a73e8,#0a2a5e)" }}>K</div>
-                    <span className="text-sm font-semibold">{k.product_name?.slice(0, 40)}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold">{k.product_name?.slice(0, 40)}</span>
+                      {fd(k.created_at) && <span className="text-xs text-white/45">📅 Készült: {fd(k.created_at)}</span>}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`badge ${k.status === "approved" ? "bg-green-500/20 text-green-300" : k.status === "posted" ? "bg-blue-500/20 text-blue-300" : k.status === "pending_image" ? "bg-amber-500/20 text-amber-200" : "bg-white/10 text-white/50"}`}>

@@ -20,7 +20,23 @@ export interface KlariResult {
   falNote?: string;
   postId?: number;
   renderData?: RenderData;
+  retry?: boolean; // a kép-fázis jelzi: Luca elutasította, de Klári újra nekifut (láncolt invokáció)
+  nextAttempt?: number; // a következo próba sorszáma (a render route ezzel hívja újra magát)
+  attempt?: number;
 }
+
+/** A kreatív készítésének napja (Budapest) — „melyik nap készült". */
+function todayLabel(): string {
+  return new Intl.DateTimeFormat("hu-HU", {
+    timeZone: "Europe/Budapest",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/** Hány alkalommal próbálja Klári a plakátot, amíg Luca el nem fogadja (láncolt invokációkban). */
+const MAX_IMAGE_ATTEMPTS = 6;
 
 /** A kép-fázishoz szükséges renderelési adatok (a szöveg-fázis állítja elo, a kép-fázis használja). */
 export interface RenderData {
@@ -33,6 +49,8 @@ export interface RenderData {
   badges?: string[];
   features?: string[];
   specs?: Record<string, string | undefined>;
+  dateLabel?: string; // a készítés napja — a plakátra kerül
+  lastPosterUrl?: string; // legutóbbi renderelt plakát (fallback-hez, ha kifutunk a próbákból)
 }
 
 /**
@@ -98,45 +116,31 @@ export async function runKlariText(): Promise<KlariResult> {
     );
   };
 
-  // 3) Luca (kritikusan) elbírálja — ha elutasít, Klári EGYSZER javít a visszajelzés alapján (keresés nélkül).
+  // 3) Luca (kritikusan) elbírálja — ha elutasít, Klári ÚJRA ÉS ÚJRA javít a visszajelzés alapján,
+  //    amíg Luca el nem fogadja (nem „holnap új", hanem MOST, ugyanabban a futásban). Felso korlát
+  //    a végtelen ciklus ellen; ha addig sem fogadja el, a LEGJOBB verzióval megyünk tovább, hogy
+  //    reggel biztosan legyen kész plakát.
+  const TEXT_MAX = 5;
   let judge = await judgeFor(deal);
-  if (!judge.approve) {
-    const d2 = await klariCompose(
-      productList,
-      research + "\n\nLUCA KORÁBBI KRITIKÁJA (KÖTELEZO kijavítani, ne ismételd a hibát):\n" + judge.verdict,
-      klariPersona,
-      lucaBrief
-    );
-    if (d2) {
-      deal = d2;
-      judge = await judgeFor(deal);
-    }
+  let critiques = "";
+  for (let i = 1; i < TEXT_MAX && !judge.approve; i++) {
+    await setAgentStatus("klari", "working", `Luca észrevételezte a szöveget — Klári újra nekifut (${i + 1}. próba)…`);
+    critiques += "\n\nLUCA KRITIKÁJA (KÖTELEZO kijavítani, ne ismételd a hibát):\n" + judge.verdict;
+    const dN = await klariCompose(productList, research + critiques, klariPersona, lucaBrief);
+    if (!dN) break;
+    deal = dN;
+    judge = await judgeFor(deal);
   }
 
   const product = live.find((p) => p.id === deal.product_id) || live[0];
   const priceHuf = product.priceGross ? Number(product.priceGross) : undefined;
+  const dateLabel = todayLabel();
+  const textVerdict = judge.approve
+    ? judge.verdict
+    : `Luca észrevételei beépítve (legjobb verzió ${TEXT_MAX} próbából): ${judge.verdict}`;
 
-  // Ha Luca a szöveget elutasítja → 'rejected' sor, kép-fázis nem kell.
-  if (!judge.approve) {
-    await sb.from("klari_posts").insert({
-      product_id: product.id,
-      product_name: product.name,
-      product_url: product.url ?? null,
-      image_url: product.imageUrl ?? null,
-      price_huf: priceHuf ?? null,
-      market_note: deal.market_note,
-      headline: deal.headline,
-      caption: deal.caption,
-      poster_svg: null,
-      poster_url: null,
-      luca_verdict: judge.verdict,
-      status: "rejected",
-    });
-    await setAgentStatus("klari", "waiting", "Luca elutasította a szöveget — holnap új javaslat");
-    return { ran: true, phase: "text", status: "rejected", product: product.name, verdict: judge.verdict };
-  }
-
-  // Jóváhagyott szöveg → 'pending_image' sor + render_data a kép-fázishoz.
+  // A szöveg KÉSZ → 'pending_image' sor + render_data a kép-fázishoz (a kép-fázis Klári addig
+  // csinálja a plakátot, amíg Luca vizuálisan is el nem fogadja).
   const renderData: RenderData = {
     productId: product.id,
     productName: product.name,
@@ -147,6 +151,7 @@ export async function runKlariText(): Promise<KlariResult> {
     badges: deal.badges,
     features: deal.features,
     specs: deal.specs,
+    dateLabel,
   };
   const posterSvg = buildDealPoster({
     imageUrl: product.imageUrl,
@@ -156,6 +161,7 @@ export async function runKlariText(): Promise<KlariResult> {
     badges: deal.badges,
     features: deal.features,
     specs: deal.specs,
+    dateLabel,
   });
 
   const { data: ins } = await sb
@@ -171,7 +177,7 @@ export async function runKlariText(): Promise<KlariResult> {
       caption: deal.caption,
       poster_svg: posterSvg,
       poster_url: null,
-      luca_verdict: judge.verdict,
+      luca_verdict: textVerdict,
       status: "pending_image",
       render_data: renderData,
     })
@@ -185,14 +191,14 @@ export async function runKlariText(): Promise<KlariResult> {
     phase: "text",
     status: "pending_image",
     product: product.name,
-    verdict: judge.verdict,
+    verdict: textVerdict,
     postId: ins?.id,
     renderData,
   };
 }
 
 /** 2. FÁZIS — kép: a 'pending_image' sorhoz plakát + Luca VIZUÁLIS QC, majd a sor véglegesítése. */
-export async function runKlariImage(opts?: { postId?: number; renderData?: RenderData }): Promise<KlariResult> {
+export async function runKlariImage(opts?: { postId?: number; renderData?: RenderData; attempt?: number }): Promise<KlariResult> {
   const sb = supabaseAdmin();
 
   // A feldolgozandó sor: postId alapján, vagy a legutóbbi 'pending_image'.
@@ -210,7 +216,7 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
     return { ran: false, reason: "Hiányzó render_data a kép-fázishoz." };
   }
 
-  // A sablon csak a logót + szöveget teszi rá; a LAPTOP magában a Bria-jelenetben van (productInScene).
+  // A sablon csak a logót + szöveget (+ dátumot) teszi rá; a LAPTOP magában a Bria-jelenetben van.
   const base = {
     imageUrl: rd.imageUrl,
     productName: rd.productName,
@@ -219,98 +225,111 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
     badges: rd.badges,
     features: rd.features,
     specs: rd.specs,
+    dateLabel: rd.dateLabel,
   };
 
-  let posterUrl: string | null = null;
+  const attempt = opts?.attempt ?? 0; // hányadik próbánál tartunk (0-tól)
+  const attemptNo = attempt + 1;
   const posterSource = "bria-scene";
+
+  await setAgentStatus("gyula", "working", `Technikai elokészítés (AI-jelenet, ${attemptNo}. próba): ${rd.productName.slice(0, 22)}…`);
+  await setAgentStatus("luca", "working", `Hirdetés elbírálása (${attemptNo}. próba): ${rd.productName.slice(0, 26)}…`);
+
+  // EGY próba per invokáció (a Vercel 60s limit miatt): Gyula AI-jelenet → render → Luca VIZUÁLIS QC.
+  let url: string | null = null;
   let approved = false;
   let reason = "";
-
-  await setAgentStatus("gyula", "working", `Technikai elokészítés (AI-jelenet): ${rd.productName.slice(0, 26)}…`);
-  await setAgentStatus("luca", "working", `Hirdetés elbírálása: ${rd.productName.slice(0, 30)}…`);
-
-  // 1) GYULA (technikai) a Bria product-shottal a VALÓDI terméket az ASZTALRA teszi → render.
-  //    Majd LUCA (marketing fonök) hozza a VÉGSO döntést. Max 2 próba.
   if (process.env.FAL_KEY && rd.imageUrl) {
-    for (let attempt = 0; attempt < 2 && !approved; attempt++) {
-      const sceneUrl = await generateProductScene(rd.imageUrl).catch(() => null);
-      if (!sceneUrl) {
-        reason = "Gyula nem tudott AI-jelenetet készíteni (fal hiba).";
-        continue;
-      }
-      const url = await renderPosterPng({ ...base, bgUrl: sceneUrl, productInScene: true }).catch(() => null);
+    const sceneUrl = await generateProductScene(rd.imageUrl).catch(() => null);
+    if (!sceneUrl) {
+      reason = "Gyula nem tudott AI-jelenetet készíteni (fal hiba).";
+    } else {
+      url = await renderPosterPng({ ...base, bgUrl: sceneUrl, productInScene: true }).catch(() => null);
       if (!url) {
         reason = "A plakát renderelése nem sikerült.";
-        continue;
-      }
-      const verdict = await lucaReviewPoster(url).catch(() => ({ ok: false, issue: "technikai hiba az elbíráláskor" }));
-      if (verdict.ok) {
-        posterUrl = url;
-        approved = true;
       } else {
-        reason = verdict.issue || "Luca nem hagyta jóvá.";
+        const verdict = await lucaReviewPoster(url).catch(() => ({ ok: false, issue: "technikai hiba az elbíráláskor" }));
+        if (verdict.ok) approved = true;
+        else reason = verdict.issue || "Luca nem hagyta jóvá.";
       }
     }
   } else {
     reason = "Hiányzó FAL_KEY vagy termékfotó — nem készült AI-jelenet.";
   }
 
-  // 2) Eredmény mentése: CSAK Luca (marketing fonök) jóváhagyásával publikálunk.
+  const bestUrl = url || rd.lastPosterUrl || null; // a legjobb eddigi render (fallback-hez)
+  const moreTries = attemptNo < MAX_IMAGE_ATTEMPTS; // van-e még próba hátra
+
+  // 1) JÓVÁHAGYVA → publikálás + Telegram + kész.
+  if (approved && url) {
+    await sb
+      .from("klari_posts")
+      .update({
+        poster_url: url,
+        poster_svg: row.poster_svg || buildDealPoster(base),
+        luca_verdict: `${row.luca_verdict} | Luca jóváhagyta a kész hirdetést a ${attemptNo}. próbára (Gyula technikai elokészítése után).`,
+        status: "approved",
+        render_data: { ...rd, lastPosterUrl: url },
+      })
+      .eq("id", row.id);
+    await setAgentStatus("gyula", "done", `Technikailag kész: ${rd.productName.slice(0, 30)}`);
+    await setAgentStatus("luca", "done", `Jóváhagyta a napi hirdetést: ${rd.productName.slice(0, 28)}`);
+    await setAgentStatus("klari", "done", `Plakát kész, Luca jóváhagyta (${attemptNo}. próba): ${rd.productName.slice(0, 22)}`);
+    const price = rd.priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(rd.priceHuf)) + " Ft" : "";
+    await sendTelegram(
+      `✅ *Luca jóváhagyta a napi hirdetést* (${attemptNo}. próbára).\n\n🖥️ ${rd.productName}\n💰 ${price}\n📅 ${rd.dateLabel || ""}\n\n${url}`
+    ).catch(() => {});
+    return { ran: true, phase: "image", status: "approved", product: rd.productName, verdict: "Luca jóváhagyta", posterUrl: url, cutoutOk: false, posterSource, falNote: reason, postId: row.id, attempt };
+  }
+
+  // 2) NINCS JÓVÁHAGYVA, de VAN MÉG PRÓBA → Klári ÚJRA nekifut (a render route láncolva hívja újra).
+  if (moreTries) {
+    await sb
+      .from("klari_posts")
+      .update({
+        poster_svg: row.poster_svg || buildDealPoster(base),
+        luca_verdict: `${row.luca_verdict} | ${attemptNo}. próba — Luca észrevétele: ${reason} → Klári újra nekifut.`,
+        status: "pending_image",
+        render_data: { ...rd, lastPosterUrl: bestUrl || undefined },
+      })
+      .eq("id", row.id);
+    await setAgentStatus("gyula", "working", `Új jelenet kell (${attemptNo}. után): ${reason.slice(0, 36)}`);
+    await setAgentStatus("luca", "working", `Még nem jó (${attemptNo}. próba): ${reason.slice(0, 36)}`);
+    await setAgentStatus("klari", "working", `Luca észrevételezte — Klári újra nekifut (${attemptNo + 1}. próba)…`);
+    return { ran: true, phase: "image", status: "pending_image", product: rd.productName, verdict: `Még nem jó: ${reason}`, posterUrl: null, posterSource, falNote: reason, postId: row.id, retry: true, nextAttempt: attemptNo, attempt };
+  }
+
+  // 3) ELFOGYTAK A PRÓBÁK → hogy reggel BIZTOSAN legyen kész plakát, a LEGJOBB verzióval publikálunk
+  //    (Luca észrevételeivel együtt). Soha nem maradunk plakát nélkül, és nem halasztjuk holnapra.
+  const finalUrl = bestUrl;
   await sb
     .from("klari_posts")
     .update({
-      poster_url: approved ? posterUrl : null,
+      poster_url: finalUrl,
       poster_svg: row.poster_svg || buildDealPoster(base),
-      luca_verdict: approved
-        ? `${row.luca_verdict} | Luca jóváhagyta a kész hirdetést (Gyula technikai elokészítése után).`
-        : `${row.luca_verdict} | Luca NEM hagyta jóvá: ${reason}`,
-      status: approved ? "approved" : "rejected",
+      luca_verdict: `${row.luca_verdict} | ${MAX_IMAGE_ATTEMPTS} próba után a legjobb verzió publikálva (Luca utolsó észrevétele: ${reason}).`,
+      status: "approved",
+      render_data: { ...rd, lastPosterUrl: finalUrl || undefined },
     })
     .eq("id", row.id);
-
-  await setAgentStatus(
-    "gyula",
-    approved ? "done" : "working",
-    approved ? `Technikailag kész: ${rd.productName.slice(0, 30)}` : `Technikai javítás kell: ${reason.slice(0, 40)}`
-  );
-  await setAgentStatus(
-    "luca",
-    approved ? "done" : "waiting",
-    approved ? `Jóváhagyta a napi hirdetést: ${rd.productName.slice(0, 28)}` : `Elutasította: ${reason.slice(0, 40)}`
-  );
-  await setAgentStatus(
-    "klari",
-    approved ? "done" : "waiting",
-    approved ? `Plakát kész, Luca jóváhagyta: ${rd.productName.slice(0, 26)}` : "Luca elutasította — holnap új próba"
-  );
-
-  // 3) LUCA (a döntnök) Telegramon szól, HA jóváhagyta a hirdetést.
-  if (approved && posterUrl) {
-    const price = rd.priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(rd.priceHuf)) + " Ft" : "";
-    await sendTelegram(
-      `✅ *Luca jóváhagyta a napi hirdetést* (Gyula technikai elokészítése után).\n\n🖥️ ${rd.productName}\n💰 ${price}\n\n${posterUrl}`
-    ).catch(() => {});
-  }
-
-  return {
-    ran: true,
-    phase: "image",
-    status: approved ? "approved" : "rejected",
-    product: rd.productName,
-    verdict: approved ? "Luca jóváhagyta" : `Luca elutasította: ${reason}`,
-    posterUrl,
-    cutoutOk: false,
-    posterSource,
-    falNote: reason,
-    postId: row.id,
-  };
+  await setAgentStatus("gyula", "done", `Kész (legjobb a ${MAX_IMAGE_ATTEMPTS} próbából): ${rd.productName.slice(0, 24)}`);
+  await setAgentStatus("luca", "done", `Publikálva (legjobb verzió): ${rd.productName.slice(0, 26)}`);
+  await setAgentStatus("klari", "done", `Plakát kész (legjobb a ${MAX_IMAGE_ATTEMPTS} próbából): ${rd.productName.slice(0, 22)}`);
+  const price2 = rd.priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(rd.priceHuf)) + " Ft" : "";
+  await sendTelegram(
+    `📌 *Napi hirdetés kész* — ${MAX_IMAGE_ATTEMPTS} próba után a legjobb verzió (Luca utolsó észrevétele: ${reason}).\n\n🖥️ ${rd.productName}\n💰 ${price2}\n📅 ${rd.dateLabel || ""}${finalUrl ? `\n\n${finalUrl}` : "\n\n(A részletes plakát a dashboardon.)"}`
+  ).catch(() => {});
+  return { ran: true, phase: "image", status: "approved", product: rd.productName, verdict: `Legjobb verzió ${MAX_IMAGE_ATTEMPTS} próbából (utolsó észrevétel: ${reason})`, posterUrl: finalUrl, posterSource, falNote: reason, postId: row.id, attempt };
 }
 
-/** Kényelmi wrapper (mindkét fázis egy folyamatban) — kézi/lokális használatra. A Vercel route a kétlépcsost használja. */
+/** Kényelmi wrapper (mindkét fázis egy folyamatban) — kézi/lokális használatra. A Vercel route a kétlépcsost használja.
+ *  Itt is ADDIG ismétli a kép-fázist, amíg Luca el nem fogadja (vagy el nem fogynak a próbák). */
 export async function runKlariDaily(): Promise<KlariResult> {
   const t = await runKlariText();
-  if (t.status === "pending_image") {
-    return await runKlariImage({ postId: t.postId, renderData: t.renderData });
+  if (t.status !== "pending_image") return t;
+  let r = await runKlariImage({ postId: t.postId, renderData: t.renderData });
+  while (r.retry && r.nextAttempt !== undefined) {
+    r = await runKlariImage({ postId: t.postId, attempt: r.nextAttempt });
   }
-  return t;
+  return r;
 }
