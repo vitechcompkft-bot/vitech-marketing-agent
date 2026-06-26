@@ -112,11 +112,18 @@ export interface BankSnapshot {
   in30: number;
   out30: number;
   recent: { date: string; amount: number; dir: "in" | "out"; party: string; info: string }[];
+  /** 30 napos KIADÁS-bontás partnerenként (mire megy el a pénz) — Mihály ebbol elemez. */
+  outByParty: { party: string; total: number; count: number }[];
   asOf: string | null;
   note?: string;
 }
 
-const EMPTY_SNAP: BankSnapshot = { ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], asOf: null };
+const EMPTY_SNAP: BankSnapshot = { ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], outByParty: [], asOf: null };
+
+/** Partnernév normalizálása a kiadás-csoportosításhoz (kisbetu, rövidítve). */
+function partyKey(name: string): string {
+  return (name || "").replace(/\s+/g, " ").trim().slice(0, 60) || "Egyéb";
+}
 
 /** Napi szinkron: egyenleg + utolsó 30 nap tranzakció → snapshot az app_state-be. */
 export async function runBankSync(): Promise<BankSnapshot> {
@@ -143,6 +150,7 @@ export async function runBankSync(): Promise<BankSnapshot> {
     let out30 = 0;
     let balDebug = "";
     const recent: BankSnapshot["recent"] = [];
+    const outMap = new Map<string, { party: string; total: number; count: number }>();
 
     const amtOf = (x: any) => x?.balance_amount || x?.balanceAmount || (x?.amount !== undefined ? x : null);
 
@@ -171,21 +179,26 @@ export async function runBankSync(): Promise<BankSnapshot> {
         for (const t of tx.transactions || []) {
           const amt = Number(t.transaction_amount?.amount || 0);
           const dir = t.credit_debit_indicator === "CRDT" ? "in" : "out";
+          const info = Array.isArray(t.remittance_information) ? t.remittance_information.join(" ") : t.remittance_information || "";
+          const party = t.creditor?.name || t.debtor?.name || "—";
           if (dir === "in") in30 += amt;
-          else out30 += amt;
-          recent.push({
-            date: t.booking_date || t.value_date || "",
-            amount: amt,
-            dir,
-            party: t.creditor?.name || t.debtor?.name || "—",
-            info: Array.isArray(t.remittance_information) ? t.remittance_information.join(" ") : t.remittance_information || "",
-          });
+          else {
+            out30 += amt;
+            // KIADÁS partnerenként összesítve (a címzett neve, ha nincs, a közlemény) → "mire megy el a pénz".
+            const k = partyKey(t.creditor?.name || info || "Egyéb");
+            const e = outMap.get(k.toLowerCase()) || { party: k, total: 0, count: 0 };
+            e.total += amt;
+            e.count++;
+            outMap.set(k.toLowerCase(), e);
+          }
+          recent.push({ date: t.booking_date || t.value_date || "", amount: amt, dir, party, info });
         }
         contKey = tx.continuation_key || undefined;
       } while (contKey && ++guard < 10);
     }
 
     recent.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const outByParty = [...outMap.values()].sort((a, b) => b.total - a.total).slice(0, 12);
     const snap: BankSnapshot = {
       ok: true,
       connected: true,
@@ -194,6 +207,7 @@ export async function runBankSync(): Promise<BankSnapshot> {
       in30,
       out30,
       recent: recent.slice(0, 10),
+      outByParty,
       asOf: new Date().toISOString(),
       note: balance === null ? "A K&H az AIS-en nem ad egyenleget — a forgalom (be/ki) és a tételek alapján elemzünk." : undefined,
     };

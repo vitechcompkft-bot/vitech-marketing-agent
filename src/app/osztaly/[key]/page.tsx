@@ -1,12 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadDashboard } from "@/lib/dashboard";
+import { getLiveSiteHealth } from "@/lib/health";
 import ProposedAction from "@/components/ProposedAction";
 
 export const dynamic = "force-dynamic";
 
 const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n || 0)) + " Ft";
 const num = (n: number) => new Intl.NumberFormat("hu-HU").format(n || 0);
+
+const dayHu = (d: Date) => new Intl.DateTimeFormat("hu-HU", { timeZone: "Europe/Budapest", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+const timeHu = (d: Date) => new Intl.DateTimeFormat("hu-HU", { timeZone: "Europe/Budapest", hour: "2-digit", minute: "2-digit" }).format(d);
+function isTodayBp(iso?: string | null): boolean {
+  if (!iso) return false;
+  try { return dayHu(new Date(iso)) === dayHu(new Date()); } catch { return false; }
+}
+function checkedLabel(iso?: string | null): string {
+  if (!iso) return "nincs adat";
+  try { const d = new Date(iso); return isTodayBp(iso) ? `ma ${timeHu(d)}` : dayHu(d); } catch { return "—"; }
+}
 
 function humanize(type: string, p: any): string {
   switch (type) {
@@ -57,6 +69,8 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
   if (!meta) notFound();
 
   const d = await loadDashboard();
+  // Gyula panelje MINDIG aznapi: a publikus oldalakat élesben pingeljük most.
+  const sites = params.key === "informatika" ? await getLiveSiteHealth().catch(() => d.sites) : d.sites;
   const st = (k: string) => d.statuses.find((s) => s.key === k);
   const note = (k: string) => st(k)?.status_note || st(k)?.daily_task || "—";
 
@@ -137,10 +151,16 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
         <>
           <MemberRow name={d.agents.find((a) => a.key === "gyula")?.name || "Gyula"} role="IT vezető · kapcsolatok + automatizálás" note={note("gyula")} />
           <section>
-            <h2 className="section-title">🖥️ Felügyelt oldalak</h2>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="section-title" style={{ margin: 0 }}>🖥️ Felügyelt oldalak</h2>
+              <span className="text-xs text-white/45">Publikus: élő ellenőrzés most · {dayHu(new Date())}</span>
+            </div>
             <div className="grid gap-2 md:grid-cols-2">
-              {d.sites.map((s) => {
-                const dot = s.status === "up" ? "🟢" : s.status === "down" ? "🔴" : "⚪";
+              {sites.map((s) => {
+                const fresh = isTodayBp(s.checked_at);
+                // A publikus oldalt épp most pingeltük. A LAN-nál, ha a jelentés NEM mai → elavult jelzés.
+                const stale = s.scope === "lan" && !fresh;
+                const dot = stale ? "⚪" : s.status === "up" ? "🟢" : s.status === "down" ? "🔴" : "⚪";
                 return (
                   <a key={s.id} href={s.url} target="_blank" rel="noreferrer" className="card card-hover flex items-center justify-between gap-2 py-2.5">
                     <span className="min-w-0">
@@ -149,12 +169,14 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
                     </span>
                     <span className="shrink-0 text-right text-xs text-white/50">
                       <span className="badge bg-white/10 text-white/60">{s.scope === "lan" ? "LAN" : "publikus"}</span>
+                      <span className={`block ${stale ? "text-amber-300" : "text-white/40"}`}>{stale ? "⚠ régi: " : "🕑 "}{checkedLabel(s.checked_at)}</span>
                       {s.status === "down" && s.note ? <span className="block text-red-300">{s.note}</span> : null}
                     </span>
                   </a>
                 );
               })}
             </div>
+            <div className="mt-2 text-xs text-white/40">A LAN-oldalakat a helyi agent jelenti (amíg a gép be van kapcsolva); „⚠ régi" = a jelentés nem mai.</div>
           </section>
         </>
       )}
@@ -163,6 +185,58 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
       {params.key === "gazdasagi" && (
         <>
           <MemberRow name={d.agents.find((a) => a.key === "mihaly")?.name || "Mihály"} role="gazdasági vezető · bevétel + kiadás" note={note("mihaly")} />
+
+          {d.mihalyReport?.summary && (
+            <section className="card" style={{ borderLeft: `4px solid ${meta.accent}` }}>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <h2 className="section-title" style={{ margin: 0 }}>🧮 Mihály elemzése</h2>
+                {d.mihalyReport.asOf && <span className="text-xs text-white/40">frissítve: {dayHu(new Date(d.mihalyReport.asOf))} {timeHu(new Date(d.mihalyReport.asOf))}</span>}
+              </div>
+              <div className="text-sm text-white/85">{d.mihalyReport.summary}</div>
+              {d.mihalyReport.suggestions?.length > 0 && (
+                <ul className="mt-2 list-disc pl-5 text-sm text-white/75">
+                  {d.mihalyReport.suggestions.map((s, i) => <li key={i}>💡 {s}</li>)}
+                </ul>
+              )}
+            </section>
+          )}
+
+          {(d.mihalyReport?.spendingReview?.length || d.bank.outByParty?.length) ? (
+            <section>
+              <h2 className="section-title">💸 Mire megy el a pénz (K&H · utolsó 30 nap)</h2>
+              {d.mihalyReport?.spendingReview?.length ? (
+                <div className="grid gap-2 md:grid-cols-2">
+                  {d.mihalyReport.spendingReview.map((r, i) => {
+                    const v = (r.verdict || "").toLowerCase();
+                    const badge = v.includes("elhagy") ? "bg-red-500/20 text-red-200" : v.includes("optim") ? "bg-amber-500/20 text-amber-200" : "bg-green-500/20 text-green-300";
+                    return (
+                      <div key={i} className="card">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">{r.item}</span>
+                          <span className="shrink-0 font-semibold">{ft(r.amount)}</span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className={`badge ${badge}`}>{r.verdict || "—"}</span>
+                          <span className="text-xs text-white/65">{r.note}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="card">
+                  {d.bank.outByParty.slice(0, 12).map((s, i) => (
+                    <div key={i} className="flex justify-between gap-2 border-t border-white/5 py-1.5 text-sm first:border-t-0">
+                      <span className="min-w-0 truncate">{s.party} <span className="text-white/40">· {s.count} tétel</span></span>
+                      <span className="shrink-0 font-semibold">{ft(s.total)}</span>
+                    </div>
+                  ))}
+                  <div className="mt-2 text-xs text-white/40">A tételenkénti értékelés (kell / optimalizálható / elhagyható) a következő napi pénzügyi futás után jelenik meg.</div>
+                </div>
+              )}
+            </section>
+          ) : null}
+
           <section>
             <h2 className="section-title">Bevétel vs. hirdetési költés</h2>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -225,6 +299,9 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
             <div className="mb-2 flex items-center justify-between"><span className="text-sm font-semibold">🏦 K&H bankszámla</span>{d.bank.connected ? <span className="badge bg-green-500/20 text-green-300">összekötve</span> : <span className="badge bg-white/10 text-white/60">nincs összekötve</span>}</div>
             {d.bank.connected ? (
               <>
+                <div className="mb-2 text-xs text-white/45">
+                  {d.bank.asOf ? `Frissítve: ${dayHu(new Date(d.bank.asOf))} ${timeHu(new Date(d.bank.asOf))}` : "Még nincs szinkron"} · automatikus lekérdezés naponta ~19:00
+                </div>
                 <div className="grid grid-cols-3 gap-3">
                   <Mini label="Egyenleg" value={d.bank.balance != null ? `${ft(d.bank.balance)} ${d.bank.currency}` : "—"} />
                   <Mini label="30 nap bevétel" value={`+${ft(d.bank.in30)}`} />

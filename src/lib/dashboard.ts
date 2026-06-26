@@ -42,6 +42,14 @@ export interface OrgAgent {
   is_lead: boolean;
 }
 
+export interface MihalyReport {
+  summary: string;
+  suggestions: string[];
+  spendingReview: { item: string; amount: number; verdict: string; note: string }[];
+  outByParty: { party: string; total: number; count: number }[];
+  asOf: string | null;
+}
+
 export interface DashboardData {
   metrics: CampaignMetric[];
   actions: AgentAction[];
@@ -56,6 +64,7 @@ export interface DashboardData {
   bank: BankSnapshot;
   lucaReach: string;
   klariBrief: string;
+  mihalyReport: MihalyReport | null;
   sites: SiteHealthRow[];
   supabaseReady: boolean;
   mock: boolean;
@@ -76,7 +85,7 @@ export async function loadDashboard(): Promise<DashboardData> {
   );
   const sites = await getSiteHealth().catch(() => []);
   const bank = await getBankSnapshot().catch(
-    () => ({ ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], asOf: null }) as BankSnapshot
+    () => ({ ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], outByParty: [], asOf: null }) as BankSnapshot
   );
 
   let actions: AgentAction[] = [];
@@ -88,11 +97,12 @@ export async function loadDashboard(): Promise<DashboardData> {
   let emails: EmailRow[] = [];
   let lucaReach = "";
   let klariBrief = "";
+  let mihalyReport: MihalyReport | null = null;
   let supabaseReady = false;
 
   try {
     const sb = supabaseAdmin();
-    const [a, al, c, k, ag, st, em, rs, dt] = await Promise.all([
+    const [a, al, c, k, ag, st, em, rs, dt, mr] = await Promise.all([
       sb.from("actions").select("*").order("created_at", { ascending: false }).limit(20),
       sb.from("alerts").select("*").order("created_at", { ascending: false }).limit(10),
       sb.from("agent_config").select("*").eq("id", 1).single(),
@@ -102,6 +112,7 @@ export async function loadDashboard(): Promise<DashboardData> {
       sb.from("emails").select("id,mailbox,from_addr,subject,date,summary,department,urgency").order("date", { ascending: false }).limit(10),
       sb.from("app_state").select("value").eq("key", "luca_reach_summary").maybeSingle(),
       sb.from("delegated_tasks").select("brief").eq("to_key", "klari").eq("status", "open").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      sb.from("app_state").select("value").eq("key", "mihaly_report").maybeSingle(),
     ]);
     actions = (a.data as AgentAction[]) || [];
     alerts = (al.data as Alert[]) || [];
@@ -112,10 +123,16 @@ export async function loadDashboard(): Promise<DashboardData> {
     emails = (em.data as EmailRow[]) || [];
     lucaReach = (rs?.data as any)?.value || "";
     klariBrief = (dt?.data as any)?.brief || "";
+    try {
+      const mv = (mr?.data as any)?.value;
+      if (mv) mihalyReport = JSON.parse(mv) as MihalyReport;
+    } catch {
+      mihalyReport = null;
+    }
     supabaseReady = !c.error;
   } catch {
     supabaseReady = false;
   }
 
-  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, bank, lucaReach, klariBrief, sites, supabaseReady, mock: isMock };
+  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, bank, lucaReach, klariBrief, mihalyReport, sites, supabaseReady, mock: isMock };
 }

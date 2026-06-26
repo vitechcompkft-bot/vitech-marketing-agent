@@ -716,13 +716,19 @@ export async function mihalyAnalyze(fin: {
   bankBalance?: number;
   bankIn30?: number;
   bankOut30?: number;
+  spending?: { party: string; total: number; count: number }[];
   note?: string;
-}): Promise<{ summary: string; suggestions: string[] }> {
+}): Promise<{ summary: string; suggestions: string[]; spendingReview?: { item: string; amount: number; verdict: string; note: string }[] }> {
   const anthropic = client();
   const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) + " Ft";
   const bankLine =
     fin.bankIn30 !== undefined
       ? `\n- K&H BANKSZÁMLA — utolsó 30 nap forgalom: bevétel ~${ft(fin.bankIn30 ?? 0)}, kiadás ~${ft(fin.bankOut30 ?? 0)}${fin.bankBalance !== undefined ? `; egyenleg ~${ft(fin.bankBalance)}` : " (egyenleget a K&H nem ad az AIS-en)"}`
+      : "";
+  const spendLine =
+    fin.spending && fin.spending.length
+      ? "\n- KIADÁS-BONTÁS (utolsó 30 nap, K&H — MIRE megy el a pénz, csökkeno sorrend):\n" +
+        fin.spending.map((s) => `   • ${s.party}: ${ft(s.total)} (${s.count} tétel)`).join("\n")
       : "";
   const recvLine =
     fin.receivableCount !== undefined
@@ -736,9 +742,9 @@ export async function mihalyAnalyze(fin: {
   try {
     const msg = await anthropic.messages.create({
       model: SMART,
-      max_tokens: 900,
+      max_tokens: 1500,
       system:
-        "Te vagy Mihály, a Vitech Comp Kft. gazdasági osztályvezetoje — határozott, precíz könyvelo. A célod minél több BEVÉTEL és a költségek kordában tartása. Magyarul, tömören, SZÁMOKRA építve írsz a tulajdonosnak.",
+        "Te vagy Mihály, a Vitech Comp Kft. gazdasági osztályvezetoje — tapasztalt pénzügyi kontroller/könyvelo. A célod minél több BEVÉTEL és a költségek kordában tartása. Úgy elemzel, mint egy igazi pénzügyi szakember: a KIADÁSOKAT kategorizálod (pl. AI/szoftver-elofizetés, tárhely/hosting, hirdetés, banki díj, beszállító, adó/járulék, egyéb), megnézed MIRE megy el a pénz, hogy az adott tétel INDOKOLT-e (kell-e a muködéshez, arányos-e, van-e duplikált/kihasználatlan elofizetés, devizás/árfolyam-veszteség, olcsóbb alternatíva), és KONKRÉT, számszeru spórolási lépéseket adsz. Magyarul, tömören, SZÁMOKRA építve írsz a tulajdonosnak.",
       messages: [
         {
           role: "user",
@@ -746,11 +752,17 @@ export async function mihalyAnalyze(fin: {
 - Mai bevétel (webshop, minden csatorna): ${ft(fin.todayRevenue)} (${fin.todayCount} rendelés)
 - Havi bevétel: ${ft(fin.monthRevenue)} (${fin.monthCount} rendelés)
 - Mai hirdetési költés (Google Ads): ${ft(fin.todayAdSpend)}
-- Havi hirdetési költés: ${ft(fin.monthAdSpend)}${unpaidLine}${bankLine}
+- Havi hirdetési költés: ${ft(fin.monthAdSpend)}${unpaidLine}${bankLine}${spendLine}
 ${fin.note ? "- Megjegyzés: " + fin.note : ""}
 
-Készíts NAPI pénzügyi értékelést. A lejárt KINTLÉVOSÉGRE javasolj behajtást; a lejárt/közeli UTALANDÓ (bejövo) számlákra hívd fel a figyelmet (mit kell utalni, meddig). Válaszolj PONTOSAN ebben a JSON-ban:
-{ "summary": "2-4 mondatos magyar elemzés számokkal (bevétel/kiadás arány, trend, mire figyeljünk)", "suggestions": ["1-3 konkrét, számszeru spórolási vagy bevétel-növelo javaslat"] }`,
+Készíts NAPI pénzügyi értékelést EGY VALÓDI PÉNZÜGYI SZAKEMBER szemével. A KIADÁS-BONTÁST tételesen vizsgáld meg: mire megy el a pénz, INDOKOLT-e, és hol lehetne GAZDASÁGOSABB (duplikált/kihasználatlan elofizetés, túl drága szolgáltatás, devizás veszteség, olcsóbb csomag, lekötheto/lemondható tétel). A lejárt KINTLÉVOSÉGRE javasolj behajtást; a lejárt/közeli UTALANDÓ (bejövo) számlákra hívd fel a figyelmet (mit kell utalni, meddig).
+Válaszolj PONTOSAN ebben a JSON-ban:
+{
+  "summary": "3-5 mondatos magyar elemzés számokkal: bevétel/kiadás arány, a fo kiadási tételek, trend, mire figyeljünk",
+  "spendingReview": [ { "item": "kiadási tétel/partner neve", "amount": szám_Ft, "verdict": "kell | optimalizálható | elhagyható", "note": "1 mondat: miért, és hogyan lehetne olcsóbb" } ],
+  "suggestions": ["2-4 konkrét, számszeru spórolási vagy bevétel-növelo javaslat"]
+}
+A spendingReview-ban a legnagyobb/legfontosabb kiadási tételeket értékeld (max 8).`,
         },
       ],
     });
@@ -758,10 +770,13 @@ Készíts NAPI pénzügyi értékelést. A lejárt KINTLÉVOSÉGRE javasolj beha
     const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
     return {
       summary: j.summary || "(nincs elemzés)",
-      suggestions: Array.isArray(j.suggestions) ? j.suggestions.slice(0, 3) : [],
+      suggestions: Array.isArray(j.suggestions) ? j.suggestions.slice(0, 4) : [],
+      spendingReview: Array.isArray(j.spendingReview)
+        ? j.spendingReview.slice(0, 8).map((r: any) => ({ item: String(r.item || ""), amount: Number(r.amount || 0), verdict: String(r.verdict || ""), note: String(r.note || "") }))
+        : [],
     };
   } catch {
-    return { summary: "(Mihály elemzése most nem készült el)", suggestions: [] };
+    return { summary: "(Mihály elemzése most nem készült el)", suggestions: [], spendingReview: [] };
   }
 }
 

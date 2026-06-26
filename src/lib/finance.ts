@@ -34,7 +34,7 @@ export async function getFinanceSnapshot(): Promise<FinanceSnapshot> {
     () => ({ ok: false, outCount: 0, outTotalHuf: 0, outExpired: 0, out: [], inCount: 0, inTotalHuf: 0, inExpired: 0, in: [] }) as BillingoSummary
   );
   const bank = await getBankSnapshot().catch(
-    () => ({ ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], asOf: null }) as BankSnapshot
+    () => ({ ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], outByParty: [], asOf: null }) as BankSnapshot
   );
   return {
     ok: !!orders?.ok,
@@ -81,17 +81,40 @@ export async function runMihalyDaily(): Promise<{ summary: string; suggestions: 
     bankBalance: bk.connected ? bk.balance ?? undefined : undefined,
     bankIn30: bk.connected ? bk.in30 : undefined,
     bankOut30: bk.connected ? bk.out30 : undefined,
+    spending: bk.connected && bk.outByParty?.length ? bk.outByParty : undefined,
     note,
   });
 
+  // A teljes elemzést elmentjük a dashboardnak (gazdasági oldal megjeleníti).
+  try {
+    const sb = supabaseAdmin();
+    await sb.from("app_state").upsert({
+      key: "mihaly_report",
+      value: JSON.stringify({
+        summary: analysis.summary,
+        suggestions: analysis.suggestions,
+        spendingReview: analysis.spendingReview || [],
+        outByParty: bk.connected ? bk.outByParty || [] : [],
+        asOf: new Date().toISOString(),
+      }),
+      updated_at: new Date().toISOString(),
+    });
+  } catch {
+    /* app_state mentés nem kritikus */
+  }
+
   const sug = analysis.suggestions.length ? "\n\n💡 " + analysis.suggestions.map((s) => "• " + s).join("\n") : "";
+  const topSpend =
+    bk.connected && bk.outByParty?.length
+      ? "\n\n🔎 *Mire ment el (30 nap, top 5):*\n" + bk.outByParty.slice(0, 5).map((s) => `• ${s.party}: ${ft(s.total)}`).join("\n")
+      : "";
   const outLine = b.ok && b.outCount > 0 ? `\n🧾 Kintlévoség (kimeno): ${b.outCount} db (${b.outExpired} lejárt) ~${ft(b.outTotalHuf)}` : "";
   const inLine = b.ok && b.inCount > 0 ? `\n💸 Utalandó (bejövo): ${b.inCount} db (${b.inExpired} lejárt) ~${ft(b.inTotalHuf)}` : "";
   const bankLine = bk.connected
     ? `\n🏦 K&H (30 nap): bevétel +${ft(bk.in30)} / kiadás -${ft(bk.out30)}${bk.balance != null ? ` · egyenleg ~${ft(bk.balance)} ${bk.currency}` : ""}`
     : "";
   await sendTelegram(
-    `📊 *Mihály — napi pénzügyi jelentés*\n\n💰 Mai bevétel: ${ft(f.todayRevenue)} (${f.todayCount} rendelés)\n📅 Havi bevétel: ${ft(f.monthRevenue)} (${f.monthCount} rendelés)\n📣 Mai hirdetési költés: ${ft(f.todayAdSpend)}${outLine}${inLine}${bankLine}\n\n${analysis.summary}${sug}`
+    `📊 *Mihály — napi pénzügyi jelentés*\n\n💰 Mai bevétel: ${ft(f.todayRevenue)} (${f.todayCount} rendelés)\n📅 Havi bevétel: ${ft(f.monthRevenue)} (${f.monthCount} rendelés)\n📣 Mai hirdetési költés: ${ft(f.todayAdSpend)}${outLine}${inLine}${bankLine}${topSpend}\n\n${analysis.summary}${sug}`
   ).catch(() => {});
 
   await setAgentStatus(

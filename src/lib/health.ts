@@ -60,19 +60,29 @@ async function upsertAndAlert(
   return next.status;
 }
 
-/** A PUBLIKUS oldalak pingelése a felhobol (Gyula). A LAN-osokat a belso agent jelenti. */
+/** A PUBLIKUS oldalak pingelése a felhobol (Gyula), PÁRHUZAMOSAN. A LAN-osokat a belso agent jelenti. */
 export async function checkPublicSites(): Promise<{ checked: number; up: number; down: number }> {
   const pub = MONITORED_SITES.filter((s) => s.scope === "public");
-  let up = 0;
-  let down = 0;
-  for (const site of pub) {
-    const r = await pingOne(site.url);
-    const status = await upsertAndAlert(site, { status: r.status, httpCode: r.httpCode, latencyMs: r.latencyMs, note: r.note });
-    if (status === "up") up++;
-    else down++;
-  }
+  const statuses = await Promise.all(
+    pub.map(async (site) => {
+      const r = await pingOne(site.url);
+      return upsertAndAlert(site, { status: r.status, httpCode: r.httpCode, latencyMs: r.latencyMs, note: r.note }).catch(() => "unknown");
+    })
+  );
+  const up = statuses.filter((s) => s === "up").length;
+  const down = statuses.filter((s) => s === "down").length;
   await setAgentStatus("gyula", down > 0 ? "waiting" : "working", `Publikus oldalak: ${up}/${pub.length} elérheto${down ? ` · ${down} LE` : ""}`);
   return { checked: pub.length, up, down };
+}
+
+/**
+ * ÉLO állapot a Gyula-panelhez: a PUBLIKUS oldalakat MOST pingeli (mindig aznapi adat),
+ * a LAN-osokat a tárolt (agent által jelentett) állapottal adja vissza. Így a panel sosem
+ * mutat régi publikus adatot. (A LAN-nál a checked_at-bol látszik, mikori a jelentés.)
+ */
+export async function getLiveSiteHealth(): Promise<SiteHealthRow[]> {
+  await checkPublicSites().catch(() => {});
+  return getSiteHealth();
 }
 
 /** A belso LAN-agent jelentése: [{id,status,http_code,latency_ms,note}]. */
