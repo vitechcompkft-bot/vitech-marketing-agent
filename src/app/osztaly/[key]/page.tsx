@@ -84,6 +84,10 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
   // VALÓS (webshop) mutatók: a tényleges eladásokból + a K&H-ból kiolvasott Google Ads-költésbol.
   const adSpendMonth = (d.bank.outByParty || []).filter((s) => /google\s*ads/i.test(s.party)).reduce((a, s) => a + s.total, 0);
   const realRoasMonth = adSpendMonth ? +(d.orders.monthRevenue / adSpendMonth).toFixed(2) : 0;
+  // Árukereső-költés a K&H-ból (a partnernév-egyezés alapján) — Klári/marketing figyeli.
+  const arukeresoSpend = (d.bank.outByParty || [])
+    .filter((s) => /áruk?eres|arukeres|comparison shop|heureka/i.test(s.party))
+    .reduce((a, s) => a + s.total, 0);
 
   return (
     <main className="flex flex-col gap-6">
@@ -131,6 +135,18 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
             </div>
             <div className="mt-2 text-xs text-white/45">
               A Konverzió/ROAS itt a Google Ads <b>konverziókövetésébol</b> jön — csak akkor mutat értéket, ha a webshopon be van állítva a konverziómérés ÉS a vásárló hirdetésre kattintva érkezett. A valós eladásokat fent látod.
+            </div>
+          </section>
+
+          <section>
+            <h2 className="section-title">🛍️ Árukereső</h2>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+              <Kpi title="Árukereső költés (30 nap)" value={ft(arukeresoSpend)} />
+              <Kpi title="Csomag" value="STANDARD" />
+              <Kpi title="Mérés" value="kattintás → admin" />
+            </div>
+            <div className="mt-2 text-xs text-white/45">
+              A költést a K&H-ból olvassuk (a befizetés után jelenik meg). Az Árukeresonek <b>nincs nyílt API-ja</b>, ezért a kattintás/megjelenés statisztika a partner-admin „Statisztikák" alatt érheto el. Az Árukeresorol jövo eladások méréséhez az <b>Árukereso konverziókövetést</b> kell beállítani (mint a Google Adsnél).
             </div>
           </section>
 
