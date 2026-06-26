@@ -742,7 +742,7 @@ export async function mihalyAnalyze(fin: {
   try {
     const msg = await anthropic.messages.create({
       model: SMART,
-      max_tokens: 1500,
+      max_tokens: 2600,
       system:
         "Te vagy Mihály, a Vitech Comp Kft. gazdasági osztályvezetoje — tapasztalt pénzügyi kontroller/könyvelo. A célod minél több BEVÉTEL és a költségek kordában tartása. Úgy elemzel, mint egy igazi pénzügyi szakember: a KIADÁSOKAT kategorizálod (pl. AI/szoftver-elofizetés, tárhely/hosting, hirdetés, banki díj, beszállító, adó/járulék, egyéb), megnézed MIRE megy el a pénz, hogy az adott tétel INDOKOLT-e (kell-e a muködéshez, arányos-e, van-e duplikált/kihasználatlan elofizetés, devizás/árfolyam-veszteség, olcsóbb alternatíva), és KONKRÉT, számszeru spórolási lépéseket adsz. Magyarul, tömören, SZÁMOKRA építve írsz a tulajdonosnak.",
       messages: [
