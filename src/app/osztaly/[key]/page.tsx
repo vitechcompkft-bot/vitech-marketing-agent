@@ -81,6 +81,10 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
   const totalRoas = totalCost ? +(totalVal / totalCost).toFixed(2) : 0;
   const proposed = d.actions.filter((a) => a.status === "proposed");
 
+  // VALÓS (webshop) mutatók: a tényleges eladásokból + a K&H-ból kiolvasott Google Ads-költésbol.
+  const adSpendMonth = (d.bank.outByParty || []).filter((s) => /google\s*ads/i.test(s.party)).reduce((a, s) => a + s.total, 0);
+  const realRoasMonth = adSpendMonth ? +(d.orders.monthRevenue / adSpendMonth).toFixed(2) : 0;
+
   return (
     <main className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
@@ -105,12 +109,28 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
           )}
 
           <section>
-            <h2 className="section-title">📣 Google Ads</h2>
+            <h2 className="section-title">🛒 Valós eladások (webshop)</h2>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <Kpi title="Eladás ma" value={`${num(d.orders.todayCount)} db`} accent={d.orders.todayCount > 0 ? "good" : undefined} />
+              <Kpi title="Eladás (hó)" value={`${num(d.orders.monthCount)} db`} accent={d.orders.monthCount > 0 ? "good" : undefined} />
+              <Kpi title="Havi bevétel" value={ft(d.orders.monthRevenue)} accent={d.orders.monthRevenue > 0 ? "good" : undefined} />
+              <Kpi title="Valós ROAS (30 nap)" value={realRoasMonth ? `${realRoasMonth}×` : "—"} accent={realRoasMonth >= 3 ? "good" : realRoasMonth > 0 ? "warn" : undefined} />
+            </div>
+            <div className="mt-2 text-xs text-white/45">
+              Valós ROAS = webshop havi bevétel ({ft(d.orders.monthRevenue)}) ÷ Google Ads-költés (~{ft(adSpendMonth)}, K&H utolsó 30 nap). Ez a tényleges eladásokat tükrözi, függetlenül a Google Ads méréstol.
+            </div>
+          </section>
+
+          <section>
+            <h2 className="section-title">📣 Google Ads (a platform saját mérése)</h2>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <Kpi title="Mai költés" value={ft(totalCost)} />
               <Kpi title="Hirdetésből bevétel" value={ft(totalVal)} />
               <Kpi title="ROAS" value={totalRoas ? `${totalRoas}×` : "—"} accent={totalRoas >= 3 ? "good" : totalRoas > 0 ? "warn" : undefined} />
               <Kpi title="Konverziók" value={num(totalConv)} />
+            </div>
+            <div className="mt-2 text-xs text-white/45">
+              A Konverzió/ROAS itt a Google Ads <b>konverziókövetésébol</b> jön — csak akkor mutat értéket, ha a webshopon be van állítva a konverziómérés ÉS a vásárló hirdetésre kattintva érkezett. A valós eladásokat fent látod.
             </div>
           </section>
 
