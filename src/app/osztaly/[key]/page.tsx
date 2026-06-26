@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { loadDashboard } from "@/lib/dashboard";
 import { getLiveSiteHealth } from "@/lib/health";
 import ProposedAction from "@/components/ProposedAction";
+import InvoiceButton from "@/components/InvoiceButton";
 
 export const dynamic = "force-dynamic";
 
@@ -253,17 +254,23 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
               <div className="card overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-left text-white/50">
-                    <tr><th className="py-1">Rendelés</th><th>Dátum</th><th>Állapot</th><th className="text-right">Végösszeg</th></tr>
+                    <tr><th className="py-1">Rendelés</th><th>Dátum</th><th>Állapot</th><th className="text-right">Végösszeg</th><th className="text-right">Számla</th></tr>
                   </thead>
                   <tbody>
-                    {d.orders.recent.map((o) => (
-                      <tr key={o.key} className="border-t border-white/5">
-                        <td className="py-2 pr-3 text-white/70">{o.key}</td>
-                        <td className="pr-3 text-white/60">{o.date}</td>
-                        <td className="pr-3"><span className="badge bg-green-500/20 text-green-300">{o.status}</span></td>
-                        <td className="text-right font-semibold">{ft(o.sumGross)}</td>
-                      </tr>
-                    ))}
+                    {d.orders.recent.map((o) => {
+                      const inv = d.invoicedOrders[o.key];
+                      return (
+                        <tr key={o.key} className="border-t border-white/5">
+                          <td className="py-2 pr-3 text-white/70">{o.key}</td>
+                          <td className="pr-3 text-white/60">{o.date}</td>
+                          <td className="pr-3"><span className="badge bg-green-500/20 text-green-300">{o.status}</span></td>
+                          <td className="text-right font-semibold">{ft(o.sumGross)}</td>
+                          <td className="py-2 text-right">
+                            <InvoiceButton orderKey={o.key} invoiced={!!inv} invoiceNumber={inv?.invoiceNumber} publicUrl={inv?.publicUrl} />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

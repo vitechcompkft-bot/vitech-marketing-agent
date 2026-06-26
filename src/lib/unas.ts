@@ -132,16 +132,17 @@ export async function unasGetOrders(token: string, opts?: { limitNum?: number })
     .filter((o) => o.key);
 }
 
-/** Nyers rendelés-XML lekérés (a mezok felderítéséhez / bevétel-statisztikához). */
+/** Nyers rendelés-XML lekérés (a mezok felderítéséhez / bevétel-statisztikához / számlázáshoz). */
 export async function unasGetOrdersRaw(
   token: string,
-  opts?: { limitNum?: number; dateStart?: string; dateEnd?: string }
+  opts?: { limitNum?: number; dateStart?: string; dateEnd?: string; key?: string }
 ): Promise<string> {
   const body =
     `<?xml version="1.0" encoding="UTF-8" ?>\n` +
     `<Params>` +
     `<Format>xml</Format>` +
     `<ContentType>full</ContentType>` +
+    (opts?.key ? `<Key>${opts.key}</Key>` : "") +
     (opts?.dateStart ? `<DateStart>${opts.dateStart}</DateStart>` : "") +
     (opts?.dateEnd ? `<DateEnd>${opts.dateEnd}</DateEnd>` : "") +
     `<LimitNum>${opts?.limitNum ?? 5}</LimitNum>` +
@@ -152,6 +153,72 @@ export async function unasGetOrdersRaw(
     body,
   });
   return await res.text();
+}
+
+export interface OrderItem {
+  name: string;
+  sku?: string;
+  quantity: number;
+  unitNet: number; // nettó EGYSÉGár
+  unitGross: number; // bruttó EGYSÉGár
+  vat: string; // pl. "27%"
+}
+
+export interface OrderDetail {
+  key: string;
+  date: string;
+  status: string;
+  email?: string;
+  customerName?: string;
+  phone?: string;
+  invoice: { name?: string; zip?: string; city?: string; street?: string; country?: string; countryCode?: string; taxNumber?: string };
+  payment: { name?: string; type?: string };
+  items: OrderItem[];
+  sumGross: number;
+}
+
+/** Egy rendelés TELJES adatai (vevo + tételek) számlázáshoz, Key alapján. */
+export async function unasGetOrderByKey(token: string, key: string): Promise<OrderDetail | null> {
+  const xml = await unasGetOrdersRaw(token, { limitNum: 1, key });
+  const block = (xml.match(/<Order>[\s\S]*?<\/Order>/) || [])[0];
+  if (!block) return null;
+
+  const customer = (block.match(/<Customer>([\s\S]*?)<\/Customer>/) || [])[1] || "";
+  const contact = (customer.match(/<Contact>([\s\S]*?)<\/Contact>/) || [])[1] || "";
+  const addresses = (customer.match(/<Addresses>([\s\S]*?)<\/Addresses>/) || [])[1] || "";
+  const inv = (addresses.match(/<Invoice>([\s\S]*?)<\/Invoice>/) || [])[1] || "";
+  const payment = (block.match(/<Payment>([\s\S]*?)<\/Payment>/) || [])[1] || "";
+  const itemsBlock = (block.match(/<Items>([\s\S]*?)<\/Items>/) || [])[1] || "";
+
+  const items: OrderItem[] = (itemsBlock.match(/<Item>[\s\S]*?<\/Item>/g) || []).map((it) => ({
+    name: field(it, "Name") || "",
+    sku: field(it, "Sku"),
+    quantity: Number(field(it, "Quantity") || 1),
+    unitNet: Number(field(it, "PriceNet") || 0),
+    unitGross: Number(field(it, "PriceGross") || 0),
+    vat: field(it, "Vat") || "27%",
+  }));
+
+  return {
+    key: field(block, "Key") || key,
+    date: field(block, "Date") || "",
+    status: field(block, "Status") || "",
+    email: field(customer, "Email"),
+    customerName: field(contact, "Name"),
+    phone: field(contact, "Phone"),
+    invoice: {
+      name: field(inv, "Name"),
+      zip: field(inv, "ZIP"),
+      city: field(inv, "City"),
+      street: field(inv, "Street"),
+      country: field(inv, "Country"),
+      countryCode: field(inv, "CountryCode"),
+      taxNumber: field(inv, "TaxNumber"),
+    },
+    payment: { name: field(payment, "Name"), type: field(payment, "Type") },
+    items,
+    sumGross: Number(field(block, "SumPriceGross") || 0),
+  };
 }
 
 /** Nyers termék-XML lekérés (a SEO-mezok felderítéséhez / olvasáshoz). */
