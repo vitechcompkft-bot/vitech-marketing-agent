@@ -28,8 +28,8 @@ export default function InvoiceButton({
   invoiceNumber?: string;
   publicUrl?: string;
 }) {
-  const [done, setDone] = useState<{ number: string; url?: string } | null>(
-    invoiced && invoiceNumber ? { number: invoiceNumber, url: publicUrl } : null
+  const [done, setDone] = useState<{ number?: string; url?: string } | null>(
+    invoiced ? { number: invoiceNumber, url: publicUrl } : null
   );
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -38,12 +38,13 @@ export default function InvoiceButton({
   const [err, setErr] = useState<string | null>(null);
 
   if (done) {
+    const label = done.number ? `Számla: ${done.number}` : "Számlázva";
     return done.url ? (
       <a className="badge bg-green-500/20 text-green-300 hover:bg-green-500/30" href={done.url} target="_blank" rel="noreferrer" title="Számla megnyitása">
-        ✅ Számla: {done.number}
+        ✅ {label}
       </a>
     ) : (
-      <span className="badge bg-green-500/20 text-green-300" title="Erről a rendelésről már készült számla">✅ Számlázva: {done.number}</span>
+      <span className="badge bg-green-500/20 text-green-300" title="Erről a rendelésről már készült számla">✅ {label}</span>
     );
   }
 

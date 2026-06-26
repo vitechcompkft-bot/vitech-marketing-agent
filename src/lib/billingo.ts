@@ -137,11 +137,12 @@ export async function getBillingoSummary(): Promise<BillingoSummary> {
 // ============================================================================
 
 export interface InvoicedRecord {
-  invoiceId: number;
-  invoiceNumber: string;
+  invoiceId?: number;
+  invoiceNumber?: string; // üres lehet, ha „kézzel számlázottnak jelölt" (külso/korábbi számla)
   createdAt: string;
   gross?: number;
   publicUrl?: string;
+  manual?: boolean; // true: nem az app állította ki, csak megjelölve
 }
 
 /** A már KISZÁMLÁZOTT rendelések (rendelésszám → számla). app_state.order_invoices JSON. */
@@ -161,6 +162,32 @@ async function recordInvoicedOrder(orderKey: string, rec: InvoicedRecord): Promi
   const map = await getInvoicedOrders();
   map[orderKey] = rec;
   await sb.from("app_state").upsert({ key: "order_invoices", value: JSON.stringify(map), updated_at: new Date().toISOString() });
+}
+
+/**
+ * Rendelések KÉZI megjelölése „számlázottként" (külso/korábbi számlák) — hogy a dashboardon zölddel
+ * jelenjenek meg és ne lehessen újra számlázni. Nem hoz létre Billingo-számlát.
+ */
+export async function markOrdersInvoiced(
+  entries: { key: string; invoiceNumber?: string; invoiceId?: number; publicUrl?: string; gross?: number }[]
+): Promise<{ ok: boolean; marked: number }> {
+  const sb = supabaseAdmin();
+  const map = await getInvoicedOrders();
+  let marked = 0;
+  for (const e of entries) {
+    if (!e.key) continue;
+    map[e.key] = {
+      invoiceId: e.invoiceId,
+      invoiceNumber: e.invoiceNumber || "",
+      publicUrl: e.publicUrl,
+      gross: e.gross,
+      createdAt: new Date().toISOString(),
+      manual: true,
+    };
+    marked++;
+  }
+  await sb.from("app_state").upsert({ key: "order_invoices", value: JSON.stringify(map), updated_at: new Date().toISOString() });
+  return { ok: true, marked };
 }
 
 /** Név nagy kezdobetuvel, minden szóra (ékezet- és kötojel-helyes). „gazdag istván" → „Gazdag István". */
