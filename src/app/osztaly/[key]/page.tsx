@@ -260,7 +260,7 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
                     {d.orders.recent.map((o) => {
                       const inv = d.invoicedOrders[o.key];
                       return (
-                        <tr key={o.key} className="border-t border-white/5">
+                        <tr key={o.key} className={`border-t border-white/5 ${inv ? "bg-green-500/10" : ""}`}>
                           <td className="py-2 pr-3 text-white/70">{o.key}</td>
                           <td className="pr-3 text-white/60">{o.date}</td>
                           <td className="pr-3"><span className="badge bg-green-500/20 text-green-300">{o.status}</span></td>
