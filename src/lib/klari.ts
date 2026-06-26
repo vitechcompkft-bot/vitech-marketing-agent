@@ -2,6 +2,7 @@ import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
 import { klariResearch, klariCompose, lucaJudgeDeal, lucaReviewPoster } from "./claude";
 import { generateProductScene } from "./falai";
+import { generateProductSceneHF, higgsfieldEnabled } from "./higgsfield";
 import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
 import { setAgentStatus } from "./team";
@@ -239,8 +240,16 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
   let url: string | null = null;
   let approved = false;
   let reason = "";
-  if (process.env.FAL_KEY && rd.imageUrl) {
-    const sceneUrl = await generateProductScene(rd.imageUrl).catch(() => null);
+  if ((process.env.FAL_KEY || higgsfieldEnabled()) && rd.imageUrl) {
+    // KÉP-MOTOR: IMAGE_ENGINE=higgsfield → Higgsfield (valódi termék a jelenetben), különben fal.ai.
+    // Bármelyik hibázik → visszaesés fal.ai-ra, hogy a napi plakát biztosan elkészüljön.
+    const engine = (process.env.IMAGE_ENGINE || "fal").toLowerCase();
+    let sceneUrl: string | null = null;
+    if (engine === "higgsfield" && higgsfieldEnabled()) {
+      const hfPrompt = `Premium e-commerce ad scene for this refurbished business laptop (from the reference image). Bright modern office desk, the laptop large and hero-lit, realistic shadow and reflection so it sits on the desk, deep navy and bright blue accents, clean empty space on the left and bottom for headline/price text. High-end commercial product photography, trustworthy business tone.`;
+      sceneUrl = await generateProductSceneHF(rd.imageUrl, hfPrompt, "3:2").catch(() => null);
+    }
+    if (!sceneUrl) sceneUrl = await generateProductScene(rd.imageUrl).catch(() => null);
     if (!sceneUrl) {
       reason = "Gyula nem tudott AI-jelenetet készíteni (fal hiba).";
     } else {
