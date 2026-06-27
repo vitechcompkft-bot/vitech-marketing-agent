@@ -15,6 +15,11 @@ export const CREATIVE_KINDS = Object.keys(DIMS) as CreativeKind[];
 
 const esc = (s: string) =>
   (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+/** Van-e VALÓDI értéke a spec-sornak (helykitölto „–"/„n/a"/üres kihagyva). */
+const hasVal = (s?: string) => {
+  const t = (s || "").trim();
+  return !!t && !/^[-–—._·•\s]+$/.test(t) && !/^(n\/?a|na|nincs)$/i.test(t);
+};
 
 function wrap(text: string, maxChars: number): string[] {
   const words = (text || "").split(/\s+/);
@@ -155,7 +160,7 @@ export function buildDealPoster(o: {
     ["🪟", o.specs?.os],
     ["✅", o.specs?.condition],
     ["🛡", o.specs?.warranty],
-  ].filter((r) => r[1]) as [string, string][];
+  ].filter((r) => hasVal(r[1])) as [string, string][];
 
   const specStartY = 360;
   const specGap = 50;
@@ -217,7 +222,6 @@ export function buildDealPoster(o: {
   <rect x="40" y="34" width="270" height="132" rx="18" fill="#ffffff"/>
   <image href="${LOGO_URL}" x="56" y="44" width="238" height="112" preserveAspectRatio="xMidYMid meet"/>
   ${badgeSvg}
-  ${o.dateLabel ? `<text x="50" y="208" font-family="${ff}" font-weight="700" font-size="20" fill="#aecbff">📅 ${esc(o.dateLabel)}</text>` : ""}
 
   <!-- cím (fehér) -->
   ${hlLines

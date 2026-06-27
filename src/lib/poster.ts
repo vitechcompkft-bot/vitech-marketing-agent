@@ -19,6 +19,11 @@ export interface PosterData {
 
 const LOGO_URL = "https://vitech-marketing-agent.vercel.app/avatars/vitech-logo.png";
 const esc = (s: string) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+/** Van-e VALÓDI értéke a spec-sornak (a „–"/„-"/„n/a"/üres helykitöltoket kihagyjuk — pl. monitornál nincs CPU/RAM). */
+const hasVal = (s?: string) => {
+  const t = (s || "").trim();
+  return !!t && !/^[-–—._·•\s]+$/.test(t) && !/^(n\/?a|na|nincs)$/i.test(t);
+};
 
 export function buildPosterHtml(o: PosterData): { html: string; css: string } {
   const price = o.priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(o.priceHuf)) + " Ft" : "";
@@ -32,7 +37,7 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
     ["🪟", o.specs?.os],
     ["✅", o.specs?.condition],
     ["🛡️", o.specs?.warranty],
-  ].filter((r) => r[1]) as [string, string][];
+  ].filter((r) => hasVal(r[1])) as [string, string][];
 
   const html = `
   <div class="poster">
@@ -48,8 +53,6 @@ export function buildPosterHtml(o: PosterData): { html: string; css: string } {
       <div class="logo"><img src="${LOGO_URL}"/></div>
       <div class="badges">${badges.map((b) => `<span>${esc(b)}</span>`).join("")}</div>
     </div>
-
-    ${o.dateLabel ? `<div class="datestamp">📅 ${esc(o.dateLabel)}</div>` : ""}
 
     <div class="headline">${esc(o.headline)}</div>
     <div class="accent"></div>
