@@ -4,6 +4,7 @@ import { loadDashboard } from "@/lib/dashboard";
 import { getLiveSiteHealth } from "@/lib/health";
 import ProposedAction from "@/components/ProposedAction";
 import InvoiceButton from "@/components/InvoiceButton";
+import CopyButton from "@/components/CopyButton";
 
 export const dynamic = "force-dynamic";
 
@@ -99,10 +100,33 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
       {/* ===== MARKETING ===== */}
       {params.key === "marketing" && (
         <>
-          <section className="grid gap-3 md:grid-cols-2">
+          <section className="grid gap-3 md:grid-cols-3">
             <MemberRow name={d.config?.agent_name || "Luca"} role="osztályvezető · hirdetés + SEO + elérés" note={note("luca")} />
             <MemberRow name="Klári" role="napi ajánlat + plakát (Luca keze alá)" note={note("klari")} />
+            <MemberRow name="Judit" role="LinkedIn tartalom + blog (Luca keze alá)" note={note("judit")} />
           </section>
+
+          {d.juditPosts?.length > 0 && (
+            <section>
+              <h2 className="section-title">📝 Judit — napi LinkedIn-posztok</h2>
+              <div className="grid gap-3 md:grid-cols-2">
+                {d.juditPosts.slice(0, 6).map((p, i) => (
+                  <div key={i} className="card flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold">{p.topic}</span>
+                      <span className="text-xs text-white/40">{p.date}</span>
+                    </div>
+                    <div className="max-h-60 overflow-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-white/90">{p.body}</div>
+                    {p.hashtags?.length > 0 && <div className="text-xs text-sky-300">{p.hashtags.join(" ")}</div>}
+                    <div>
+                      <CopyButton text={`${p.body}${p.hashtags?.length ? "\n\n" + p.hashtags.join(" ") : ""}`} label="Poszt másolása" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 text-xs text-white/45">Judit minden nap új, változatos LinkedIn-posztot ír az AI-ügynökségrol. Másold ki és tedd fel a LinkedInre.</div>
+            </section>
+          )}
 
           {(d.lucaReach || d.klariBrief) && (
             <section className="card" style={{ borderLeft: `4px solid ${meta.accent}` }}>

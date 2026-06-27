@@ -40,6 +40,7 @@ async function handle(req: NextRequest) {
     await fireBg(secret, "/api/bank/sync");
     await fireBg(secret, "/api/finance/run");
     await fireBg(secret, "/api/luca/reach");
+    await fireBg(secret, "/api/judit/run"); // Judit napi LinkedIn-posztja
     // 2) Google Ads ciklus + Erika napi jelentés (csapat-státuszokkal).
     const result = await runMonitorCycle({ sendReport: true });
     return NextResponse.json({ ok: true, ...result });

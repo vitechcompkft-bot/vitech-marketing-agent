@@ -4,6 +4,7 @@ import { getOrderStats, type OrderStats } from "./orders";
 import { getBillingoSummary, getInvoicedOrders, type BillingoSummary, type InvoicedRecord } from "./billingo";
 import { getBankSnapshot, type BankSnapshot } from "./bank";
 import { getSiteHealth, type SiteHealthRow } from "./health";
+import { getJuditPosts, type JuditPost } from "./judit";
 import type { AgentStatusRow } from "./team";
 import type { AgentAction, AgentConfig, Alert, CampaignMetric } from "./types";
 
@@ -66,6 +67,7 @@ export interface DashboardData {
   klariBrief: string;
   mihalyReport: MihalyReport | null;
   invoicedOrders: Record<string, InvoicedRecord>;
+  juditPosts: JuditPost[];
   sites: SiteHealthRow[];
   supabaseReady: boolean;
   mock: boolean;
@@ -86,6 +88,7 @@ export async function loadDashboard(): Promise<DashboardData> {
   );
   const sites = await getSiteHealth().catch(() => []);
   const invoicedOrders = await getInvoicedOrders().catch(() => ({}));
+  const juditPosts = await getJuditPosts().catch(() => []);
   const bank = await getBankSnapshot().catch(
     () => ({ ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], outByParty: [], asOf: null }) as BankSnapshot
   );
@@ -136,5 +139,5 @@ export async function loadDashboard(): Promise<DashboardData> {
     supabaseReady = false;
   }
 
-  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, bank, lucaReach, klariBrief, mihalyReport, invoicedOrders, sites, supabaseReady, mock: isMock };
+  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, bank, lucaReach, klariBrief, mihalyReport, invoicedOrders, juditPosts, sites, supabaseReady, mock: isMock };
 }

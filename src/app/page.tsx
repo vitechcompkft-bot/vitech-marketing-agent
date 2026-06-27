@@ -57,6 +57,7 @@ export default async function Overview() {
           <Dept title="Marketing" accent="#1a73e8" href="/osztaly/marketing">
             <Member avatar={config?.agent_avatar || "/avatars/luca-1.svg"} name={config?.agent_name ?? "Luca"} role="osztályvezető · hirdetés + SEO" lead status={st("luca")} />
             <Member avatar={config?.klari_avatar} name="Klári" role="napi ajánlat + plakát" status={st("klari")} />
+            <Member avatar={undefined} name="Judit" role="LinkedIn tartalom + blog" status={st("judit")} />
           </Dept>
           <Dept title="Informatika" accent="#22d3ee" href="/osztaly/informatika">
             <Member avatar={gyula?.avatar} name={gyula?.name ?? "Gyula"} role={gyula?.role ?? "IT vezető · automatizálás"} lead status={st("gyula")} />

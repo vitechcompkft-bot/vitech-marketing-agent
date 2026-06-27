@@ -832,4 +832,50 @@ Add vissza PONTOSAN ebben a JSON-ban:
   }
 }
 
+/**
+ * JUDIT — kreatív tartalom-/blogíró. Napi LinkedIn-posztot ír a Vitech AI-ügynökségrol
+ * (AI-ügynökök, marketing-automatizálás, dashboardok, AI a kkv-knak). Profi, hiteles B2B
+ * hangvétel magyarul; MINDEN NAP MÁS témáról, friss szöggel.
+ */
+export async function juditWriteLinkedIn(
+  recentTopics: string[]
+): Promise<{ topic: string; hook: string; body: string; hashtags: string[] } | null> {
+  const anthropic = client();
+  try {
+    const msg = await anthropic.messages.create({
+      model: SMART,
+      max_tokens: 1300,
+      system:
+        "Te vagy Judit, a Vitech AI-ügynökség kreatív tartalom- és blogírója. LinkedIn-posztokat írsz a cég AI-szolgáltatásairól: AI-ügynökök, marketing-automatizálás, webshop-/Google Ads-/Árukereso-mérés, online dashboardok, AI a kis- és középvállalkozásoknak. Profi, hiteles, ÉRTÉKADÓ B2B hangvétel magyarul — gondolatébreszto és emberi, NEM tolakodó reklám. Konkrét, gyakorlati tanulságok, néha mini-sztori vagy szám. Minden poszt MÁS témáról szól, friss szöggel; sosem ugyanaz.",
+      messages: [
+        {
+          role: "user",
+          content: `Írj EGY mai LinkedIn-posztot a Vitech AI-ügynökségrol.
+Kerüld ezeket a közelmúltbeli témákat (válassz MÁST, friss szöget): ${recentTopics.join("; ") || "(még nincs korábbi)"}.
+Felépítés: eros, behúzó NYITÓMONDAT (hook); 3-5 rövid bekezdés (érték/tanulság/sztori/szám); a végén 1 FINOM, nem tolakodó CTA; majd 3-6 releváns hashtag. Mértékkel emoji megengedett. Magyar nyelv, hibátlan.
+Válaszolj PONTOSAN ebben a JSON-ban:
+{
+  "topic": "a poszt témája 2-4 szóban (a változatosság követéséhez)",
+  "hook": "az elso, figyelemfelkelto mondat",
+  "body": "a TELJES poszt szövege a hook-kal együtt, sortörésekkel (\\n) tagolva — ezt másoljuk be a LinkedInre",
+  "hashtags": ["#mestersegesintelligencia", "#marketingautomatizalas", "..."]
+}`,
+        },
+      ],
+    });
+    const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    const body = String(j.body || "");
+    if (!body) return null;
+    return {
+      topic: String(j.topic || "AI a vállalkozásban"),
+      hook: String(j.hook || ""),
+      body,
+      hashtags: Array.isArray(j.hashtags) ? j.hashtags.slice(0, 6).map((h: any) => String(h)) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export { SMART, FAST };
