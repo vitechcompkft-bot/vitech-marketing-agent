@@ -73,9 +73,14 @@ export async function runKlariText(): Promise<KlariResult> {
 
   await setAgentStatus("klari", "working", "Piackutatás a legjobb ajánlathoz…");
 
-  // 1) Termékek (egy adag a katalógusból)
+  // 1) Termékek — NAPONTA FORGÓ ablak a katalógusból, hogy ne ugyanazt a 40-et lássa minden nap.
   const token = await unasLogin();
-  const products = await unasGetProducts(token, { limitNum: 40, limitStart: 0 });
+  const dayIdx = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest", day: "numeric" }).format(new Date())); // 1–31
+  const limitStart = ((dayIdx - 1) * 20) % 200; // a katalógus más-más szeletét nézi naponta
+  let products = await unasGetProducts(token, { limitNum: 60, limitStart });
+  if (products.filter((p) => p.priceGross && p.name).length < 5) {
+    products = await unasGetProducts(token, { limitNum: 60, limitStart: 0 }); // ha a szelet üres/rövid, elejérol
+  }
   const live = products.filter((p) => p.priceGross && p.name);
   if (!live.length) {
     await setAgentStatus("klari", "error", "Nincs feldolgozható termék az Unasból.");
@@ -98,11 +103,32 @@ export async function runKlariText(): Promise<KlariResult> {
     await setAgentStatus("klari", "working", "Luca briefje alapján dolgozom (több elérés)…");
   }
 
-  // 2) Klári: gyors piackutatás (web-keresés, szabad szöveg) → kifogástalan ajánlat összeállítása (eros modell).
-  const productList = live.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross }));
+  // VÁLTOZATOSSÁG: az utóbbi napok kiemelt termékeit KIZÁRJUK (Klári kreatív → minden nap MÁS plakát),
+  // és napi friss FOCÍM-szöget adunk. Luca (a fonök) nem tur ismétlést.
+  const { data: recentPosts } = await sb
+    .from("klari_posts")
+    .select("product_id, product_name, headline")
+    .order("created_at", { ascending: false })
+    .limit(12);
+  const recentIds = new Set((recentPosts || []).map((r: any) => r.product_id));
+  const recentNames = (recentPosts || []).map((r: any) => r.product_name).filter(Boolean).slice(0, 8);
+  const recentHeadlines = (recentPosts || []).map((r: any) => r.headline).filter(Boolean).slice(0, 6);
+  const poolSrc = live.filter((p) => !recentIds.has(p.id));
+  const pool = poolSrc.length >= 5 ? poolSrc : live; // ha kifogyna, ne akadjon el
+  const ANGLES = ["kiemelt ár-előny", "üzleti teljesítmény", "tanuláshoz / diákoknak", "home office kényelem", "megbízhatóság + 12 hó garancia", "kompakt és hordozható", "kreatív munkára"];
+  const angle = ANGLES[dayIdx % ANGLES.length];
+  const varietyNote =
+    `\n\n[VÁLTOZATOSSÁG — KÖTELEZO] Kreatív marketinges vagy: MINDEN NAP MÁS plakát kell, sosem ugyanaz.` +
+    (recentNames.length ? ` Az elmúlt napokban EZEKET emelted ki, NE ezeket válaszd újra: ${recentNames.join("; ")}.` : "") +
+    (recentHeadlines.length ? ` Korábbi focímek, NE ismételd a megfogalmazást: ${recentHeadlines.join(" | ")}.` : "") +
+    ` MA válassz egy ezektol ELTÉRO terméket (más márka/típus/árkategória), és a FOCÍM szöge legyen: „${angle}".`;
+
+  // 2) Klári: gyors piackutatás → kifogástalan, VÁLTOZATOS ajánlat összeállítása.
+  const productList = pool.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross }));
   const research = await klariResearch(productList, klariPersona);
-  await setAgentStatus("klari", "working", "Ajánlat összeállítása + Luca jóváhagyása…");
-  let deal = await klariCompose(productList, research, klariPersona, lucaBrief);
+  const composeCtx = research + varietyNote;
+  await setAgentStatus("klari", "working", `Mai szög: ${angle} — ajánlat + Luca jóváhagyása…`);
+  let deal = await klariCompose(productList, composeCtx, klariPersona, lucaBrief);
   if (!deal) {
     await setAgentStatus("klari", "error", "Nem sikerült ajánlatot összeállítani.");
     return { ran: false, reason: "Klári most nem tudott ajánlatot összeállítani." };
@@ -127,7 +153,7 @@ export async function runKlariText(): Promise<KlariResult> {
   for (let i = 1; i < TEXT_MAX && !judge.approve; i++) {
     await setAgentStatus("klari", "working", `Luca észrevételezte a szöveget — Klári újra nekifut (${i + 1}. próba)…`);
     critiques += "\n\nLUCA KRITIKÁJA (KÖTELEZO kijavítani, ne ismételd a hibát):\n" + judge.verdict;
-    const dN = await klariCompose(productList, research + critiques, klariPersona, lucaBrief);
+    const dN = await klariCompose(productList, composeCtx + critiques, klariPersona, lucaBrief);
     if (!dN) break;
     deal = dN;
     judge = await judgeFor(deal);
