@@ -838,6 +838,7 @@ Add vissza PONTOSAN ebben a JSON-ban:
  * hangvétel magyarul; MINDEN NAP MÁS témáról, friss szöggel.
  */
 export async function juditWriteLinkedIn(
+  project: { name: string; summary: string },
   recentTopics: string[]
 ): Promise<{ topic: string; hook: string; body: string; hashtags: string[] } | null> {
   const anthropic = client();
@@ -846,19 +847,23 @@ export async function juditWriteLinkedIn(
       model: SMART,
       max_tokens: 1300,
       system:
-        "Te vagy Judit, a Vitech AI-ügynökség kreatív tartalom- és blogírója. LinkedIn-posztokat írsz a cég AI-szolgáltatásairól: AI-ügynökök, marketing-automatizálás, webshop-/Google Ads-/Árukereso-mérés, online dashboardok, AI a kis- és középvállalkozásoknak. Profi, hiteles, ÉRTÉKADÓ B2B hangvétel magyarul — gondolatébreszto és emberi, NEM tolakodó reklám. Konkrét, gyakorlati tanulságok, néha mini-sztori vagy szám. Minden poszt MÁS témáról szól, friss szöggel; sosem ugyanaz.",
+        "Te vagy Judit, a Vida László vezette AI-fejleszto/ügynökség tartalomírója. LinkedIn-posztokat írsz a MÁR MEGÉPÍTETT, valódi projektekrol (online dashboardok, automatizálások, AI-rendszerek), esettanulmány-stílusban: milyen ÜZLETI PROBLÉMÁT oldott meg, HOGYAN, és mi lett az EREDMÉNY/érték. Elso személyu, hiteles, szakmai, magyar B2B hangvétel, emberi és konkrét, NEM tolakodó reklám, nincs túlzás. Ügyfélneveket NE írj ki, általánosíts (pl. egy kiskereskedelmi lánc, egy szövetkezet). Mértékkel 0-1 emoji.",
       messages: [
         {
           role: "user",
-          content: `Írj EGY mai LinkedIn-posztot a Vitech AI-ügynökségrol.
-Kerüld ezeket a közelmúltbeli témákat (válassz MÁST, friss szöget): ${recentTopics.join("; ") || "(még nincs korábbi)"}.
-Felépítés: eros, behúzó NYITÓMONDAT (hook); 3-5 rövid bekezdés (érték/tanulság/sztori/szám); a végén 1 FINOM, nem tolakodó CTA; majd 3-6 releváns hashtag. Mértékkel emoji megengedett. Magyar nyelv, hibátlan.
+          content: `Írd meg a MAI LinkedIn-posztot EZ A KONKRÉT, MÁR MEGÉPÍTETT projekt köré:
+
+PROJEKT: ${project.name}
+MIT CSINÁL: ${project.summary}
+
+Esettanulmány-felépítés: eros, behúzó NYITÓMONDAT (a probléma/helyzet); 3-5 rövid bekezdés (mi volt a fájdalom → mit építettem → milyen eredmény/érték, lehetoleg konkrétummal); a végén 1 FINOM CTA (pl. „ha nálatok is hasonló a kihívás, szívesen mesélek róla"). 3-6 releváns hashtag. Magyar, hibátlan.
+Ne ismételd a közelmúlt témáit: ${recentTopics.join("; ") || "(még nincs korábbi)"}.
 Válaszolj PONTOSAN ebben a JSON-ban:
 {
-  "topic": "a poszt témája 2-4 szóban (a változatosság követéséhez)",
+  "topic": "${project.name}",
   "hook": "az elso, figyelemfelkelto mondat",
   "body": "a TELJES poszt szövege a hook-kal együtt, sortörésekkel (\\n) tagolva — ezt másoljuk be a LinkedInre",
-  "hashtags": ["#mestersegesintelligencia", "#marketingautomatizalas", "..."]
+  "hashtags": ["#...", "#..."]
 }`,
         },
       ],

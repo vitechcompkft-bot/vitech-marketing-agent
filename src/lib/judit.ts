@@ -2,6 +2,25 @@ import { supabaseAdmin } from "./supabase";
 import { juditWriteLinkedIn } from "./claude";
 import { sendTelegram } from "./telegram";
 
+/**
+ * Vida László MÁR MEGÉPÍTETT projektjei — Judit ezekrol ír esettanulmány-posztokat (naponta más).
+ * Ügyfélnevek nélkül, üzleti probléma → megoldás → érték fókusszal. Bovítheto.
+ */
+const JUDIT_PROJECTS: { name: string; summary: string }[] = [
+  { name: "Ügyviteli dashboard", summary: "Egy régi, csak LAN-on elérheto Firebird ügyviteli adatbázisból valós ideju, böngészos vezetoi dashboard — a vezetok telepítés nélkül, éloben látják a muködést (forgalom, tételek)." },
+  { name: "Kereskedelmi dashboard", summary: "Egy kiskereskedelmi lánc kereskedelmi adatbázisából forgalom, készlet és toplisták egy átlátható felületen, vezetoi döntéstámogatáshoz." },
+  { name: "Munkaügyi / HR dashboard", summary: "Bér- és HR-adatok (létszám, fluktuáció, bérköltség, demográfia, munkaido) 14 cégre egy helyen — a havi papír-riportok helyett, néhány kattintással." },
+  { name: "HR dokumentumkezelo", summary: "Dolgozói dokumentumok digitális aláírása és naplózása; a meglévo bérrendszerbol olvas, és auditálható nyomot hagy minden aláírásról." },
+  { name: "Leltározó rendszer", summary: "Elavult PSION kézi terminálok leváltása modern Android PDA-s (PWA) + webes leltárral — gyorsabb, olcsóbb, valós ideju készlet." },
+  { name: "Nyomtató-flotta dashboard", summary: "Bolti és központi nyomtatók lapszámának automatikus gyujtése SNMP-vel, havi riporttal — kézi leolvasás nélkül, költségkontrollal." },
+  { name: "Garancia-készíto", summary: "A beérkezo webshop-rendelésbol automatikusan garancialevél (PDF) + Excel-nyilvántartás készül, emberi munka nélkül — a bekötött e-mailbol dolgozik." },
+  { name: "Belso intranet", summary: "Egy szövetkezet elavult belso intranetjének újraépítése modern stacken (Next.js + Supabase) — gyorsabb, biztonságosabb, karbantarthatóbb." },
+  { name: "AI marketinges csapat", summary: "Egy teljes AI-marketingcsapat: napi kreatívok, hirdetés-figyelés, pénzügyi elemzés, uptime-felügyelet, automatikus számlázás — egy emberi ügynökség töredékáráért." },
+  { name: "Webshop hirdetés-mérés", summary: "Egy felújított-laptop webshop teljes hirdetés-mérése: Google Ads konverziókövetés, Árukereso-feed, és valós ROAS egy dashboardon — végre látszik, mi térül meg." },
+  { name: "Árcímke-nyomtató webapp", summary: "Árcímkék nyomtatása A4-es ívre böngészobol, közvetlenül az árukészlet-adatokból — gyors és hibamentes, sablonválasztással." },
+  { name: "Fájl- és tartalomkiosztó", summary: "Fájlok és könyvjelzok központi, távoli kiosztása a bolti gépekre — egységesen, kézi telepítés nélkül." },
+];
+
 /** Judit egy LinkedIn-posztja (a marketing-csapat tartalomírója). */
 export interface JuditPost {
   date: string;
@@ -41,7 +60,15 @@ export async function runJuditDaily(): Promise<{ ok: boolean; post?: JuditPost; 
   const existing = await getJuditPosts();
   const recentTopics = existing.slice(0, 8).map((p) => p.topic).filter(Boolean);
 
-  const w = await juditWriteLinkedIn(recentTopics);
+  // A MAI projekt kiválasztása: a közelmúltban bemutatottakat kihagyjuk, forgó sorrendben.
+  const used = new Set(recentTopics.map((t) => t.toLowerCase()));
+  const freshProjects = JUDIT_PROJECTS.filter((p) => !used.has(p.name.toLowerCase()));
+  const pickPool = freshProjects.length ? freshProjects : JUDIT_PROJECTS;
+  const dayIdx = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest", day: "numeric" }).format(new Date()));
+  const project = pickPool[dayIdx % pickPool.length];
+
+  await setJuditStatus("working", `LinkedIn-poszt írása: ${project.name}…`);
+  const w = await juditWriteLinkedIn(project, recentTopics);
   if (!w) {
     await setJuditStatus("error", "A LinkedIn-poszt most nem készült el.");
     return { ok: false, reason: "Judit most nem tudott posztot írni." };
