@@ -93,12 +93,21 @@ export async function reportSites(
   for (const r of results) {
     const site = MONITORED_SITES.find((s) => s.id === r.id);
     if (!site) continue;
+    const note = r.note || "";
     await upsertAndAlert(site, {
       status: r.status === "up" ? "up" : "down",
       httpCode: r.http_code ?? null,
       latencyMs: r.latency_ms ?? null,
-      note: r.note || "",
+      note,
     });
+    // ÖNGYÓGYÍTÁS-RIASZTÁS: ha a helyi agent automatikusan újraindította (vagy nem sikerült) → Telegram.
+    if (/auto-újraindít/i.test(note)) {
+      if (/sikertelen/i.test(note)) {
+        await sendTelegram(`⚠️ *Gyula* — a(z) *${site.name}* leállt, és az automatikus újraindítás NEM sikerült. Kézi beavatkozás kellhet.`).catch(() => {});
+      } else {
+        await sendTelegram(`🔧 *Gyula* — a(z) *${site.name}* leállt, de automatikusan *újraindítottam* — már fut. ✅`).catch(() => {});
+      }
+    }
     updated++;
   }
   return { updated };

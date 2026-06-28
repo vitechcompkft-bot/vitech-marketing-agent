@@ -2,6 +2,7 @@ import { supabaseAdmin } from "./supabase";
 import { juditWriteLinkedIn } from "./claude";
 import { sendTelegram } from "./telegram";
 import { getLinkedInStatus, postToLinkedIn, linkedinAutopostEnabled } from "./linkedin";
+import { generateAdImage } from "./falai";
 
 /**
  * Vida László MÁR MEGÉPÍTETT projektjei — Judit ezekrol ír esettanulmány-posztokat (naponta más).
@@ -29,6 +30,7 @@ export interface JuditPost {
   hook: string;
   body: string;
   hashtags: string[];
+  image?: string; // Klári által generált, a poszthoz illo AI-kép (LinkedInre is felkerül)
 }
 
 /** Judit státuszának frissítése (a „judit" sor upsert-tel jön létre, ha még nincs). */
@@ -83,7 +85,17 @@ export async function runJuditDaily(
     return { ok: false, reason: "Judit most nem tudott posztot írni." };
   }
 
-  const post: JuditPost = { date: dateLabel, topic: w.topic, hook: w.hook, body: w.body, hashtags: w.hashtags };
+  // KLÁRI készít egy a poszthoz illo AI-képet (a LinkedInre is felkerül). Hiba esetén kép nélkül megy.
+  await setJuditStatus("working", `Klári képet készít a poszthoz: ${project.name}…`);
+  let imageUrl: string | undefined;
+  try {
+    const imgPrompt = `Professional modern concept illustration for a B2B LinkedIn post about: ${project.name}. Theme: ${project.summary} Corporate tech, clean editorial or isometric style, navy and bright blue brand colors, high quality, uncluttered. ABSOLUTELY NO text, NO words, NO letters, NO numbers, NO logos, NO watermark.`;
+    imageUrl = (await generateAdImage(imgPrompt)) || undefined;
+  } catch {
+    /* kép nélkül is mehet */
+  }
+
+  const post: JuditPost = { date: dateLabel, topic: w.topic, hook: w.hook, body: w.body, hashtags: w.hashtags, image: imageUrl };
   const next = [post, ...existing].slice(0, 12);
 
   try {
@@ -104,7 +116,7 @@ export async function runJuditDaily(
   try {
     const li = await getLinkedInStatus();
     if (li.connected && !li.expired && linkedinAutopostEnabled()) {
-      const r = await postToLinkedIn(fullText);
+      const r = await postToLinkedIn(fullText, imageUrl);
       if (r.ok) {
         posted = true;
         liUrl = r.url;

@@ -99,20 +99,54 @@ export function linkedinAutopostEnabled(): boolean {
   return process.env.LINKEDIN_AUTOPOST !== "0";
 }
 
-/** Szöveges poszt kiküldése a személyes profilra (ugcPosts). */
-export async function postToLinkedIn(text: string): Promise<{ ok: boolean; url?: string; error?: string }> {
+/** Kép feltöltése a LinkedInre (3 lépés: registerUpload → bináris feltöltés). Visszaadja az asset URN-t. */
+async function uploadImage(s: LinkedInSession, imageUrl: string): Promise<string | null> {
+  try {
+    const reg = await fetch(`${LI_API}/v2/assets?action=registerUpload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${s.accessToken}`, "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0" },
+      body: JSON.stringify({
+        registerUploadRequest: {
+          recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+          owner: s.personUrn,
+          serviceRelationships: [{ relationshipType: "OWNER", identifier: "urn:li:userGeneratedContent" }],
+        },
+      }),
+    });
+    const rj = await reg.json().catch(() => ({}));
+    const asset = rj?.value?.asset;
+    const uploadUrl = rj?.value?.uploadMechanism?.["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]?.uploadUrl;
+    if (!asset || !uploadUrl) return null;
+    const img = await fetch(imageUrl);
+    if (!img.ok) return null;
+    const buf = Buffer.from(await img.arrayBuffer());
+    const up = await fetch(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${s.accessToken}` }, body: buf });
+    if (!up.ok) return null;
+    return asset as string;
+  } catch {
+    return null;
+  }
+}
+
+/** Poszt a személyes profilra (ugcPosts). Opcionális képpel (imageUrl). */
+export async function postToLinkedIn(text: string, imageUrl?: string): Promise<{ ok: boolean; url?: string; error?: string }> {
   const s = await getLinkedInSession();
   if (!s) return { ok: false, error: "A LinkedIn nincs összekötve." };
   if (Date.now() > s.expiresAt) return { ok: false, error: "A LinkedIn token lejárt — kösd újra (/api/linkedin/connect)." };
+
+  let asset: string | null = null;
+  if (imageUrl) asset = await uploadImage(s, imageUrl);
+
+  const shareContent: any = {
+    shareCommentary: { text: text.slice(0, 2900) },
+    shareMediaCategory: asset ? "IMAGE" : "NONE",
+  };
+  if (asset) shareContent.media = [{ status: "READY", media: asset }];
+
   const payload = {
     author: s.personUrn,
     lifecycleState: "PUBLISHED",
-    specificContent: {
-      "com.linkedin.ugc.ShareContent": {
-        shareCommentary: { text: text.slice(0, 2900) },
-        shareMediaCategory: "NONE",
-      },
-    },
+    specificContent: { "com.linkedin.ugc.ShareContent": shareContent },
     visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
   };
   try {

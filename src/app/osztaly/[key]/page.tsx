@@ -129,6 +129,10 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
                       <span className="text-sm font-semibold">{p.topic}</span>
                       <span className="text-xs text-white/40">{p.date}</span>
                     </div>
+                    {p.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.image} alt={p.topic} className="w-full rounded-lg" />
+                    )}
                     <div className="max-h-60 overflow-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-white/90">{p.body}</div>
                     {p.hashtags?.length > 0 && <div className="text-xs text-sky-300">{p.hashtags.join(" ")}</div>}
                     <div>
