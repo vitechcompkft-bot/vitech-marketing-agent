@@ -7,6 +7,35 @@ import { buildDealPoster } from "./creatives";
 import { renderPosterPng } from "./poster";
 import { setAgentStatus } from "./team";
 import { sendTelegram } from "./telegram";
+import { facebookConfigured, facebookAutopostEnabled, publishKlariPoster } from "./facebook";
+
+/**
+ * A kész plakát automatikus kiposztolása a Vitech FB-oldalra (ha be van kötve + nincs kikapcsolva).
+ * A poszt képe a renderelt plakát (poster_url); ha az nincs, a termékfotó. Visszaad egy rövid jegyzetet
+ * a Luca-verdiktbe, és Telegramon is jelez. Soha nem dobja el a fo folyamatot (best-effort).
+ */
+async function autopostToFacebook(row: any, rd: RenderData, posterUrl: string | null): Promise<string> {
+  if (!facebookConfigured() || !facebookAutopostEnabled()) return "";
+  const img = posterUrl || row.image_url || rd.imageUrl;
+  if (!img) return " | FB: kihagyva (nincs kép).";
+  try {
+    const fb = await publishKlariPoster({
+      headline: rd.headline,
+      caption: row.caption,
+      priceHuf: rd.priceHuf,
+      productName: rd.productName,
+      productUrl: rd.productUrl,
+      imageUrl: img,
+    });
+    if (fb.ok) {
+      await sendTelegram(`📘 *Klári plakátja kiment a Vitech Facebook-oldalra is.*\n🖥️ ${rd.productName}${fb.url ? `\n${fb.url}` : ""}`).catch(() => {});
+      return " | FB: kiposztolva.";
+    }
+    return ` | FB hiba: ${fb.error}`;
+  } catch (e: any) {
+    return ` | FB hiba: ${e?.message || "ismeretlen"}`;
+  }
+}
 
 export interface KlariResult {
   ran: boolean;
@@ -311,14 +340,15 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
   const bestUrl = url || rd.lastPosterUrl || null; // a legjobb eddigi render (fallback-hez)
   const moreTries = attemptNo < MAX_IMAGE_ATTEMPTS; // van-e még próba hátra
 
-  // 1) JÓVÁHAGYVA → publikálás + Telegram + kész.
+  // 1) JÓVÁHAGYVA → publikálás (FB-oldal is) + Telegram + kész.
   if (approved && url) {
+    const fbNote = await autopostToFacebook(row, rd, url);
     await sb
       .from("klari_posts")
       .update({
         poster_url: url,
         poster_svg: row.poster_svg || buildDealPoster(base),
-        luca_verdict: `${row.luca_verdict} | Luca jóváhagyta a kész hirdetést a ${attemptNo}. próbára (Gyula technikai elokészítése után).`,
+        luca_verdict: `${row.luca_verdict} | Luca jóváhagyta a kész hirdetést a ${attemptNo}. próbára (Gyula technikai elokészítése után).${fbNote}`,
         status: "approved",
         render_data: { ...rd, lastPosterUrl: url },
       })
@@ -353,12 +383,13 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
   // 3) ELFOGYTAK A PRÓBÁK → hogy reggel BIZTOSAN legyen kész plakát, a LEGJOBB verzióval publikálunk
   //    (Luca észrevételeivel együtt). Soha nem maradunk plakát nélkül, és nem halasztjuk holnapra.
   const finalUrl = bestUrl;
+  const fbNote2 = await autopostToFacebook(row, rd, finalUrl);
   await sb
     .from("klari_posts")
     .update({
       poster_url: finalUrl,
       poster_svg: row.poster_svg || buildDealPoster(base),
-      luca_verdict: `${row.luca_verdict} | ${MAX_IMAGE_ATTEMPTS} próba után a legjobb verzió publikálva (Luca utolsó észrevétele: ${reason}).`,
+      luca_verdict: `${row.luca_verdict} | ${MAX_IMAGE_ATTEMPTS} próba után a legjobb verzió publikálva (Luca utolsó észrevétele: ${reason}).${fbNote2}`,
       status: "approved",
       render_data: { ...rd, lastPosterUrl: finalUrl || undefined },
     })

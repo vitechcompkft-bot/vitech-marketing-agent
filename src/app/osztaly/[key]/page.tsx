@@ -204,6 +204,15 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
               ) : (
                 <div className="mt-1 text-white/55">Luca figyeli a Metát, és szól, amikor a kampány indulhat.</div>
               )}
+              <div className="mt-2 border-t border-white/10 pt-2">
+                {!d.facebook.configured ? (
+                  <span className="text-white/45">📘 FB-oldal auto-poszt: nincs beállítva (FB_PAGE_ID / FB_PAGE_TOKEN hiányzik).</span>
+                ) : d.facebook.connected ? (
+                  <span className="text-green-300">📘 FB-oldal összekötve{d.facebook.pageName ? ` · ${d.facebook.pageName}` : ""} — Klári napi plakátja automatikusan kimegy ide is.</span>
+                ) : (
+                  <span className="text-amber-200">⚠️ FB-oldal token hiba — ellenorizd a FB_PAGE_TOKEN-t{d.facebook.error ? ` (${d.facebook.error})` : ""}.</span>
+                )}
+              </div>
             </div>
           </section>
 
