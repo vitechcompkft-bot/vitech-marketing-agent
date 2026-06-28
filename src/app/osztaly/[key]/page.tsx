@@ -192,6 +192,22 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
           </section>
 
           <section>
+            <h2 className="section-title">📊 Meta (Facebook / Instagram)</h2>
+            <div className="card text-sm">
+              <div>Pixel: <span className="text-green-300 font-medium">aktív</span> — a webshop méri a megtekintést, kosárba tételt és a vásárlást.</div>
+              {d.meta ? (
+                d.meta.ready ? (
+                  <div className="mt-1 text-emerald-300">🚀 A <b>retargeting-kampány indulhat</b> — Luca jelezte. Szólj, és összerakjuk.</div>
+                ) : (
+                  <div className="mt-1 text-white/70">⏳ A retargeting-közönség épül — Luca kb. <b>{d.meta.daysLeft} nap</b> múlva szól, hogy indulhat a kampány.</div>
+                )
+              ) : (
+                <div className="mt-1 text-white/55">Luca figyeli a Metát, és szól, amikor a kampány indulhat.</div>
+              )}
+            </div>
+          </section>
+
+          <section>
             <h2 className="section-title">Kampányok</h2>
             <div className="flex flex-col gap-3">
               {d.metrics.length === 0 && <div className="card text-white/60">Nincs kampány-adat.</div>}
