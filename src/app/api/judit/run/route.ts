@@ -16,15 +16,16 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Jogosulatlan" }, { status: 401 });
   }
   const sync = req.method === "GET" || req.nextUrl.searchParams.get("sync") === "1";
+  const force = req.nextUrl.searchParams.get("force") === "1";
   if (sync) {
     try {
-      const result = await runJuditDaily();
+      const result = await runJuditDaily({ force });
       return NextResponse.json(result);
     } catch (e: any) {
       return NextResponse.json({ ok: false, error: e?.message ?? "hiba" }, { status: 500 });
     }
   }
-  waitUntil(runJuditDaily().catch(() => {}));
+  waitUntil(runJuditDaily({ force }).catch(() => {}));
   return NextResponse.json({ ok: true, accepted: true });
 }
 

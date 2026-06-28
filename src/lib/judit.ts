@@ -56,9 +56,17 @@ export async function getJuditPosts(): Promise<JuditPost[]> {
 }
 
 /** JUDIT napi feladata: egy ÚJ, változatos LinkedIn-poszt az AI-ügynökségrol → mentés + Telegram. */
-export async function runJuditDaily(): Promise<{ ok: boolean; post?: JuditPost; reason?: string }> {
-  await setJuditStatus("working", "LinkedIn-poszt írása…");
+export async function runJuditDaily(
+  opts?: { force?: boolean }
+): Promise<{ ok: boolean; post?: JuditPost; reason?: string; linkedin?: { posted: boolean; url?: string; error?: string } }> {
   const existing = await getJuditPosts();
+  const dateLabel = new Intl.DateTimeFormat("hu-HU", { timeZone: "Europe/Budapest", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  // NAPONTA EGY poszt: ha ma már volt, kihagyjuk (kivéve force) — így a cron + kézi futás nem duplázza.
+  if (!opts?.force && existing[0]?.date === dateLabel) {
+    await setJuditStatus("done", `Mai poszt már kész: ${existing[0].topic}`);
+    return { ok: true, post: existing[0], reason: "Ma már készült poszt — kihagyva." };
+  }
+  await setJuditStatus("working", "LinkedIn-poszt írása…");
   const recentTopics = existing.slice(0, 8).map((p) => p.topic).filter(Boolean);
 
   // A MAI projekt kiválasztása: a közelmúltban bemutatottakat kihagyjuk, forgó sorrendben.
@@ -75,12 +83,6 @@ export async function runJuditDaily(): Promise<{ ok: boolean; post?: JuditPost; 
     return { ok: false, reason: "Judit most nem tudott posztot írni." };
   }
 
-  const dateLabel = new Intl.DateTimeFormat("hu-HU", {
-    timeZone: "Europe/Budapest",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
   const post: JuditPost = { date: dateLabel, topic: w.topic, hook: w.hook, body: w.body, hashtags: w.hashtags };
   const next = [post, ...existing].slice(0, 12);
 
@@ -97,17 +99,22 @@ export async function runJuditDaily(): Promise<{ ok: boolean; post?: JuditPost; 
   // AUTO-POSZT a LinkedInre, ha össze van kötve és nincs kikapcsolva.
   let liNote = "";
   let posted = false;
+  let liUrl: string | undefined;
+  let liError: string | undefined;
   try {
     const li = await getLinkedInStatus();
     if (li.connected && !li.expired && linkedinAutopostEnabled()) {
       const r = await postToLinkedIn(fullText);
       if (r.ok) {
         posted = true;
+        liUrl = r.url;
         liNote = `\n\n✅ Kiposztolva a LinkedInre${r.url ? `: ${r.url}` : ""}`;
       } else {
+        liError = r.error;
         liNote = `\n\n⚠️ LinkedIn-poszt nem ment ki: ${r.error}`;
       }
     } else if (li.connected && li.expired) {
+      liError = "token lejárt";
       liNote = "\n\n⚠️ A LinkedIn token lejárt — kösd újra (Marketing oldal → LinkedIn összekötése).";
     }
   } catch {
@@ -117,5 +124,5 @@ export async function runJuditDaily(): Promise<{ ok: boolean; post?: JuditPost; 
   await setJuditStatus("done", `Mai LinkedIn-poszt kész: ${w.topic}${posted ? " (kiposztolva)" : ""}`);
   await sendTelegram(`📝 *Judit — mai LinkedIn-poszt* (${w.topic})\n\n${fullText}${liNote}`).catch(() => {});
 
-  return { ok: true, post };
+  return { ok: true, post, linkedin: { posted, url: liUrl, error: liError } };
 }
