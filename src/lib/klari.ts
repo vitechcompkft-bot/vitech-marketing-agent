@@ -62,11 +62,27 @@ export interface RenderData {
  */
 
 /** 1. FÁZIS — szöveg: a legjobb ajánlat + Luca jóváhagyás, majd 'pending_image' sor mentése. */
-export async function runKlariText(): Promise<KlariResult> {
+export async function runKlariText(opts?: { force?: boolean }): Promise<KlariResult> {
   const sb = supabaseAdmin();
   const { data: cfg } = await sb.from("agent_config").select("*").eq("id", 1).single();
   if (!cfg) return { ran: false, reason: "Nincs konfiguráció." };
   if (!cfg.agent_enabled) return { ran: false, reason: "Az Agent ki van kapcsolva (vész-leállító)." };
+
+  // NAPI EGY plakát: ha ma már készült (vagy folyamatban) plakát, kihagyjuk (kivéve force).
+  // Így a reggeli (07:00) és a fallback (19:00) cron nem duplázik, de a kimaradt reggelt pótolja.
+  if (!opts?.force) {
+    const todayBp = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest" }).format(new Date());
+    const { data: last } = await sb
+      .from("klari_posts")
+      .select("created_at, status")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const lastDay = last?.created_at ? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest" }).format(new Date(last.created_at)) : "";
+    if (lastDay === todayBp && last?.status !== "rejected") {
+      return { ran: false, reason: "Ma már készült plakát — kihagyva." };
+    }
+  }
 
   const klariPersona = { name: "Klári", persona: cfg.klari_persona || "Lelkes, kreatív marketinges." };
   const lucaPersona = { name: cfg.agent_name, persona: cfg.agent_persona };

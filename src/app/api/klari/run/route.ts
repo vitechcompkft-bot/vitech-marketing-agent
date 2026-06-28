@@ -22,7 +22,8 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Jogosulatlan" }, { status: 401 });
   }
   try {
-    const result = await runKlariText();
+    const force = req.nextUrl.searchParams.get("force") === "1";
+    const result = await runKlariText({ force });
 
     // Jóváhagyott szöveg → kép-fázis KÜLÖN invokációban. A render azonnal válaszol
     // ('accepted'), a tényleges renderelést waitUntil-lel a háttérben futtatja (saját 60s),
