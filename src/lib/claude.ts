@@ -865,13 +865,20 @@ Válaszolj PONTOSAN ebben a JSON-ban:
     });
     const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
     const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-    const body = String(j.body || "");
+    let body = String(j.body || "");
     if (!body) return null;
+    let hashtags = Array.isArray(j.hashtags) ? j.hashtags.slice(0, 6).map((h: any) => String(h)) : [];
+    // A modell néha a poszt VÉGÉRE is beteszi a hashtageket → levágjuk, hogy ne duplázódjanak.
+    const trail = body.match(/(?:\n+\s*#[^\n]*)+\s*$/u);
+    if (trail) {
+      if (hashtags.length === 0) hashtags = (trail[0].match(/#[^\s#]+/g) || []).slice(0, 6);
+      body = body.slice(0, trail.index).trim();
+    }
     return {
       topic: String(j.topic || "AI a vállalkozásban"),
       hook: String(j.hook || ""),
       body,
-      hashtags: Array.isArray(j.hashtags) ? j.hashtags.slice(0, 6).map((h: any) => String(h)) : [],
+      hashtags,
     };
   } catch {
     return null;
