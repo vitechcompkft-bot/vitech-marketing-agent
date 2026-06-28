@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./supabase";
 import { juditWriteLinkedIn } from "./claude";
 import { sendTelegram } from "./telegram";
+import { getLinkedInStatus, postToLinkedIn, linkedinAutopostEnabled } from "./linkedin";
 
 /**
  * Vida László MÁR MEGÉPÍTETT projektjei — Judit ezekrol ír esettanulmány-posztokat (naponta más).
@@ -90,12 +91,31 @@ export async function runJuditDaily(): Promise<{ ok: boolean; post?: JuditPost; 
     /* mentés nem kritikus a Telegram-küldéshez */
   }
 
-  await setJuditStatus("done", `Mai LinkedIn-poszt kész: ${w.topic}`);
-
   const tags = w.hashtags.join(" ");
-  await sendTelegram(
-    `📝 *Judit — mai LinkedIn-poszt* (${w.topic})\n\n${w.body}${tags ? `\n\n${tags}` : ""}`
-  ).catch(() => {});
+  const fullText = `${w.body}${tags ? `\n\n${tags}` : ""}`;
+
+  // AUTO-POSZT a LinkedInre, ha össze van kötve és nincs kikapcsolva.
+  let liNote = "";
+  let posted = false;
+  try {
+    const li = await getLinkedInStatus();
+    if (li.connected && !li.expired && linkedinAutopostEnabled()) {
+      const r = await postToLinkedIn(fullText);
+      if (r.ok) {
+        posted = true;
+        liNote = `\n\n✅ Kiposztolva a LinkedInre${r.url ? `: ${r.url}` : ""}`;
+      } else {
+        liNote = `\n\n⚠️ LinkedIn-poszt nem ment ki: ${r.error}`;
+      }
+    } else if (li.connected && li.expired) {
+      liNote = "\n\n⚠️ A LinkedIn token lejárt — kösd újra (Marketing oldal → LinkedIn összekötése).";
+    }
+  } catch {
+    /* az auto-poszt hibája ne döntse el a futást */
+  }
+
+  await setJuditStatus("done", `Mai LinkedIn-poszt kész: ${w.topic}${posted ? " (kiposztolva)" : ""}`);
+  await sendTelegram(`📝 *Judit — mai LinkedIn-poszt* (${w.topic})\n\n${fullText}${liNote}`).catch(() => {});
 
   return { ok: true, post };
 }

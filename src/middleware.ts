@@ -26,6 +26,7 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/api/seo") ||
     pathname.startsWith("/api/klari/") ||
     pathname.startsWith("/api/judit") ||
+    pathname.startsWith("/api/linkedin/callback") ||
     pathname.startsWith("/api/orders") ||
     pathname.startsWith("/api/poster-bg") ||
     pathname.startsWith("/api/email") ||

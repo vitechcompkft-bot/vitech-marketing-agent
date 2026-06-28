@@ -106,9 +106,22 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
             <MemberRow name="Judit" role="LinkedIn tartalom + blog (Luca keze alá)" note={note("judit")} />
           </section>
 
-          {d.juditPosts?.length > 0 && (
-            <section>
-              <h2 className="section-title">📝 Judit — napi LinkedIn-posztok</h2>
+          <section>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="section-title" style={{ margin: 0 }}>📝 Judit — napi LinkedIn-posztok</h2>
+              <span className="text-xs">
+                {!d.linkedin.configured ? (
+                  <span className="text-white/45">LinkedIn: nincs beállítva (API-kulcs hiányzik)</span>
+                ) : d.linkedin.connected && !d.linkedin.expired ? (
+                  <span className="badge bg-green-500/20 text-green-300">🔗 LinkedIn összekötve{d.linkedin.name ? ` · ${d.linkedin.name}` : ""} — auto-poszt BE</span>
+                ) : d.linkedin.connected && d.linkedin.expired ? (
+                  <a href="/api/linkedin/connect" className="badge bg-amber-500/20 text-amber-200">⚠️ LinkedIn token lejárt — kösd újra</a>
+                ) : (
+                  <a href="/api/linkedin/connect" className="badge bg-sky-500/20 text-sky-200">🔗 LinkedIn összekötése (auto-poszt)</a>
+                )}
+              </span>
+            </div>
+            {d.juditPosts?.length > 0 && (
               <div className="grid gap-3 md:grid-cols-2">
                 {d.juditPosts.slice(0, 6).map((p, i) => (
                   <div key={i} className="card flex flex-col gap-2">
@@ -124,9 +137,9 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
                   </div>
                 ))}
               </div>
-              <div className="mt-2 text-xs text-white/45">Judit minden nap új, változatos LinkedIn-posztot ír az AI-ügynökségrol. Másold ki és tedd fel a LinkedInre.</div>
-            </section>
-          )}
+            )}
+            <div className="mt-2 text-xs text-white/45">Judit minden nap új, projekt-alapú LinkedIn-posztot ír; ha a LinkedIn össze van kötve, automatikusan ki is posztolja (egyébként a „Poszt másolása" gombbal viheted fel).</div>
+          </section>
 
           {(d.lucaReach || d.klariBrief) && (
             <section className="card" style={{ borderLeft: `4px solid ${meta.accent}` }}>
