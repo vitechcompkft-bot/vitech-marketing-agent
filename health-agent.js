@@ -22,7 +22,8 @@ const SITES = [
   { id: "kereskedelmi", url: "http://10.49.8.2:3000/" },
   { id: "munkaugyi", url: "http://10.49.8.43:3001/" },
   { id: "nyomtato", url: "http://10.49.8.2:3300/nyomtatok/allasok" },
-  { id: "garancia", url: "http://localhost:8000/" },
+  // A garancia-app EZEN a gepen fut → ha leall, az agent AUTOMATIKUSAN ujrainditja (restart parancs).
+  { id: "garancia", url: "http://localhost:8000/", restart: { cmd: 'wscript.exe "start-garancia.vbs"', cwd: "C:\\Projects\\vitech-garancia" } },
 ];
 
 async function pingOne(url) {
@@ -40,10 +41,32 @@ async function pingOne(url) {
   }
 }
 
+async function restartSite(s) {
+  try {
+    const { exec } = await import("node:child_process");
+    await new Promise((res) => exec(s.restart.cmd, { cwd: s.restart.cwd, windowsHide: true }, () => res()));
+    return true;
+  } catch (e) {
+    console.error("restart hiba:", e && e.message);
+    return false;
+  }
+}
+
 async function runOnce() {
   const results = [];
   for (const s of SITES) {
-    const r = await pingOne(s.url);
+    let r = await pingOne(s.url);
+    // ONGYÓGYÍTÁS: ha le van es van hozzá restart-parancs (helyi app) → ujraindit + ujra-ping.
+    if (r.status === "down" && s.restart) {
+      console.log(`!! ${s.id} LE — automatikus újraindítás…`);
+      await restartSite(s);
+      await new Promise((res) => setTimeout(res, 7000)); // hagyjuk elindulni
+      const r2 = await pingOne(s.url);
+      r = r2.status === "up"
+        ? { ...r2, note: "auto-újraindítva" }
+        : { ...r2, note: (r2.note ? r2.note + " · " : "") + "auto-újraindítás sikertelen" };
+      console.log(r.status === "up" ? `>> ${s.id} újraindítva, fut.` : `>> ${s.id} újraindítás sikertelen.`);
+    }
     results.push({ id: s.id, ...r });
     console.log(`${r.status === "up" ? "OK " : "LE "} ${s.id} (${r.http_code || r.note}) ${r.latency_ms}ms`);
   }
