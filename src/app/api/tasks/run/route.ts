@@ -15,6 +15,17 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Jogosulatlan" }, { status: 401 });
   }
   try {
+    // Önteszt: a PDF/DOCX/XLSX export muködik-e élesben (Vercelen).
+    if (req.nextUrl.searchParams.get("test") === "export") {
+      const { buildPdf, buildDocx, buildXlsx } = await import("@/lib/exporters");
+      const t = "Teszt — magyar ékezetek: őű ÁÉÍÓÖŐÚÜŰ";
+      const [pdf, docx, xlsx] = await Promise.all([
+        buildPdf(t, "Árvíztűrő tükörfúrógép. Minőség, körültekintő működés."),
+        buildDocx(t, "sor"),
+        buildXlsx(t, "sor"),
+      ]);
+      return NextResponse.json({ ok: true, pdf: pdf.length, docx: docx.length, xlsx: xlsx.length });
+    }
     if (req.nextUrl.searchParams.get("demo") === "1") {
       await createTask(
         "mihaly",
