@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runTeamSync } from "@/lib/teamComms";
+import { runTeamSync, getAgentMessages } from "@/lib/teamComms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,8 @@ async function handle(req: NextRequest) {
   try {
     const demo = req.nextUrl.searchParams.get("demo") === "1";
     const result = await runTeamSync({ demo });
-    return NextResponse.json({ ok: true, ...result });
+    const messages = (await getAgentMessages().catch(() => [])).slice(0, 8);
+    return NextResponse.json({ ok: true, ...result, messages });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message ?? "hiba" }, { status: 500 });
   }
