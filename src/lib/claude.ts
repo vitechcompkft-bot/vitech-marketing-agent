@@ -933,7 +933,7 @@ export async function juditWriteBlog(
   try {
     const msg = await anthropic.messages.create({
       model: SMART,
-      max_tokens: 3000,
+      max_tokens: 2000,
       system:
         "Te vagy Judit, a Vitech Comp Kft. (felújított laptopok és IT-megoldások webáruháza, vitechcompkft.hu) tartalomírója. SEO-orientált, hiteles magyar vásárlási útmutatókat / blogcikkeket írsz a felújított laptopok témakörében. Cél: organikus Google-forgalom és bizalom. Hibátlan magyar (helyes ékezetek: á é í ó ö ő ú ü ű), gyakorlati, konkrét, nem tolakodó. Kerüld a túlzást és a valótlan állítást.",
       messages: [
@@ -942,7 +942,7 @@ export async function juditWriteBlog(
           content: `Írj egy teljes, SEO-barát blogcikket ERRE A TÉMÁRA: „${topic}".
 
 Követelmények:
-- 700-1000 szó, esettanulmány/útmutató hangvétel.
+- 500-650 szó, tömör útmutató hangvétel (ne legyen terjengős).
 - Szerkezet: behúzó bevezető; 4-6 db H2 szekció (szükség szerint H3 alszekciók); a végén egy rövid GYIK (2-3 kérdés-válasz) és egy FINOM CTA a webshopra (vitechcompkft.hu).
 - A törzs HTML legyen, KIZÁRÓLAG ezekkel a tagekkel: <h2>, <h3>, <p>, <ul>, <li>, <strong>, <a>. NE legyen <h1>, <html>, <head>, <body>, <style> vagy inline stílus.
 - A kulcsszó szerepeljen a címben és a bevezetőben.

@@ -28,7 +28,7 @@ async function handle(req: NextRequest) {
         const r = await fetch(`${baseUrl()}/api/blog/publish`, {
           method: "POST",
           headers: { "content-type": "application/json", ...(secret ? { authorization: `Bearer ${secret}` } : {}) },
-          signal: AbortSignal.timeout(12000),
+          signal: AbortSignal.timeout(5000),
         });
         trigger = `http ${r.status}`;
       } catch (e: any) {
