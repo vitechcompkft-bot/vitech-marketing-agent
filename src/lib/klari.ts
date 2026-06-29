@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts } from "./unas";
-import { klariResearch, klariCompose, lucaJudgeDeal, lucaReviewPoster } from "./claude";
+import { klariResearch, klariCompose, lucaJudgeDeal, lucaReviewPoster, lucaProofreadHungarian } from "./claude";
 import { generateProductScene } from "./falai";
 import { generateProductSceneHF, higgsfieldEnabled } from "./higgsfield";
 import { buildDealPoster } from "./creatives";
@@ -203,6 +203,12 @@ export async function runKlariText(opts?: { force?: boolean }): Promise<KlariRes
     deal = dN;
     judge = await judgeFor(deal);
   }
+
+  // LUCA KORREKTÚRA — a plakátra és az FB-caption-be kerülo magyar szöveg helyesírása/ékezetei.
+  // Ékezethibás plakát/poszt SOHA nem mehet ki.
+  await setAgentStatus("luca", "working", "Helyesírás és ékezetek ellenorzése a plakát-szövegen…");
+  deal.headline = await lucaProofreadHungarian(deal.headline);
+  if (deal.caption) deal.caption = await lucaProofreadHungarian(deal.caption);
 
   const product = live.find((p) => p.id === deal.product_id) || live[0];
   const priceHuf = product.priceGross ? Number(product.priceGross) : undefined;

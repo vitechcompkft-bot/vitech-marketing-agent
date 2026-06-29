@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "./supabase";
-import { juditWriteLinkedIn } from "./claude";
+import { juditWriteLinkedIn, lucaProofreadHungarian } from "./claude";
 import { sendTelegram } from "./telegram";
 import { getLinkedInStatus, postToLinkedIn, linkedinAutopostEnabled } from "./linkedin";
 import { generateAdImage } from "./falai";
@@ -84,6 +84,12 @@ export async function runJuditDaily(
     await setJuditStatus("error", "A LinkedIn-poszt most nem készült el.");
     return { ok: false, reason: "Judit most nem tudott posztot írni." };
   }
+
+  // LUCA KORREKTÚRA — minden kimeno szöveg átmegy Luca magyar helyesírás-/ékezet-ellenorzésén.
+  // Ékezethibás poszt SOHA nem mehet ki.
+  await setJuditStatus("working", `Luca ellenorzi a helyesírást és az ékezeteket: ${project.name}…`);
+  w.body = await lucaProofreadHungarian(w.body);
+  if (w.hook) w.hook = await lucaProofreadHungarian(w.hook);
 
   // KLÁRI készít egy a poszthoz illo AI-képet (a LinkedInre is felkerül). Hiba esetén kép nélkül megy.
   await setJuditStatus("working", `Klári képet készít a poszthoz: ${project.name}…`);

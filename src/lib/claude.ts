@@ -890,4 +890,36 @@ Válaszolj PONTOSAN ebben a JSON-ban:
   }
 }
 
+/**
+ * LUCA KORREKTOR — minden KIMENO magyar szöveg ezen megy át (Judit-poszt, Klári plakát/caption).
+ * Feladata KIZÁRÓLAG a magyar helyesírás és az ÉKEZETEK javítása (á é í ó ö ő ú ü ű — hosszú/rövid
+ * magánhangzók, ő≠ö, ű≠ü), központozás, elgépelés. A TARTALMAT, jelentést, hangnemet, sortöréseket,
+ * emojikat és hashtageket NEM változtatja. Hiba esetén az EREDETI szöveget adja vissza (ne álljon meg a folyamat).
+ */
+export async function lucaProofreadHungarian(text: string): Promise<string> {
+  const src = (text || "").trim();
+  if (!src) return text;
+  const anthropic = client();
+  try {
+    const msg = await anthropic.messages.create({
+      model: SMART,
+      max_tokens: Math.min(2200, Math.ceil(src.length / 2) + 600),
+      system:
+        "Te vagy Luca, a marketingfonök, aki a kimeno szövegeket korrektúrázza. A feladatod KIZÁRÓLAG a MAGYAR HELYESÍRÁS és az ÉKEZETEK javítása: a hosszú/rövid magánhangzók (a/á, e/é, i/í, o/ó, ö/o, u/ú, ü/u), az ő (NEM ö) és az ű (NEM ü) helyes használata, a központozás és az elgépelések. A szöveg TARTALMÁT, jelentését, stílusát, hosszát, a sortöréseket (\\n), az emojikat és a hashtageket (#...) NE változtasd meg. Ha a szöveg már helyes, add vissza változatlanul. KIZÁRÓLAG a (javított) szöveget add vissza, mindenféle bevezeto, magyarázat, idézojel vagy keretezés NÉLKÜL.",
+      messages: [{ role: "user", content: src }],
+    });
+    const out = msg.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("")
+      .trim();
+    if (!out) return text;
+    // Biztonsági korlát: ha a korrektúra gyanúsan elszállt (sokkal rövidebb/hosszabb), maradjon az eredeti.
+    if (out.length < src.length * 0.5 || out.length > src.length * 1.8) return text;
+    return out;
+  } catch {
+    return text;
+  }
+}
+
 export { SMART, FAST };
