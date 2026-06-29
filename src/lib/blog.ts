@@ -10,6 +10,9 @@ import { sendTelegram } from "./telegram";
  * A két fázis KÜLÖN HTTP-invokáció, mindegyiknek saját 60s budget-je. Heti 1 cikk (monitor cron, hétfo).
  */
 
+/** A „Blog" menüpont (oldal) azonosítója — ide kerülnek a blog-cikkek. (URL: /spg/367234/Blog) */
+const BLOG_PAGE_ID = process.env.BLOG_PAGE_ID || "367234";
+
 const TOPICS: string[] = [
   "Felújított laptop vásárlás: mire figyelj? (teljes útmutató)",
   "Melyik felújított üzleti laptop kinek? ThinkPad vs EliteBook vs Latitude",
@@ -120,6 +123,7 @@ export async function runBlogPublishDraft(): Promise<{ ok: boolean; reason?: str
     metaDescription,
     metaKeywords: "",
     authorName: "Vitech Comp",
+    pageId: BLOG_PAGE_ID,
   });
   if (!res.ok) {
     await setJuditStatus("error", "Az Unas publikálás nem sikerült.");

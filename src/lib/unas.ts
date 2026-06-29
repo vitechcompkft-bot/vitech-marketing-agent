@@ -118,6 +118,25 @@ export interface BlogPostInput {
   metaDescription: string;
   metaKeywords?: string;
   authorName?: string;
+  pageId?: string; // melyik oldalon (menüpont) jelenjen meg — a Blog oldal Id-ja
+}
+
+/** Meglévő tartalmi elem (blog) hozzárendelése egy oldalhoz (menüponthoz) — setPageContent modify. */
+export async function unasSetBlogPostPage(token: string, id: string, pageId: string): Promise<{ ok: boolean; message: string }> {
+  const body =
+    `<?xml version="1.0" encoding="UTF-8" ?>\n` +
+    `<PageContents><PageContent><Action>modify</Action><Id>${id}</Id>` +
+    `<Pages><Page><Id>${pageId}</Id></Page></Pages>` +
+    `</PageContent></PageContents>`;
+  const res = await fetch(`${API_BASE}/setPageContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+    body,
+  });
+  const text = await res.text();
+  const status = (text.match(/<Status>([\s\S]*?)<\/Status>/) || [])[1];
+  if (status && /ok/i.test(status)) return { ok: true, message: "Hozzárendelve a Blog oldalhoz." };
+  return { ok: false, message: "Unas modify hiba: " + text.slice(0, 300) };
 }
 
 /** Blog bejegyzés létrehozása az Unas setPageContent (Type=blog) végponton — ÉLESBEN (Published=yes). */
@@ -145,6 +164,7 @@ export async function unasCreateBlogPost(
     `<Description>${cdata(p.metaDescription)}</Description>` +
     `<Keywords>${cdata(p.metaKeywords ?? "")}</Keywords>` +
     `</Meta>` +
+    (p.pageId ? `<Pages><Page><Id>${p.pageId}</Id></Page></Pages>` : "") +
     `</PageContent></PageContents>`;
   const res = await fetch(`${API_BASE}/setPageContent`, {
     method: "POST",
