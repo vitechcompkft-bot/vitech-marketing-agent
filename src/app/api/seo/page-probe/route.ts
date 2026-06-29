@@ -31,10 +31,8 @@ async function handle(req: NextRequest) {
   try {
     const token = await unasLogin();
     const attempts = [
-      ["getPageContent", "<Params><LimitNum>20</LimitNum></Params>"],
-      ["getPageContent", "<Params><ContentType>blog</ContentType><LimitNum>20</LimitNum></Params>"],
-      ["getPage", "<Params><LimitNum>20</LimitNum></Params>"],
-      ["getMenu", "<Params><LimitNum>20</LimitNum></Params>"],
+      ["getPageContent", "<Params><Lang>hu</Lang></Params>"],
+      ["getPageContent", "<Params><Lang>hu</Lang><LimitNum>50</LimitNum></Params>"],
     ] as const;
     const results = [];
     for (const [m, b] of attempts) results.push(await call(token, m, b));
