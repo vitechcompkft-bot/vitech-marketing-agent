@@ -932,8 +932,8 @@ export async function juditWriteBlog(
   const anthropic = client();
   try {
     const msg = await anthropic.messages.create({
-      model: SMART,
-      max_tokens: 2000,
+      model: FAST,
+      max_tokens: 2800,
       system:
         "Te vagy Judit, a Vitech Comp Kft. (felújított laptopok és IT-megoldások webáruháza, vitechcompkft.hu) tartalomírója. SEO-orientált, hiteles magyar vásárlási útmutatókat / blogcikkeket írsz a felújított laptopok témakörében. Cél: organikus Google-forgalom és bizalom. Hibátlan magyar (helyes ékezetek: á é í ó ö ő ú ü ű), gyakorlati, konkrét, nem tolakodó. Kerüld a túlzást és a valótlan állítást.",
       messages: [
