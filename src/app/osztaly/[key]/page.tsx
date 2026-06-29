@@ -93,6 +93,11 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
   const labelOf = (k: string) =>
     (({ erika: "Erika", luca: "Luca", klari: "Klári", judit: "Judit", gyula: "Gyula", mihaly: "Mihály" } as Record<string, string>)[k] || k);
 
+  const _now = new Date();
+  const thisMonth = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}`;
+  const _pm = new Date(_now.getFullYear(), _now.getMonth() - 1, 1);
+  const prevMonth = `${_pm.getFullYear()}-${String(_pm.getMonth() + 1).padStart(2, "0")}`;
+
   return (
     <main className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
@@ -153,6 +158,25 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
             ))}
           </div>
           <div className="mt-2 text-xs text-white/45">Erika a feladatot a megfelelő munkatárshoz továbbítja; itt látod, hogyan halad (fogadva → folyamatban → kész) és a választ.</div>
+        </section>
+      )}
+
+      {d.bank?.connected && (
+        <section>
+          <h2 className="section-title">💰 Banki kivonat / számlatörténet</h2>
+          <div className="card flex flex-col gap-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-28 text-white/55">Aktuális hónap</span>
+              <a className="btn btn-ghost" href={`/api/export/statement?format=pdf&month=${thisMonth}`}>📄 Kivonat (PDF)</a>
+              <a className="btn btn-ghost" href={`/api/export/statement?format=xlsx&month=${thisMonth}`}>📊 Számlatörténet (Excel)</a>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-28 text-white/55">Előző hónap</span>
+              <a className="btn btn-ghost" href={`/api/export/statement?format=pdf&month=${prevMonth}`}>📄 Kivonat (PDF)</a>
+              <a className="btn btn-ghost" href={`/api/export/statement?format=xlsx&month=${prevMonth}`}>📊 Számlatörténet (Excel)</a>
+            </div>
+            <div className="text-xs text-white/45">A K&H banki tételeiből (open banking, ~90 nap érhető el). A letöltés a tételes mozgásokat tartalmazza, összesítéssel.</div>
+          </div>
         </section>
       )}
 

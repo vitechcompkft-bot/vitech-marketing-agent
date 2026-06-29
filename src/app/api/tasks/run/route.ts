@@ -26,6 +26,14 @@ async function handle(req: NextRequest) {
       ]);
       return NextResponse.json({ ok: true, pdf: pdf.length, docx: docx.length, xlsx: xlsx.length });
     }
+    if (req.nextUrl.searchParams.get("test") === "statement") {
+      const { getMonthStatement } = await import("@/lib/bank");
+      const { buildStatementPdf, buildStatementXlsx } = await import("@/lib/bankExport");
+      const stmt = await getMonthStatement();
+      if (!stmt.ok) return NextResponse.json({ ok: false, note: stmt.note });
+      const [pdf, xlsx] = await Promise.all([buildStatementPdf(stmt), buildStatementXlsx(stmt)]);
+      return NextResponse.json({ ok: true, txCount: stmt.transactions.length, totalIn: stmt.totalIn, totalOut: stmt.totalOut, pdf: pdf.length, xlsx: xlsx.length });
+    }
     if (req.nextUrl.searchParams.get("demo") === "1") {
       await createTask(
         "mihaly",

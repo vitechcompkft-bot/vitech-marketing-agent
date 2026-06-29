@@ -221,6 +221,77 @@ export async function runBankSync(): Promise<BankSnapshot> {
   }
 }
 
+export interface MonthStatement {
+  ok: boolean;
+  periodFrom: string;
+  periodTo: string;
+  currency: string;
+  totalIn: number;
+  totalOut: number;
+  transactions: { date: string; party: string; dir: "in" | "out"; amount: number; info: string }[];
+  note?: string;
+}
+
+/** Egy hónap (vagy az aktuális hónap) ÖSSZES banki tétele — kivonathoz/számlatörténethez. month = "YYYY-MM". */
+export async function getMonthStatement(month?: string): Promise<MonthStatement> {
+  const now = new Date();
+  let from: string;
+  let to: string;
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [y, m] = month.split("-").map(Number);
+    from = `${month}-01`;
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    to = `${month}-${String(last).padStart(2, "0")}`;
+  } else {
+    from = now.toISOString().slice(0, 7) + "-01";
+    to = now.toISOString().slice(0, 10);
+  }
+  const base: MonthStatement = { ok: false, periodFrom: from, periodTo: to, currency: "HUF", totalIn: 0, totalOut: 0, transactions: [] };
+  if (!bankEnabled()) return { ...base, note: "Nincs banki kulcs." };
+  const sb = supabaseAdmin();
+  const { data: row } = await sb.from("app_state").select("value").eq("key", "bank_session").maybeSingle();
+  if (!row?.value) return { ...base, note: "A bank nincs összekötve." };
+  let session: { session_id: string; accounts: string[] };
+  try {
+    session = JSON.parse(row.value);
+  } catch {
+    return { ...base, note: "Hibás bank-session." };
+  }
+  if (!session.accounts?.length) return { ...base, note: "Nincs összekötött számla." };
+
+  try {
+    let totalIn = 0;
+    let totalOut = 0;
+    let currency = "HUF";
+    const transactions: MonthStatement["transactions"] = [];
+    for (const uid of session.accounts) {
+      let contKey: string | undefined;
+      let guard = 0;
+      do {
+        const q = `date_from=${from}&date_to=${to}` + (contKey ? `&continuation_key=${encodeURIComponent(contKey)}` : "");
+        const tx = await ebFetch(`/accounts/${uid}/transactions?${q}`);
+        for (const t of tx.transactions || []) {
+          const amt = Number(t.transaction_amount?.amount || 0);
+          currency = t.transaction_amount?.currency || currency;
+          const dir = t.credit_debit_indicator === "CRDT" ? "in" : "out";
+          const info = Array.isArray(t.remittance_information) ? t.remittance_information.join(" ") : t.remittance_information || "";
+          const party = t.creditor?.name || t.debtor?.name || "—";
+          if (dir === "in") totalIn += amt;
+          else totalOut += amt;
+          transactions.push({ date: t.booking_date || t.value_date || "", party, dir: dir as "in" | "out", amount: amt, info });
+        }
+        contKey = tx.continuation_key || undefined;
+      } while (contKey && ++guard < 25);
+    }
+    transactions.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    return { ok: true, periodFrom: from, periodTo: to, currency, totalIn, totalOut, transactions };
+  } catch (e: any) {
+    const msg = (e?.message || "").slice(0, 160);
+    const expired = /401|403|expired|invalid/i.test(msg);
+    return { ...base, note: expired ? "A banki hozzáférés lejárt — újra össze kell kötni." : "Bank-hiba: " + msg };
+  }
+}
+
 /** A tárolt snapshot (dashboardhoz/Mihályhoz). */
 export async function getBankSnapshot(): Promise<BankSnapshot> {
   try {
