@@ -120,6 +120,36 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
         </section>
       )}
 
+      {d.tasks?.length > 0 && (
+        <section>
+          <h2 className="section-title">📋 Feladatok (tulajdonostól)</h2>
+          <div className="flex flex-col gap-2">
+            {d.tasks.slice(0, 8).map((t) => (
+              <div key={t.id} className="card">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-white/50">Megbízott:</span>
+                    <span className="font-semibold">{t.who?.name || labelOf(t.to)}</span>
+                    <span className="text-xs text-white/40">· {t.who?.department}</span>
+                  </div>
+                  <span className={`badge ${t.status === "kész" ? "bg-green-500/20 text-green-300" : t.status === "folyamatban" ? "bg-amber-500/20 text-amber-200" : "bg-sky-500/20 text-sky-200"}`}>
+                    {t.status === "kész" ? "✅ kész" : t.status === "folyamatban" ? "⚙️ folyamatban" : "📥 fogadva"}
+                  </span>
+                </div>
+                <div className="text-sm text-white/85">{t.title}</div>
+                {t.response && (
+                  <div className="mt-2 rounded-lg border border-white/10 bg-black/20 p-3">
+                    <div className="mb-1 text-xs text-white/45">{t.who?.name} válasza:</div>
+                    <div className="whitespace-pre-wrap text-sm text-white/90">{t.response}</div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-xs text-white/45">Erika a feladatot a megfelelő munkatárshoz továbbítja; itt látod, hogyan halad (fogadva → folyamatban → kész) és a választ.</div>
+        </section>
+      )}
+
       {/* ===== MARKETING ===== */}
       {params.key === "marketing" && (
         <>

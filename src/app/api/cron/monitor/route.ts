@@ -38,6 +38,7 @@ async function handle(req: NextRequest) {
     await gyulaDailyCheck().catch(() => {});
     await runMetaWatch().catch(() => {}); // Luca: Meta retargeting-kampány indíthatóságának figyelése
     await runTeamSync().catch(() => {}); // AI-csapat belso kommunikáció: magvetés + inboxok feldolgozása
+    await fireBg(secret, "/api/tasks/run"); // függoben lévo tulajdonosi feladatok pótló feldolgozása
     // 1b) SEO-átvilágítás + Mihály pénzügyi jelentése — KÜLÖN invokációkban (saját 60s budget),
     //     hogy a fo ciklus + Erika jelentés biztosan beférjen 60s-be.
     await fireBg(secret, "/api/seo/audit");
