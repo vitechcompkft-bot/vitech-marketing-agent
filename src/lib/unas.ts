@@ -109,6 +109,55 @@ export async function unasSetProductSeo(
   return { ok: true, message: "SEO frissítve az Unasban." };
 }
 
+export interface BlogPostInput {
+  title: string;
+  sefUrl: string;
+  lead: string; // bevezető (a blog-listán látszik)
+  bodyHtml: string; // teljes tartalom (HTML)
+  metaTitle: string;
+  metaDescription: string;
+  metaKeywords?: string;
+  authorName?: string;
+}
+
+/** Blog bejegyzés létrehozása az Unas setPageContent (Type=blog) végponton — ÉLESBEN (Published=yes). */
+export async function unasCreateBlogPost(
+  token: string,
+  p: BlogPostInput
+): Promise<{ ok: boolean; id?: string; message: string }> {
+  const body =
+    `<?xml version="1.0" encoding="UTF-8" ?>\n` +
+    `<PageContents><PageContent>` +
+    `<Action>add</Action>` +
+    `<Title>${cdata(p.title)}</Title>` +
+    `<Type>blog</Type>` +
+    (p.authorName ? `<Author><Name>${cdata(p.authorName)}</Name></Author>` : "") +
+    `<BlogContent>` +
+    `<Lead>${cdata(p.lead)}</Lead><LeadIsHTML>no</LeadIsHTML>` +
+    `<Text>${cdata(p.bodyHtml)}</Text><ContentIsHTML>yes</ContentIsHTML>` +
+    `</BlogContent>` +
+    `<Published>yes</Published>` +
+    `<Explicit>no</Explicit>` +
+    `<CommentAllowed>no</CommentAllowed>` +
+    `<SefUrl>${cdata(p.sefUrl)}</SefUrl>` +
+    `<Meta>` +
+    `<Title>${cdata(p.metaTitle)}</Title>` +
+    `<Description>${cdata(p.metaDescription)}</Description>` +
+    `<Keywords>${cdata(p.metaKeywords ?? "")}</Keywords>` +
+    `</Meta>` +
+    `</PageContent></PageContents>`;
+  const res = await fetch(`${API_BASE}/setPageContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+    body,
+  });
+  const text = await res.text();
+  const id = (text.match(/<Id>(\d+)<\/Id>/) || [])[1];
+  const status = (text.match(/<Status>([\s\S]*?)<\/Status>/) || [])[1];
+  if (id && status && /ok/i.test(status)) return { ok: true, id, message: "Blog közzétéve." };
+  return { ok: false, message: "Unas setPageContent hiba: " + text.slice(0, 300) };
+}
+
 export interface UnasOrder {
   key: string;
   date: string; // "2026.06.04 18:07:59"

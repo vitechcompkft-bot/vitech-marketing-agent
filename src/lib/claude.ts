@@ -903,7 +903,7 @@ export async function lucaProofreadHungarian(text: string): Promise<string> {
   try {
     const msg = await anthropic.messages.create({
       model: SMART,
-      max_tokens: Math.min(2200, Math.ceil(src.length / 2) + 600),
+      max_tokens: Math.min(5000, Math.ceil(src.length / 2) + 800),
       system:
         "Te vagy Luca, a marketingfonök, aki a kimeno szövegeket korrektúrázza. A feladatod KIZÁRÓLAG a MAGYAR HELYESÍRÁS és az ÉKEZETEK javítása: a hosszú/rövid magánhangzók (a/á, e/é, i/í, o/ó, ö/o, u/ú, ü/u), az ő (NEM ö) és az ű (NEM ü) helyes használata, a központozás és az elgépelések. A szöveg TARTALMÁT, jelentését, stílusát, hosszát, a sortöréseket (\\n), az emojikat és a hashtageket (#...) NE változtasd meg. Ha a szöveg már helyes, add vissza változatlanul. KIZÁRÓLAG a (javított) szöveget add vissza, mindenféle bevezeto, magyarázat, idézojel vagy keretezés NÉLKÜL.",
       messages: [{ role: "user", content: src }],
@@ -919,6 +919,65 @@ export async function lucaProofreadHungarian(text: string): Promise<string> {
     return out;
   } catch {
     return text;
+  }
+}
+
+/**
+ * JUDIT — webshop SEO blogcikk (vásárlási útmutató) egy adott témára.
+ * Visszaad: cím, SEF-slug (ékezet nélkül), meta title/description, bevezető (lead) és HTML törzs (h2/h3/p/ul/strong).
+ */
+export async function juditWriteBlog(
+  topic: string
+): Promise<{ title: string; slug: string; metaTitle: string; metaDescription: string; lead: string; bodyHtml: string } | null> {
+  const anthropic = client();
+  try {
+    const msg = await anthropic.messages.create({
+      model: SMART,
+      max_tokens: 3000,
+      system:
+        "Te vagy Judit, a Vitech Comp Kft. (felújított laptopok és IT-megoldások webáruháza, vitechcompkft.hu) tartalomírója. SEO-orientált, hiteles magyar vásárlási útmutatókat / blogcikkeket írsz a felújított laptopok témakörében. Cél: organikus Google-forgalom és bizalom. Hibátlan magyar (helyes ékezetek: á é í ó ö ő ú ü ű), gyakorlati, konkrét, nem tolakodó. Kerüld a túlzást és a valótlan állítást.",
+      messages: [
+        {
+          role: "user",
+          content: `Írj egy teljes, SEO-barát blogcikket ERRE A TÉMÁRA: „${topic}".
+
+Követelmények:
+- 700-1000 szó, esettanulmány/útmutató hangvétel.
+- Szerkezet: behúzó bevezető; 4-6 db H2 szekció (szükség szerint H3 alszekciók); a végén egy rövid GYIK (2-3 kérdés-válasz) és egy FINOM CTA a webshopra (vitechcompkft.hu).
+- A törzs HTML legyen, KIZÁRÓLAG ezekkel a tagekkel: <h2>, <h3>, <p>, <ul>, <li>, <strong>, <a>. NE legyen <h1>, <html>, <head>, <body>, <style> vagy inline stílus.
+- A kulcsszó szerepeljen a címben és a bevezetőben.
+
+Válaszolj PONTOSAN ebben a JSON-ban (más szöveg nélkül):
+{
+  "title": "a cikk címe (H1, NE tedd bele a HTML-be)",
+  "slug": "kereso-barat-url-ekezet-nelkul-kötojelekkel",
+  "metaTitle": "max 60 karakter, tartalmazza a kulcsszót",
+  "metaDescription": "max 155 karakter, behúzó összefoglaló",
+  "lead": "1-2 mondatos bevezető/kivonat (sima szöveg, a blog-listán látszik)",
+  "bodyHtml": "a teljes cikk HTML törzse a fenti tagekkel"
+}`,
+        },
+      ],
+    });
+    const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    const slugRaw = String(j.slug || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (!j.title || !j.bodyHtml || !slugRaw) return null;
+    return {
+      title: String(j.title),
+      slug: slugRaw.slice(0, 80),
+      metaTitle: String(j.metaTitle || j.title).slice(0, 65),
+      metaDescription: String(j.metaDescription || "").slice(0, 165),
+      lead: String(j.lead || ""),
+      bodyHtml: String(j.bodyHtml),
+    };
+  } catch {
+    return null;
   }
 }
 

@@ -43,6 +43,9 @@ async function handle(req: NextRequest) {
     await fireBg(secret, "/api/finance/run");
     await fireBg(secret, "/api/luca/reach");
     await fireBg(secret, "/api/judit/run"); // Judit napi LinkedIn-posztja
+    // Judit heti webshop-blogcikke — hétfonként (Europe/Budapest).
+    const weekdayBp = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Budapest", weekday: "short" }).format(new Date());
+    if (weekdayBp === "Mon") await fireBg(secret, "/api/blog/run");
     await fireBg(secret, "/api/klari/run"); // plakát-pótló: ha a reggeli cron kimaradt, este pótolja (napi-egy or véd)
     // 2) Google Ads ciklus + Erika napi jelentés (csapat-státuszokkal).
     const result = await runMonitorCycle({ sendReport: true });
