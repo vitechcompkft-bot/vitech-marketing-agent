@@ -141,6 +141,12 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
                   <div className="mt-2 rounded-lg border border-white/10 bg-black/20 p-3">
                     <div className="mb-1 text-xs text-white/45">{t.who?.name} válasza:</div>
                     <div className="whitespace-pre-wrap text-sm text-white/90">{t.response}</div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <a className="btn btn-ghost" href={`/api/export/file?id=${t.id}&format=pdf`}>📄 PDF</a>
+                      <a className="btn btn-ghost" href={`/api/export/file?id=${t.id}&format=docx`}>📝 DOCX</a>
+                      <a className="btn btn-ghost" href={`/api/export/file?id=${t.id}&format=xlsx`}>📊 XLSX</a>
+                      <a className="btn btn-ghost" href={`/api/export/email?id=${t.id}&format=pdf`} target="_blank" rel="noreferrer">✉️ Emailben kérem</a>
+                    </div>
                   </div>
                 )}
               </div>
