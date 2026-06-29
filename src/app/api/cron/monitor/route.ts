@@ -49,6 +49,9 @@ async function handle(req: NextRequest) {
     // Judit heti webshop-blogcikke — hétfonként (Europe/Budapest).
     const weekdayBp = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Budapest", weekday: "short" }).format(new Date());
     if (weekdayBp === "Mon") await fireBg(secret, "/api/blog/run");
+    // Mihály havi könyveloi-emailje — minden hónap 4-én (Europe/Budapest).
+    const dayBp = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest", day: "2-digit" }).format(new Date());
+    if (dayBp === "04") await fireBg(secret, "/api/accounting/send");
     await fireBg(secret, "/api/klari/run"); // plakát-pótló: ha a reggeli cron kimaradt, este pótolja (napi-egy or véd)
     // 2) Google Ads ciklus + Erika napi jelentés (csapat-státuszokkal).
     const result = await runMonitorCycle({ sendReport: true });

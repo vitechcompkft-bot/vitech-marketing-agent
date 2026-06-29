@@ -15,18 +15,24 @@ export async function sendMail(opts: {
   filename?: string;
   content?: Buffer;
   mime?: string;
+  attachments?: { filename: string; content: Buffer; mime?: string }[];
 }): Promise<{ ok: boolean; error?: string }> {
   const user = process.env.GMAIL_USER;
   const pass = process.env.GMAIL_APP_PASSWORD;
   if (!user || !pass) return { ok: false, error: "Hiányzó GMAIL_USER / GMAIL_APP_PASSWORD env." };
   try {
     const transporter = nodemailer.createTransport({ service: "gmail", auth: { user, pass } });
+    const atts = opts.attachments
+      ? opts.attachments.map((a) => ({ filename: a.filename, content: a.content, contentType: a.mime }))
+      : opts.filename && opts.content
+      ? [{ filename: opts.filename, content: opts.content, contentType: opts.mime }]
+      : undefined;
     await transporter.sendMail({
       from: `Vitech AI csapat <${user}>`,
       to: opts.to || ownerEmail(),
       subject: opts.subject,
       text: opts.text,
-      attachments: opts.filename && opts.content ? [{ filename: opts.filename, content: opts.content, contentType: opts.mime }] : undefined,
+      attachments: atts,
     });
     return { ok: true };
   } catch (e: any) {
