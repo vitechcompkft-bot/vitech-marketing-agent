@@ -947,34 +947,43 @@ Követelmények:
 - A törzs HTML legyen, KIZÁRÓLAG ezekkel a tagekkel: <h2>, <h3>, <p>, <ul>, <li>, <strong>, <a>. NE legyen <h1>, <html>, <head>, <body>, <style> vagy inline stílus.
 - A kulcsszó szerepeljen a címben és a bevezetőben.
 
-Válaszolj PONTOSAN ebben a JSON-ban (más szöveg nélkül):
-{
-  "title": "a cikk címe (H1, NE tedd bele a HTML-be)",
-  "slug": "kereso-barat-url-ekezet-nelkul-kötojelekkel",
-  "metaTitle": "max 60 karakter, tartalmazza a kulcsszót",
-  "metaDescription": "max 155 karakter, behúzó összefoglaló",
-  "lead": "1-2 mondatos bevezető/kivonat (sima szöveg, a blog-listán látszik)",
-  "bodyHtml": "a teljes cikk HTML törzse a fenti tagekkel"
-}`,
+Válaszolj PONTOSAN EBBEN A FORMÁTUMBAN (a jelölősorok között, semmi más; a BODY után a teljes HTML jöjjön, akár több soron):
+===TITLE===
+a cikk címe (NE tedd bele a HTML-be)
+===SLUG===
+kereso-barat-url-ekezet-nelkul-kotojelekkel
+===METATITLE===
+max 60 karakter, tartalmazza a kulcsszót
+===METADESC===
+max 155 karakter, behúzó összefoglaló
+===LEAD===
+1-2 mondatos bevezető/kivonat (sima szöveg, a blog-listán látszik)
+===BODY===
+a teljes cikk HTML törzse a megengedett tagekkel`,
         },
       ],
     });
     const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
-    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-    const slugRaw = String(j.slug || "")
+    const sec = (name: string): string => {
+      const m = text.match(new RegExp(`===${name}===\\s*([\\s\\S]*?)(?=\\n===[A-Z]+===|$)`));
+      return m ? m[1].trim() : "";
+    };
+    const title = sec("TITLE");
+    const bodyHtml = sec("BODY");
+    const slugRaw = sec("SLUG")
       .toLowerCase()
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-    if (!j.title || !j.bodyHtml || !slugRaw) return null;
+    if (!title || !bodyHtml || !slugRaw) return null;
     return {
-      title: String(j.title),
+      title,
       slug: slugRaw.slice(0, 80),
-      metaTitle: String(j.metaTitle || j.title).slice(0, 65),
-      metaDescription: String(j.metaDescription || "").slice(0, 165),
-      lead: String(j.lead || ""),
-      bodyHtml: String(j.bodyHtml),
+      metaTitle: (sec("METATITLE") || title).slice(0, 65),
+      metaDescription: sec("METADESC").slice(0, 165),
+      lead: sec("LEAD"),
+      bodyHtml,
     };
   } catch {
     return null;
