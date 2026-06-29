@@ -64,7 +64,8 @@ async function handle(req: NextRequest) {
       const xml = await unasGetProductsRaw(token, { limitNum: BATCH, limitStart, contentType: "full" });
       const blocks = xml.match(/<Product>[\s\S]*?<\/Product>/g) || [];
       if (!blocks.length) break;
-      if (i === 0) sampleTags = [...new Set([...blocks[0].matchAll(/<([A-Za-z]+)>/g)].map((m) => m[1]))];
+      const first = blocks[0];
+      if (i === 0 && first) sampleTags = [...new Set([...first.matchAll(/<([A-Za-z]+)>/g)].map((m) => m[1]))];
       for (const b of blocks) {
         scanned++;
         const id = (b.match(/<Id>(\d+)<\/Id>/) || [])[1] || "";
