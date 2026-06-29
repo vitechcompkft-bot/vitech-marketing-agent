@@ -1,8 +1,17 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasCreateBlogPost } from "./unas";
 import { juditWriteBlog, lucaProofreadHungarian } from "./claude";
-import { setAgentStatus } from "./team";
 import { sendTelegram } from "./telegram";
+
+/** Judit státusz-frissítése (a "judit" sor upsert-tel, mint a judit.ts-ben). */
+async function setJuditStatus(status: string, note: string): Promise<void> {
+  try {
+    const sb = supabaseAdmin();
+    await sb.from("agent_status").upsert({ key: "judit", status, status_note: note, status_at: new Date().toISOString() }, { onConflict: "key" });
+  } catch {
+    /* a státusz nem kritikus */
+  }
+}
 
 /**
  * Automata webshop-blog: Judit ír egy SEO vásárlási útmutatót → Luca ékezet-/helyesírás-korrektúra
@@ -63,15 +72,15 @@ export async function runBlogPublish(opts?: { force?: boolean }): Promise<{ ok: 
   const topic = TOPICS.find((t) => !usedTitles.has(t)) || (opts?.force ? TOPICS[existing.length % TOPICS.length] : undefined);
   if (!topic) return { ok: false, reason: "Minden téma ki lett adva." };
 
-  await setAgentStatus("judit", "working", `Blogcikk írása: ${topic.slice(0, 40)}…`);
+  await setJuditStatus("working", `Blogcikk írása: ${topic.slice(0, 40)}…`);
   const w = await juditWriteBlog(topic);
   if (!w) {
-    await setAgentStatus("judit", "error", "A blogcikk most nem készült el.");
+    await setJuditStatus("error", "A blogcikk most nem készült el.");
     return { ok: false, reason: "Judit most nem tudott blogcikket írni." };
   }
 
   // LUCA KORREKTÚRA — helyesírás + ékezetek a kimeno tartalmon.
-  await setAgentStatus("judit", "working", "Luca ellenőrzi a helyesírást és az ékezeteket…");
+  await setJuditStatus("working", "Luca ellenőrzi a helyesírást és az ékezeteket…");
   const title = await lucaProofreadHungarian(w.title);
   const lead = await lucaProofreadHungarian(w.lead);
   const bodyHtml = await lucaProofreadHungarian(w.bodyHtml);
@@ -82,7 +91,7 @@ export async function runBlogPublish(opts?: { force?: boolean }): Promise<{ ok: 
   let slug = w.slug;
   if (usedSlugs.has(slug)) slug = `${slug}-${existing.length + 1}`;
 
-  await setAgentStatus("judit", "working", "Publikálás a webshop blogjára…");
+  await setJuditStatus("working", "Publikálás a webshop blogjára…");
   const token = await unasLogin();
   const res = await unasCreateBlogPost(token, {
     title,
@@ -95,7 +104,7 @@ export async function runBlogPublish(opts?: { force?: boolean }): Promise<{ ok: 
     authorName: "Vitech Comp",
   });
   if (!res.ok) {
-    await setAgentStatus("judit", "error", "Az Unas publikálás nem sikerült.");
+    await setJuditStatus("error", "Az Unas publikálás nem sikerült.");
     return { ok: false, reason: res.message };
   }
 
@@ -104,7 +113,7 @@ export async function runBlogPublish(opts?: { force?: boolean }): Promise<{ ok: 
   const next = [record, ...existing].slice(0, 30);
   await sb.from("app_state").upsert({ key: "blog_posts", value: JSON.stringify(next), updated_at: new Date().toISOString() }).then(() => {}, () => {});
 
-  await setAgentStatus("judit", "done", `Blogcikk élesben: ${title.slice(0, 38)}`);
+  await setJuditStatus("done", `Blogcikk élesben: ${title.slice(0, 38)}`);
   await sendTelegram(`📰 *Judit — új blogcikk a webshopon* (élesben)\n\n${title}\n${url}`).catch(() => {});
   return { ok: true, record };
 }
