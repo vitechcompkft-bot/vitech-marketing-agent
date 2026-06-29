@@ -39,6 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <nav className="flex flex-wrap gap-1 text-sm">
               <Link className="btn btn-ghost" href="/">Áttekintés</Link>
               <Link className="btn btn-primary" href="/iroda">Titkárság</Link>
+              <Link className="btn btn-ghost" href="/feladatok">Feladatok</Link>
               <Link className="btn btn-ghost" href="/creatives">Kreatívok</Link>
               <Link className="btn btn-ghost" href="/naplo">Napló</Link>
               <Link className="btn btn-ghost" href="/settings">Beállítások</Link>
