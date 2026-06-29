@@ -90,12 +90,35 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
     .filter((s) => /áruk?eres|arukeres|comparison shop|heureka/i.test(s.party))
     .reduce((a, s) => a + s.total, 0);
 
+  const labelOf = (k: string) =>
+    (({ erika: "Erika", luca: "Luca", klari: "Klári", judit: "Judit", gyula: "Gyula", mihaly: "Mihály" } as Record<string, string>)[k] || k);
+
   return (
     <main className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold" style={{ color: meta.accent }}>{meta.emoji} {meta.title}</h1>
         <Link className="btn btn-ghost" href="/">← Áttekintés</Link>
       </div>
+
+      {d.agentMessages?.length > 0 && (
+        <section>
+          <h2 className="section-title">💬 Csapat-kommunikáció</h2>
+          <div className="flex flex-col gap-2">
+            {d.agentMessages.slice(0, 10).map((m) => (
+              <div key={m.id} className="card">
+                <div className="mb-1 flex items-center gap-2 text-xs">
+                  <span className="font-semibold">{labelOf(m.from)}</span>
+                  <span className="text-white/40">→</span>
+                  <span className="font-semibold">{labelOf(m.to)}</span>
+                  <span className={`badge ${m.type === "válasz" ? "bg-green-500/20 text-green-300" : m.type === "riasztás" ? "bg-amber-500/20 text-amber-200" : "bg-sky-500/20 text-sky-200"}`}>{m.type}</span>
+                </div>
+                <div className="whitespace-pre-wrap text-sm text-white/85">{m.body}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-xs text-white/45">Az ügynökök egymással is egyeztetnek: kérdés / kérés / riasztás → a megszólított a saját szakterületi adataival válaszol.</div>
+        </section>
+      )}
 
       {/* ===== MARKETING ===== */}
       {params.key === "marketing" && (

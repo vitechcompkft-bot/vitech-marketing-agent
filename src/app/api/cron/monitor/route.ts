@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runMonitorCycle } from "@/lib/agent";
 import { gyulaDailyCheck } from "@/lib/team";
 import { runMetaWatch } from "@/lib/meta";
+import { runTeamSync } from "@/lib/teamComms";
 
 function baseUrl(): string {
   return process.env.PUBLIC_BASE_URL || "https://vitech-marketing-agent.vercel.app";
@@ -36,6 +37,7 @@ async function handle(req: NextRequest) {
     // 1) Gyula napi rendszer-/kapcsolat-ellenorzése (a státusza bekerüljön Erika jelentésébe).
     await gyulaDailyCheck().catch(() => {});
     await runMetaWatch().catch(() => {}); // Luca: Meta retargeting-kampány indíthatóságának figyelése
+    await runTeamSync().catch(() => {}); // AI-csapat belso kommunikáció: magvetés + inboxok feldolgozása
     // 1b) SEO-átvilágítás + Mihály pénzügyi jelentése — KÜLÖN invokációkban (saját 60s budget),
     //     hogy a fo ciklus + Erika jelentés biztosan beférjen 60s-be.
     await fireBg(secret, "/api/seo/audit");

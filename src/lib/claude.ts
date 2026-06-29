@@ -990,4 +990,34 @@ a teljes cikk HTML törzse a megengedett tagekkel`,
   }
 }
 
+/**
+ * CSAPAT-KOMMUNIKÁCIÓ — egy ügynök válaszol egy másik ügynök üzenetére, a SAJÁT személyiségével
+ * és a szakterületi adataival. Rövid, szakszerű, magyar (helyes ékezetek). Belso használat (dashboard).
+ */
+export async function teamReply(persona: string, fromName: string, body: string, context: string): Promise<string> {
+  const anthropic = client();
+  try {
+    const msg = await anthropic.messages.create({
+      model: FAST,
+      max_tokens: 450,
+      system:
+        persona +
+        " Egy munkatársad írt neked a belso csapat-csatornán. Válaszolj RÖVIDEN (max 3-4 mondat), szakszeruen, magyarul, HELYES ÉKEZETEKKEL, a szakterületed és a megadott adatok alapján. Ha kérést/feladatot kaptál, jelezd konkrétan, mit teszel vagy javasolsz. Ne köszöngess, térj a lényegre.",
+      messages: [
+        {
+          role: "user",
+          content: `${fromName} üzenete neked:\n"${body}"\n\nVonatkozó aktuális adatok: ${context || "(nincs külön adat)"}\n\nA válaszod:`,
+        },
+      ],
+    });
+    return msg.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("")
+      .trim();
+  } catch {
+    return "";
+  }
+}
+
 export { SMART, FAST };

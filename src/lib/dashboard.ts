@@ -9,6 +9,7 @@ import { getLinkedInStatus, type LinkedInStatus } from "./linkedin";
 import { getMetaStatus, type MetaStatus } from "./meta";
 import { getFacebookStatus, type FacebookStatus } from "./facebook";
 import { getBlogPosts, type BlogRecord } from "./blog";
+import { getAgentMessages, type AgentMessage } from "./teamComms";
 import type { AgentStatusRow } from "./team";
 import type { AgentAction, AgentConfig, Alert, CampaignMetric } from "./types";
 
@@ -73,6 +74,7 @@ export interface DashboardData {
   invoicedOrders: Record<string, InvoicedRecord>;
   juditPosts: JuditPost[];
   blogPosts: BlogRecord[];
+  agentMessages: AgentMessage[];
   linkedin: LinkedInStatus;
   meta: MetaStatus | null;
   facebook: FacebookStatus;
@@ -98,6 +100,7 @@ export async function loadDashboard(): Promise<DashboardData> {
   const invoicedOrders = await getInvoicedOrders().catch(() => ({}));
   const juditPosts = await getJuditPosts().catch(() => []);
   const blogPosts = await getBlogPosts().catch(() => []);
+  const agentMessages = await getAgentMessages().catch(() => []);
   const linkedin = await getLinkedInStatus().catch(() => ({ configured: false, connected: false }) as LinkedInStatus);
   const meta = await getMetaStatus().catch(() => null);
   const facebook = await getFacebookStatus().catch(() => ({ configured: false, connected: false }) as FacebookStatus);
@@ -151,5 +154,5 @@ export async function loadDashboard(): Promise<DashboardData> {
     supabaseReady = false;
   }
 
-  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, bank, lucaReach, klariBrief, mihalyReport, invoicedOrders, juditPosts, blogPosts, linkedin, meta, facebook, sites, supabaseReady, mock: isMock };
+  return { metrics, actions, alerts, config, klari, agents, statuses, emails, orders, billingo, bank, lucaReach, klariBrief, mihalyReport, invoicedOrders, juditPosts, blogPosts, agentMessages, linkedin, meta, facebook, sites, supabaseReady, mock: isMock };
 }
