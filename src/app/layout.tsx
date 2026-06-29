@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import "./globals.css";
 import { supabaseAdmin } from "@/lib/supabase";
+import Nav from "@/components/Nav";
 
 export const metadata: Metadata = {
   title: "Vitech AI Marketinges",
@@ -36,14 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <div className="text-sm text-white/65">{persona.name} & csapata · Vitech Comp Kft.</div>
               </div>
             </div>
-            <nav className="flex flex-wrap gap-1 text-sm">
-              <Link className="btn btn-ghost" href="/">Áttekintés</Link>
-              <Link className="btn btn-primary" href="/iroda">Titkárság</Link>
-              <Link className="btn btn-ghost" href="/feladatok">Feladatok</Link>
-              <Link className="btn btn-ghost" href="/creatives">Kreatívok</Link>
-              <Link className="btn btn-ghost" href="/naplo">Napló</Link>
-              <Link className="btn btn-ghost" href="/settings">Beállítások</Link>
-            </nav>
+            <Nav />
           </header>
           {children}
           <footer className="mt-12 text-center text-xs text-white/40">
