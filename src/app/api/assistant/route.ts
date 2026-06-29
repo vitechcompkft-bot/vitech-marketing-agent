@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { officeRoute, agentReply } from "@/lib/claude";
 import { buildContext } from "@/lib/context";
+import { sendAgentMessage } from "@/lib/teamComms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,12 +25,15 @@ export async function POST(req: NextRequest) {
     const agents: any[] = ags || [];
     const erika = agents.find((a) => a.key === "erika");
     const gyula = agents.find((a) => a.key === "gyula");
+    const mihaly = agents.find((a) => a.key === "mihaly");
     const lucaName = cfg?.agent_name || "Luca";
     const lucaPersona = cfg?.agent_persona || "";
+    const mihalyPersona = mihaly?.persona || "Gazdasági vezeto / pénzügyi kontroller: elemzi a költéseket (mire megy a pénz, szükséges-e), és javaslatot tesz a gazdaságosabb muködésre.";
 
     const heads = [
       { key: "luca", name: lucaName, department: "Marketing", role: "marketingfonök" },
       ...(gyula ? [{ key: "gyula", name: gyula.name, department: "Informatika", role: gyula.role }] : []),
+      { key: "mihaly", name: mihaly?.name || "Mihály", department: "Gazdasági", role: mihaly?.role || "gazdasági vezeto (kontroller)" },
     ];
 
     const route = await officeRoute(message, erika?.persona || "", heads);
@@ -41,6 +45,9 @@ export async function POST(req: NextRequest) {
       context = await buildContext().catch(() => "");
     } else if (route.head_key === "gyula" && gyula) {
       who = { name: gyula.name, role: gyula.role, department: "Informatika", persona: gyula.persona };
+    } else if (route.head_key === "mihaly") {
+      who = { name: mihaly?.name || "Mihály", role: mihaly?.role || "gazdasági vezeto (kontroller)", department: "Gazdasági", persona: mihalyPersona };
+      context = await buildContext().catch(() => "");
     } else {
       who = { name: erika?.name || "Erika", role: "titkárno", department: "Titkárság", persona: erika?.persona || "" };
     }
@@ -51,6 +58,18 @@ export async function POST(req: NextRequest) {
       { role: "user", content: message, channel: "office" },
       { role: "agent", content: `[${who.name} – ${who.department}] ${reply}`, channel: "office" },
     ]);
+
+    // A folyamat megjelenítése a „Csapat-kommunikáció" feedben is: Erika továbbítja a kérést a
+    // megfelelo osztályvezetonek, az válaszol. Így a tulajdonos LÁTJA, hogy Erika tovább adta.
+    const headKey = ["luca", "gyula", "mihaly"].includes(route.head_key) ? route.head_key : "erika";
+    if (headKey !== "erika") {
+      try {
+        await sendAgentMessage("erika", headKey, "kérés", `A tulajdonos kérése: ${message}`);
+        await sendAgentMessage(headKey, "erika", "válasz", reply);
+      } catch {
+        /* a feed-naplózás nem kritikus */
+      }
+    }
 
     return NextResponse.json({
       routedTo: { name: who.name, department: who.department },
