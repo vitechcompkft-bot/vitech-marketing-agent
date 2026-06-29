@@ -5,24 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Felderíto: több tartalom-metódust/paramétert próbál, hogy lássuk a blog/oldal mezoszerkezetét. */
-async function call(token: string, method: string, body: string) {
-  try {
-    const res = await fetch(`https://api.unas.hu/shop/${method}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
-      body: `<?xml version="1.0" encoding="UTF-8" ?>\n${body}`,
-    });
-    const text = await res.text();
-    const elems = text.match(/<(PageContent|Page|Menu|Content)>[\s\S]*?<\/\1>/g) || [];
-    const first = elems[0] || "";
-    const tags = first ? [...new Set([...first.matchAll(/<([A-Za-z]+)>/g)].map((m) => m[1]))] : [];
-    return { method, body, status: res.status, root: text.slice(0, 160), elemCount: elems.length, firstTags: tags, firstBlock: first.slice(0, 2200) };
-  } catch (e: any) {
-    return { method, body, error: e?.message };
-  }
-}
-
+/** Felderíto: getPageContent (Lang=hu) → a blog elem teljes szerkezete + van-e Pages (367234) hozzárendelés. */
 async function handle(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
@@ -30,13 +13,21 @@ async function handle(req: NextRequest) {
   }
   try {
     const token = await unasLogin();
-    const attempts = [
-      ["getPageContent", "<Params><Lang>hu</Lang></Params>"],
-      ["getPageContent", "<Params><Lang>hu</Lang><LimitNum>50</LimitNum></Params>"],
-    ] as const;
-    const results = [];
-    for (const [m, b] of attempts) results.push(await call(token, m, b));
-    return NextResponse.json({ ok: true, results });
+    const res = await fetch("https://api.unas.hu/shop/getPageContent", {
+      method: "POST",
+      headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+      body: `<?xml version="1.0" encoding="UTF-8" ?>\n<Params><Lang>hu</Lang></Params>`,
+    });
+    const text = await res.text();
+    const block = (text.match(/<PageContent>[\s\S]*?<\/PageContent>/) || [])[0] || "";
+    const pagesBlock = (block.match(/<Pages>[\s\S]*?<\/Pages>/) || [])[0] || "(nincs Pages mezo)";
+    return NextResponse.json({
+      ok: true,
+      includes367234: text.includes("367234"),
+      blockLen: block.length,
+      pagesBlock,
+      blockHead: block.slice(0, 700),
+    });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message ?? "hiba" }, { status: 500 });
   }
