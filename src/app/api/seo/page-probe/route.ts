@@ -5,7 +5,24 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Felderíto: getPageContent nyers XML — a blog/tartalmi elemek mezoszerkezetének megismeréséhez. */
+/** Felderíto: több tartalom-metódust/paramétert próbál, hogy lássuk a blog/oldal mezoszerkezetét. */
+async function call(token: string, method: string, body: string) {
+  try {
+    const res = await fetch(`https://api.unas.hu/shop/${method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+      body: `<?xml version="1.0" encoding="UTF-8" ?>\n${body}`,
+    });
+    const text = await res.text();
+    const elems = text.match(/<(PageContent|Page|Menu|Content)>[\s\S]*?<\/\1>/g) || [];
+    const first = elems[0] || "";
+    const tags = first ? [...new Set([...first.matchAll(/<([A-Za-z]+)>/g)].map((m) => m[1]))] : [];
+    return { method, body, status: res.status, root: text.slice(0, 160), elemCount: elems.length, firstTags: tags, firstBlock: first.slice(0, 2200) };
+  } catch (e: any) {
+    return { method, body, error: e?.message };
+  }
+}
+
 async function handle(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
@@ -13,31 +30,15 @@ async function handle(req: NextRequest) {
   }
   try {
     const token = await unasLogin();
-    const body =
-      `<?xml version="1.0" encoding="UTF-8" ?>\n` +
-      `<Params><Format>xml</Format><ContentType>full</ContentType><LimitNum>8</LimitNum></Params>`;
-    const res = await fetch("https://api.unas.hu/shop/getPageContent", {
-      method: "POST",
-      headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
-      body,
-    });
-    const text = await res.text();
-    // Csak a tag-szerkezet + a "blog" típusú elem(ek) kivonata (ne dumpoljuk a teljes HTML-t).
-    const blocks = text.match(/<Content>[\s\S]*?<\/Content>/g) || text.match(/<Page>[\s\S]*?<\/Page>/g) || [];
-    const topTags = blocks[0] ? [...new Set([...blocks[0].matchAll(/<([A-Za-z]+)>/g)].map((m) => m[1]))] : [];
-    const summary = blocks.slice(0, 8).map((b) => {
-      const type = (b.match(/<Type>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/Type>/) || [])[1] || "";
-      const name = (b.match(/<(?:Name|Title)>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/(?:Name|Title)>/) || [])[1] || "";
-      return { type, name: (name || "").slice(0, 60), len: b.length };
-    });
-    return NextResponse.json({
-      ok: true,
-      rootSample: text.slice(0, 600),
-      blockCount: blocks.length,
-      topTags,
-      summary,
-      firstBlock: blocks[0] ? blocks[0].slice(0, 2500) : null,
-    });
+    const attempts = [
+      ["getPageContent", "<Params><LimitNum>20</LimitNum></Params>"],
+      ["getPageContent", "<Params><ContentType>blog</ContentType><LimitNum>20</LimitNum></Params>"],
+      ["getPage", "<Params><LimitNum>20</LimitNum></Params>"],
+      ["getMenu", "<Params><LimitNum>20</LimitNum></Params>"],
+    ] as const;
+    const results = [];
+    for (const [m, b] of attempts) results.push(await call(token, m, b));
+    return NextResponse.json({ ok: true, results });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message ?? "hiba" }, { status: 500 });
   }
