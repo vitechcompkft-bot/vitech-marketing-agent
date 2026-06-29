@@ -145,6 +145,24 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
             <div className="mt-2 text-xs text-white/45">Judit minden nap új, projekt-alapú LinkedIn-posztot ír; ha a LinkedIn össze van kötve, automatikusan ki is posztolja (egyébként a „Poszt másolása" gombbal viheted fel).</div>
           </section>
 
+          {d.blogPosts?.length > 0 && (
+            <section>
+              <h2 className="section-title">📰 Webshop blog (Judit)</h2>
+              <div className="flex flex-col gap-2">
+                {d.blogPosts.slice(0, 8).map((b, i) => (
+                  <div key={i} className="card flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{b.title}</div>
+                      <a href={b.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-sky-300">{b.url}</a>
+                    </div>
+                    <span className="shrink-0 text-xs text-white/40">{b.date}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 text-xs text-white/45">Judit hetente (hétfőn) ír egy SEO blogcikket; Luca ékezet-ellenőrzése után automatikusan kikerül a webshop blogjára.</div>
+            </section>
+          )}
+
           {(d.lucaReach || d.klariBrief) && (
             <section className="card" style={{ borderLeft: `4px solid ${meta.accent}` }}>
               <h2 className="section-title">🎯 Luca elérés-terve</h2>
