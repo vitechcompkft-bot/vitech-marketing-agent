@@ -144,7 +144,7 @@ async function seedRealScenarios(): Promise<void> {
       const b = await getBankSnapshot().catch(() => null as any);
       const out30 = b?.out30 || 0;
       if (out30 > 0) {
-        await sendAgentMessage("mihaly", "luca", "kérdés", `A 30 napos kiadás ~${ft(out30)}. Átnéznéd a hirdetési költéseket — hol térül meg, és hol lehetne gazdaságosabb? Küldj egy gyors helyzetképet.`);
+        await sendAgentMessage("mihaly", "luca", "kérdés", `A 30 napos ÖSSZES banki kiadás ~${ft(out30)} (ennek nagy része nagyker-/beszerzési költség, a hirdetés csak egy kis rész). Átnéznéd kifejezetten a HIRDETÉSI költéseket — hol térül meg, és hol lehetne gazdaságosabb? Küldj egy gyors helyzetképet.`);
         marker.mihaly_cost = today;
         changed = true;
       }
