@@ -65,8 +65,14 @@ async function ctxFor(to: string): Promise<string> {
     if (to === "mihaly") {
       const b = await getBankSnapshot().catch(() => null as any);
       const o = await getOrderStats().catch(() => null as any);
+      const bal =
+        !b || b.balance === null || b.balance === undefined
+          ? "az egyenleget a K&H az open-bankingon NEM adja vissza (ismeretlen — NE feltételezd, hogy 0!)"
+          : `~${ft(b.balance)}`;
+      const top = (b?.outByParty || []).slice(0, 6).map((p: any) => `${p.party}: ${ft(p.total)} (${p.count} tétel)`).join("; ");
       return [
-        b ? `Banki egyenleg ~${ft(b.balance || 0)}, 30 napos ÖSSZES kiadás ~${ft(b.out30 || 0)} (nagy része nagyker-/beszerzési költség, nem hirdetés).` : "",
+        b ? `Banki adatok (utolsó 30 nap, K&H open banking): egyenleg ${bal}; összes bevétel ~${ft(b.in30 || 0)}; összes kiadás ~${ft(b.out30 || 0)}.` : "",
+        top ? `A kiadások partnerenként (mire megy a pénz): ${top}.` : "",
         o ? `Webshop havi bevétel ${ft(o.monthRevenue || 0)} (${o.monthCount || 0} eladás).` : "",
       ].filter(Boolean).join(" ");
     }

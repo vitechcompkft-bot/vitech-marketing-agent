@@ -82,8 +82,14 @@ async function domainContext(agentKey: string): Promise<string> {
     if (agentKey === "mihaly") {
       const b = await getBankSnapshot().catch(() => null as any);
       const o = await getOrderStats().catch(() => null as any);
+      const bal =
+        !b || b.balance === null || b.balance === undefined
+          ? "egyenleg: ismeretlen (K&H az open-bankingon nem adja vissza — NE feltételezd, hogy 0)"
+          : `egyenleg ~${ft(b.balance)}`;
+      const top = (b?.outByParty || []).slice(0, 5).map((p: any) => `${p.party}: ${ft(p.total)}`).join("; ");
       return [
-        b ? `Banki egyenleg ~${ft(b.balance || 0)}, 30 napos kiadás ~${ft(b.out30 || 0)}, bevétel ~${ft(b.in30 || 0)}.` : "",
+        b ? `Banki adatok (30 nap): ${bal}; kiadás ~${ft(b.out30 || 0)}; bevétel ~${ft(b.in30 || 0)}.` : "",
+        top ? `Kiadás-bontás: ${top}.` : "",
         o ? `Webshop havi bevétel ${ft(o.monthRevenue || 0)} (${o.monthCount || 0} eladás).` : "",
       ].filter(Boolean).join(" ");
     }
