@@ -16,13 +16,13 @@ const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n)) +
  */
 export async function POST(req: NextRequest) {
   try {
-    const { orderKey } = await req.json();
+    const { orderKey, edits } = await req.json();
     if (!orderKey) return NextResponse.json({ ok: false, error: "Hiányzó rendelésszám." }, { status: 400 });
     const token = await unasLogin();
     const order = await unasGetOrderByKey(token, String(orderKey));
     if (!order) return NextResponse.json({ ok: false, error: "A rendelés nem található." }, { status: 404 });
 
-    const result = await createInvoiceForOrder(order);
+    const result = await createInvoiceForOrder(order, edits);
 
     if (result.ok && !result.alreadyInvoiced && result.invoiceNumber) {
       await sendTelegram(

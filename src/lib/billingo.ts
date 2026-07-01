@@ -268,12 +268,45 @@ export interface InvoiceCreateResult {
   error?: string;
 }
 
+/** A UI-ból jövo (kiállítás ELOTT javított) számlaadatok. Minden mezo opcionális; csak a kitöltöttek írnak felül. */
+export interface InvoiceEdits {
+  name?: string;
+  taxNumber?: string;
+  zip?: string;
+  city?: string;
+  street?: string;
+  countryCode?: string;
+  email?: string;
+  phone?: string;
+  itemNames?: (string | null | undefined)[];
+}
+
+/** A szerkesztett mezoket rááveti a rendelésre (a partner + a tételek EBBOL épülnek). */
+function applyInvoiceEdits(o: OrderDetail, edits?: InvoiceEdits | null): OrderDetail {
+  if (!edits) return o;
+  const s = (v?: string | null) => (typeof v === "string" ? v.trim() : "");
+  const inv = { ...o.invoice };
+  if (s(edits.name)) inv.name = s(edits.name);
+  if (edits.taxNumber != null) inv.taxNumber = s(edits.taxNumber);
+  if (s(edits.zip)) inv.zip = s(edits.zip);
+  if (s(edits.city)) inv.city = s(edits.city);
+  if (s(edits.street)) inv.street = s(edits.street);
+  if (s(edits.countryCode)) inv.countryCode = s(edits.countryCode);
+  const items = o.items.map((it, i) => {
+    const nm = edits.itemNames?.[i];
+    return s(nm) ? { ...it, name: s(nm) } : it;
+  });
+  return { ...o, invoice: inv, email: s(edits.email) || o.email, phone: s(edits.phone) || o.phone, items };
+}
+
 /**
  * Számla kiállítása egy webshop-rendelésbol. DUPLIKÁCIÓ-VÉDETT: ha a rendelésre már készült
  * számla (app_state.order_invoices), nem állít ki újat.
+ * A `edits` a kiállítás ELOTT a böngészoben JAVÍTOTT mezoket tartalmazza (név/cím/adószám/e-mail/tétel-nevek).
  */
-export async function createInvoiceForOrder(o: OrderDetail): Promise<InvoiceCreateResult> {
+export async function createInvoiceForOrder(o: OrderDetail, edits?: InvoiceEdits | null): Promise<InvoiceCreateResult> {
   if (!billingoEnabled()) return { ok: false, error: "Nincs BILLINGO_API_KEY." };
+  o = applyInvoiceEdits(o, edits);
 
   // 1) Duplikáció-védelem
   const invoiced = await getInvoicedOrders();
@@ -347,14 +380,15 @@ export interface InvoicePreview {
   orderKey: string;
   alreadyInvoiced: boolean;
   existing?: InvoicedRecord;
-  buyer: { name: string; address: string; taxNumber?: string; email?: string };
+  buyer: { name: string; address: string; taxNumber?: string; email?: string; zip?: string; city?: string; street?: string; countryCode?: string };
   paymentMethod: string;
   items: { name: string; quantity: number; unitNet: number; unitGross: number; vat: string; lineGross: number }[];
   sumGross: number;
   error?: string;
 }
 
-export async function buildInvoicePreview(o: OrderDetail): Promise<InvoicePreview> {
+export async function buildInvoicePreview(o: OrderDetail, edits?: InvoiceEdits | null): Promise<InvoicePreview> {
+  o = applyInvoiceEdits(o, edits);
   const invoiced = await getInvoicedOrders();
   const existing = invoiced[o.key];
   const addr = [o.invoice.zip, o.invoice.city, o.invoice.street].filter(Boolean).join(" ");
@@ -368,6 +402,10 @@ export async function buildInvoicePreview(o: OrderDetail): Promise<InvoicePrevie
       address: [o.invoice.country, addr].filter(Boolean).join(", "),
       taxNumber: o.invoice.taxNumber || undefined,
       email: o.email || undefined,
+      zip: o.invoice.zip || "",
+      city: o.invoice.city || "",
+      street: o.invoice.street || "",
+      countryCode: o.invoice.countryCode || "HU",
     },
     paymentMethod: mapPayment(o.payment.type, o.payment.name),
     items: o.items.map((it) => ({
