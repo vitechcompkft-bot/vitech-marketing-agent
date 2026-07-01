@@ -30,7 +30,7 @@ async function bgPost(path: string, body: any): Promise<any> {
   } catch {
     json = { raw: text };
   }
-  if (!res.ok) throw new Error(`Billingo ${res.status}: ${(text || "").slice(0, 300)}`);
+  if (!res.ok) throw new Error(`Billingo ${res.status} @ ${path}: ${(text || "").slice(0, 300)}`);
   return json;
 }
 
