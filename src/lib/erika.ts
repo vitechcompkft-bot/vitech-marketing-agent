@@ -69,6 +69,27 @@ async function retriggerKlari() {
   await fireBg("/api/klari/run?force=1");
 }
 
+/** Napi ÖSSZEGZÉS a tulajdonosnak Telegramon — MINDEN nap (nem csak hibánál), hogy rendszeres legyen. */
+async function sendDailySummary(prefix = ""): Promise<void> {
+  const sb = supabaseAdmin();
+  const today = bpDay(new Date());
+  const { data: statuses } = await sb.from("agent_status").select("key,status,status_at");
+  const lines = SUPERVISED.map((a) => {
+    const s = (statuses || []).find((x: any) => x.key === a.key);
+    const done = !!s && s.status === "done" && !!s.status_at && bpDay(new Date(s.status_at)) === today;
+    return `${done ? "✅" : "⚠️"} ${a.label}`;
+  });
+  let posterLine = "";
+  try {
+    const { data } = await sb.from("klari_posts").select("headline, status, created_at").order("id", { ascending: false }).limit(1);
+    const p = (data || [])[0];
+    if (p && bpDay(new Date(p.created_at)) === today) posterLine = `\n🖼️ Mai plakát: ${p.headline || "kész"}`;
+  } catch {
+    /* best-effort */
+  }
+  await sendTelegram(`📋 <b>Erika napi összegzés</b>${prefix}\n${lines.join("\n")}${posterLine}`).catch(() => {});
+}
+
 export async function runErikaAudit(round = 1): Promise<{
   ok: boolean;
   round: number;
@@ -95,7 +116,7 @@ export async function runErikaAudit(round = 1): Promise<{
 
   if (missing.length === 0) {
     await setErikaStatus("done", `Ellenőrzés kész (${round}. kör): minden ügynök végzett ma. ✅`);
-    if (round > 1) await sendTelegram(`✅ <b>Erika:</b> nógatás után mostanra minden mai feladat elkészült.`).catch(() => {});
+    await sendDailySummary(round > 1 ? " (nógatás után minden kész)" : "");
     return { ok: true, round, allDone: true, missing: [], nudged: [] };
   }
 
@@ -132,8 +153,6 @@ export async function runErikaAudit(round = 1): Promise<{
 
   // Elfogytak a körök, még mindig hiányzik → RIASZTÁS a tulajdonosnak.
   await setErikaStatus("working", `${MAX_ROUNDS} kör után is hiányzik: ${missing.map((m) => m.label).join(", ")}. Kézi beavatkozás kellhet.`);
-  await sendTelegram(
-    `⚠️ <b>Erika:</b> ${MAX_ROUNDS} nógatás után is hiányzik ma: <b>${missing.map((m) => m.label).join(", ")}</b>. Nézd meg a dashboardot — lehet, kézi beavatkozás kell.`
-  ).catch(() => {});
+  await sendDailySummary(` — ⚠️ ${MAX_ROUNDS} nógatás után is hiányzik: ${missing.map((m) => m.label).join(", ")}! Kézi beavatkozás kellhet.`);
   return { ok: true, round, allDone: false, missing: missing.map((m) => m.key), nudged: [] };
 }
