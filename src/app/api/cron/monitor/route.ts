@@ -53,6 +53,9 @@ async function handle(req: NextRequest) {
     const dayBp = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest", day: "2-digit" }).format(new Date());
     if (dayBp === "04") await fireBg(secret, "/api/accounting/send");
     await fireBg(secret, "/api/klari/run"); // plakát-pótló: ha a reggeli cron kimaradt, este pótolja (napi-egy or véd)
+    // 1c) ERIKA FELÜGYELET: ellenőrzi, minden ügynök végzett-e ma, és a hiányzó munkát
+    //     körönként (külön invokációkban) addig nógatja, amíg el nem készül (vagy riaszt).
+    await fireBg(secret, "/api/erika/audit");
     // 2) Google Ads ciklus + Erika napi jelentés (csapat-státuszokkal).
     const result = await runMonitorCycle({ sendReport: true });
     return NextResponse.json({ ok: true, ...result });
