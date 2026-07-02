@@ -152,21 +152,29 @@ export async function runKlariText(opts?: { force?: boolean }): Promise<KlariRes
   // és napi friss FOCÍM-szöget adunk. Luca (a fonök) nem tur ismétlést.
   const { data: recentPosts } = await sb
     .from("klari_posts")
-    .select("product_id, product_name, headline")
+    .select("product_id, product_name, headline, caption")
     .order("created_at", { ascending: false })
     .limit(12);
   const recentIds = new Set((recentPosts || []).map((r: any) => r.product_id));
   const recentNames = (recentPosts || []).map((r: any) => r.product_name).filter(Boolean).slice(0, 8);
   const recentHeadlines = (recentPosts || []).map((r: any) => r.headline).filter(Boolean).slice(0, 6);
+  const recentCaptions = (recentPosts || []).map((r: any) => r.caption).filter(Boolean).slice(0, 5);
   const poolSrc = live.filter((p) => !recentIds.has(p.id));
   const pool = poolSrc.length >= 5 ? poolSrc : live; // ha kifogyna, ne akadjon el
-  const ANGLES = ["kiemelt ár-előny", "üzleti teljesítmény", "tanuláshoz / diákoknak", "home office kényelem", "megbízhatóság + 12 hó garancia", "kompakt és hordozható", "kreatív munkára"];
-  const angle = ANGLES[dayIdx % ANGLES.length];
+  const ANGLES = ["kiemelt ár-előny", "üzleti teljesítmény", "tanuláshoz / diákoknak", "home office kényelem", "megbízhatóság + 12 hó garancia", "kompakt és hordozható", "kreatív munkára", "gamer/eros hardver", "utazáshoz/hordozható", "otthoni tanulás/család"];
+  // VÉLETLEN szög (ne a nap-index szerint, mert egy napon több futás ugyanazt adná) — és kerüljük a
+  // legutóbbi szöveg hangulatát; a korábbi CAPTION-öket is tiltólistába tesszük, hogy NE ismétlodjön a szöveg.
+  const angle = ANGLES[Math.floor(Math.random() * ANGLES.length)];
   const varietyNote =
-    `\n\n[VÁLTOZATOSSÁG — KÖTELEZO] Kreatív marketinges vagy: MINDEN NAP MÁS plakát kell, sosem ugyanaz.` +
-    (recentNames.length ? ` Az elmúlt napokban EZEKET emelted ki, NE ezeket válaszd újra: ${recentNames.join("; ")}.` : "") +
-    (recentHeadlines.length ? ` Korábbi focímek, NE ismételd a megfogalmazást: ${recentHeadlines.join(" | ")}.` : "") +
-    ` MA válassz egy ezektol ELTÉRO terméket (más márka/típus/árkategória), és a FOCÍM szöge legyen: „${angle}".`;
+    `\n\n[VÁLTOZATOSSÁG — EZ A LEGFONTOSABB SZABÁLY] Kreatív marketinges vagy: MINDEN plakát legyen EGYEDI és ENERGIKUS. SOHA ne ismételd a korábbiakat — se terméket, se focímet, se nyitómondatot, se szerkezetet, se emojikat, se CTA-t.` +
+    (recentNames.length ? `\n• NE ezeket a termékeket válaszd újra: ${recentNames.join("; ")}.` : "") +
+    (recentHeadlines.length ? `\n• NE ismételd ezeket a FOCÍMEKET (a mintájukat sem): ${recentHeadlines.join(" | ")}.` : "") +
+    (recentCaptions.length
+      ? `\n• TILOS a korábbi szövegek nyitómondatát/felépítését/zárását újrahasználni. Korábbi szövegek (ne ezekre hasonlítson):\n"${recentCaptions.join('"\n"')}"`
+      : "") +
+    `\n• Írj MÁS nyitó-hookot, MÁS call-to-actiont (NE mindig „Nézd meg most: vitechcompkft.hu"), MÁS emoji-válogatást, MÁS mondatritmust.` +
+    `\n• A „bevizsgált / felújított / 12 hó garancia" üzenetet minden nap FOGALMAZD ÚJRA másképp — soha ne ugyanaz a klisé.` +
+    `\n• MAI szög (de a szöveg legyen teljesen friss): „${angle}". Tegyél bele lendületet, humort vagy meglepo szöget — legyen figyelemfelkelto!`;
 
   // 2) Klári: gyors piackutatás → kifogástalan, VÁLTOZATOS ajánlat összeállítása.
   const productList = pool.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross }));

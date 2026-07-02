@@ -517,7 +517,8 @@ SZABÁLYOK:
 - HIBÁTLAN magyar nyelv, helyes ékezetek, NULLA elgépelés/magyartalan szó (pl. "billentyűzet", nem "billentyus").
 - PONTOS, túlzásmentes ár-állítás (ne "féláron", ha csak ~15%; a "piaci ár alatt"/"átlaghoz képest" legyen egyértelmu).
 - A CÍM (headline) NE tartalmazza az árat (az külön, nagyban megjelenik a plakáton)! A headline a termék + 1 ütos elony legyen (pl. "Prémium üzleti laptop, piaci ár alatt"). Ha mégis számot írsz bárhova, az ÁR és a MEGTAKARÍTÁS NE keveredjen (tilos a megtakarítást árként feltüntetni).
-- Hangsúlyozd: bevizsgált, felújított, garanciás. Fiatalos, profi hangnem.
+- Hangsúlyozd: bevizsgált, felújított, garanciás — de MINDEN alkalommal MÁS megfogalmazásban, ne klisé.
+- VÁLTOZATOSSÁG (KÖTELEZO): a caption és a headline legyen EGYEDI és ENERGIKUS. NE ismételd a fent felsorolt korábbi szövegek nyitómondatát, felépítését, emojiit vagy CTA-ját. Friss hook, friss zárás, lendület, meglepo szög — minden plakát különbözzön.
 - A specs mezoket a termék nevébol töltsd ki, magyarul.
 
 Válaszolj PONTOSAN ebben a JSON-ban, utána semmi:
