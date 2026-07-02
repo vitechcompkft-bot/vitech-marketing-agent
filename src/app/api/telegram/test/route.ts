@@ -17,12 +17,35 @@ async function handle(req: NextRequest) {
     req.nextUrl.searchParams.get("key") === secret;
   if (!authed) return NextResponse.json({ ok: false, error: "Jogosulatlan" }, { status: 401 });
 
-  const hasToken = !!process.env.TELEGRAM_BOT_TOKEN;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const hasToken = !!token;
   const hasChatId = !!process.env.TELEGRAM_CHAT_ID;
-  const sent = await sendTelegram(
-    `🔔 <b>Vitech teszt-értesítés</b> — ha ezt látod, a Telegram működik, és ma este jönni fog az <b>Erika napi összegzés</b> is. 👍`
-  );
-  return NextResponse.json({ ok: true, hasToken, hasChatId, sent });
+  const sent = hasChatId
+    ? await sendTelegram(
+        `🔔 <b>Vitech teszt-értesítés</b> — ha ezt látod, a Telegram működik, és ma este jönni fog az <b>Erika napi összegzés</b> is. 👍`
+      )
+    : false;
+
+  // Ha nincs beállított CHAT_ID: kiolvassuk a botnak KÜLDÖTT üzenetekbol a chat-id(ke)t,
+  // hogy a tulajdonos tudja, mit kell a Vercelen a TELEGRAM_CHAT_ID-hez beállítani.
+  let chatIdsSeen: { id: number | string; name?: string; text?: string }[] = [];
+  if (!hasChatId && token) {
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${token}/getUpdates`, { cache: "no-store" });
+      const j: any = await r.json();
+      const seen = new Set<string>();
+      for (const u of j.result || []) {
+        const c = u.message?.chat || u.channel_post?.chat;
+        if (c && !seen.has(String(c.id))) {
+          seen.add(String(c.id));
+          chatIdsSeen.push({ id: c.id, name: c.first_name || c.title || c.username, text: u.message?.text });
+        }
+      }
+    } catch {
+      /* best-effort */
+    }
+  }
+  return NextResponse.json({ ok: true, hasToken, hasChatId, sent, chatIdsSeen });
 }
 
 export const GET = handle;
