@@ -97,6 +97,9 @@ export async function runErikaAudit(round = 1): Promise<{
   missing: string[];
   nudged: string[];
 }> {
+  // 1. kör: adjunk idot a monitor-cron által ÉPP elindított ügynököknek, hogy elkezdjenek dolgozni
+  // (különben Erika a tegnapi 'done'-t látná és feleslegesen újraindítaná oket = dupla futás/poszt).
+  if (round === 1) await new Promise((r) => setTimeout(r, 25000));
   const sb = supabaseAdmin();
   const today = bpDay(new Date());
   const { data: statuses } = await sb.from("agent_status").select("key,status,status_at");
@@ -138,7 +141,7 @@ export async function runErikaAudit(round = 1): Promise<{
 
   // „Addig nógatja, míg el nem készül": következő kör KÜLÖN invokációban, kis várakozás után.
   if (round < MAX_ROUNDS) {
-    await new Promise((r) => setTimeout(r, 25000)); // hagyjuk dolgozni a felnógatottakat
+    await new Promise((r) => setTimeout(r, 18000)); // hagyjuk dolgozni a felnógatottakat
     const secret = process.env.CRON_SECRET;
     const headers: Record<string, string> = { "content-type": "application/json" };
     if (secret) headers.authorization = `Bearer ${secret}`;
