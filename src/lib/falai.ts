@@ -129,7 +129,7 @@ export async function generateLifestyleImage(prompt: string): Promise<string | n
     const res = await fetch("https://fal.run/fal-ai/recraft/v4/text-to-image", {
       method: "POST",
       headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, image_size: "landscape_16_9", style: "realistic_image" }),
+      body: JSON.stringify({ prompt, image_size: "landscape_16_9" }),
     });
     const j = await res.json();
     const url = j?.images?.[0]?.url;
