@@ -583,6 +583,56 @@ Válaszolj PONTOSAN ebben a JSON-ban, utána semmi: { "headline":"", "sub":"", "
   }
 }
 
+/**
+ * LIFESTYLE QC (Luca, SMART/opus) — POSZTOLÁS ELOTTI ellenorzés: nyelvhelyesség + laptop-egyezés.
+ * Kijavítja a szöveget, és ok=false-t ad, ha alapvetoen hibás (akkor NEM posztolunk).
+ */
+export async function lifestyleReview(
+  product: { name: string },
+  styleLabel: string,
+  draft: { headline: string; sub: string; caption: string }
+): Promise<{ ok: boolean; headline: string; sub: string; caption: string; note: string }> {
+  const anthropic = client();
+  try {
+    const msg = await anthropic.messages.create({
+      model: SMART,
+      max_tokens: 700,
+      system:
+        "Te vagy Luca, a Vitech Comp marketingfonöke — szigorú nyelvi és minoségi ellenor. A plakát egy LAPTOP-ot mutat lifestyle jelenetben. Csak kifogástalan anyagot engedsz ki.",
+      messages: [
+        {
+          role: "user",
+          content: `Termék (LAPTOP): ${product.name}. Jelenet a képen: ${styleLabel}.
+Ellenorizd és szükség szerint JAVÍTSD az alábbi plakát-szöveget:
+headline: ${draft.headline}
+sub: ${draft.sub}
+caption: ${draft.caption}
+
+Követelmények:
+- HIBÁTLAN, természetes magyar: helyes ragozás, ékezetek, központozás. Mesterséges/rossz igealak (pl. "Munkálj") TILOS.
+- headline: ütos, 2-5 szó, ÁR NÉLKÜL.
+- A szöveg LAPTOPHOZ illjen (a kép laptopot mutat) — SOHA ne említsen asztali gépet, PC-t, tornyot vagy monitort.
+- TILOS a "tört áron" (helyette "kedvezményes áron"). Ne legyen valótlan túlzás.
+- caption: 2-4 sor emojival, a végén NE legyen URL (a rendszer teszi hozzá).
+Add vissza a VÉGLEGES (szükség esetén kijavított) szöveget. ok=true, ha kifogástalanul közölheto; ok=false CSAK ha alapvetoen hibás/nem mentheto.
+Válaszolj PONTOSAN ebben a JSON-ban, utána semmi: { "ok": true, "headline": "", "sub": "", "caption": "", "note": "" }`,
+        },
+      ],
+    });
+    const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    return {
+      ok: j.ok !== false,
+      headline: String(j.headline || draft.headline).trim(),
+      sub: String(j.sub || draft.sub).trim(),
+      caption: String(j.caption || draft.caption).trim(),
+      note: String(j.note || "").trim(),
+    };
+  } catch {
+    return { ok: false, headline: draft.headline, sub: draft.sub, caption: draft.caption, note: "QC-hiba (nem sikerült ellenorizni)" };
+  }
+}
+
 /** ERIKA: egy beérkezo e-mail triázsa — összegzés, osztály, sürgosség. */
 export async function erikaTriageEmail(
   email: { from: string; subject: string; body: string },
