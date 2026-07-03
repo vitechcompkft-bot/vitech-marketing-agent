@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "./supabase";
-import { unasLogin, unasCreateBlogPost } from "./unas";
+import { unasLogin, unasCreateBlogPost, unasLinkBlogsToPage } from "./unas";
 import { juditWriteBlog, lucaProofreadHungarian } from "./claude";
 import { sendTelegram } from "./telegram";
 
@@ -129,6 +129,9 @@ export async function runBlogPublishDraft(): Promise<{ ok: boolean; reason?: str
     await setJuditStatus("error", "Az Unas publikálás nem sikerült.");
     return { ok: false, reason: res.message };
   }
+
+  // LÁTHATÓSÁG: az összes blogot a Blog oldalhoz kapcsoljuk (setPage) — enélkül nem jelennének meg.
+  await unasLinkBlogsToPage(token, BLOG_PAGE_ID).catch(() => {});
 
   const existing = await getBlogPosts();
   const url = `https://vitechcompkft.hu/${d.slug}`;

@@ -178,6 +178,65 @@ export async function unasCreateBlogPost(
   return { ok: false, message: "Unas setPageContent hiba: " + text.slice(0, 300) };
 }
 
+/** Az összes BLOG típusú tartalmi elem Id-ja (a kapcsoláshoz — a TELJES listát küldjük, hogy a setPage
+ *  akár cserél, akár hozzáad, minden blog kapcsolva maradjon a Blog oldalhoz). */
+export async function unasListBlogContentIds(token: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/getPageContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+    body: `<?xml version="1.0" encoding="UTF-8" ?>\n<Params><ContentType>minimal</ContentType></Params>`,
+  });
+  const xml = await res.text();
+  const ids: string[] = [];
+  const re = /<PageContent>([\s\S]*?)<\/PageContent>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml))) {
+    if (/<Type>\s*blog\s*<\/Type>/i.test(m[1])) {
+      const cid = (m[1].match(/<Id>(\d+)<\/Id>/) || [])[1];
+      if (cid) ids.push(cid);
+    }
+  }
+  return ids;
+}
+
+/** Egy plusz oldal Name/Type/Lang-ja — a setPage modify-hoz kötelezo ("Empty Type" hiba nélkül). */
+async function unasGetPageMeta(token: string, pageId: string): Promise<{ name: string; type: string; lang: string }> {
+  const res = await fetch(`${API_BASE}/getPage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+    body: `<?xml version="1.0" encoding="UTF-8" ?>\n<Params><Id>${pageId}</Id><ContentType>full</ContentType></Params>`,
+  });
+  const xml = await res.text();
+  const name = (xml.match(/<Name><!\[CDATA\[([\s\S]*?)\]\]><\/Name>/) || xml.match(/<Name>([\s\S]*?)<\/Name>/) || [])[1] || "Blog";
+  const type = (xml.match(/<Type>([\s\S]*?)<\/Type>/) || [])[1] || "normal";
+  const lang = (xml.match(/<Lang>([\s\S]*?)<\/Lang>/) || [])[1] || "hu";
+  return { name: name.trim(), type: type.trim(), lang: lang.trim() };
+}
+
+/** MINDEN blog tartalmi elemet a Blog oldalhoz kapcsol a setPage végponton → így LÁTSZÓDNAK a blogcikkek.
+ *  (Az Unas támogatás szerint a tartalmi elemeket a plusz oldalhoz KELL kapcsolni; automatikus link nincs,
+ *  de mi automatizáljuk. A getPage nem adja vissza a meglévo Contents-listát, ezért a teljes blog-listát küldjük.) */
+export async function unasLinkBlogsToPage(token: string, pageId: string): Promise<{ ok: boolean; message: string; count: number }> {
+  const ids = await unasListBlogContentIds(token);
+  if (!ids.length) return { ok: true, message: "Nincs blog-tartalom a kapcsoláshoz.", count: 0 };
+  const meta = await unasGetPageMeta(token, pageId);
+  const contents = ids.map((id) => `<Content><Id>${id}</Id></Content>`).join("");
+  const body =
+    `<?xml version="1.0" encoding="UTF-8" ?>\n` +
+    `<Pages><Page><Action>modify</Action><Id>${pageId}</Id>` +
+    `<Lang>${meta.lang}</Lang><Name>${cdata(meta.name)}</Name><Type>${meta.type}</Type>` +
+    `<Contents>${contents}</Contents></Page></Pages>`;
+  const res = await fetch(`${API_BASE}/setPage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+    body,
+  });
+  const text = await res.text();
+  const status = (text.match(/<Status>([\s\S]*?)<\/Status>/) || [])[1];
+  if (status && /ok/i.test(status)) return { ok: true, message: `${ids.length} blog a(z) "${meta.name}" oldalhoz kapcsolva.`, count: ids.length };
+  return { ok: false, message: "Unas setPage hiba: " + text.slice(0, 300), count: ids.length };
+}
+
 export interface UnasOrder {
   key: string;
   date: string; // "2026.06.04 18:07:59"
