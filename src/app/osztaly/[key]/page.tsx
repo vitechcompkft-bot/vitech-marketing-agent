@@ -94,9 +94,7 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
     .filter((s) => /facebook|meta\s|meta\*|meta platform|instagram/i.test(s.party))
     .reduce((a, s) => a + s.total, 0);
   const totalAdSpend = adSpendMonth + arukeresoSpend + metaSpend;
-  const aiSpend = (d.bank.outByParty || [])
-    .filter((s) => /anthropic|claude|openai|chatgpt|higgsfield|vercel|supabase|cursor|midjourney|elevenlabs|runway|replicate|fal\.?ai|openrouter/i.test(s.party))
-    .reduce((a, s) => a + s.total, 0);
+  const aiSpend = d.bank.aiSpend || 0; // a bank-szinkron ismeri fel MINDEN tételbol (lásd d.bank.aiByParty)
   const monthResult = d.orders.monthRevenue - (d.bank.out30 || 0);
 
   const labelOf = (k: string) =>
@@ -366,8 +364,19 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
               <Kpi title="AI-előfizetésekre" value={aiSpend ? ft(aiSpend) : "—"} accent="warn" />
               <Kpi title="Eredmény (bevétel − kiadás)" value={ft(monthResult)} accent={monthResult >= 0 ? "good" : "warn"} />
             </div>
+            {d.bank.aiByParty?.length > 0 && (
+              <div className="mt-3 card">
+                <div className="mb-1 text-xs font-semibold text-white/60">🤖 Felismert AI-előfizetések (30 nap):</div>
+                {d.bank.aiByParty.map((s, i) => (
+                  <div key={i} className="flex justify-between gap-2 border-t border-white/5 py-1 text-sm first:border-t-0">
+                    <span className="min-w-0 truncate">{s.party} <span className="text-white/40">· {s.count}×</span></span>
+                    <span className="shrink-0 font-semibold">{ft(s.total)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="mt-2 text-xs text-white/45">
-              Hirdetés = Google Ads (~{ft(adSpendMonth)}) + Árukereső (~{ft(arukeresoSpend)}) + Meta (~{ft(metaSpend)}). AI-előfizetés = a rendszer szolgáltatásai (Claude, Higgsfield, Vercel, Supabase) a K&H tételeiből. Eredmény = havi bevétel − összes kiadás ({ft(d.bank.out30 || 0)}, K&H utolsó 30 nap).
+              Hirdetés = Google Ads (~{ft(adSpendMonth)}) + Árukereső (~{ft(arukeresoSpend)}) + Meta (~{ft(metaSpend)}). AI-előfizetés = az AI-eszközök (Claude, bolt.new, Higgsfield, fal.ai stb.) a K&H tételeiből, partnernév alapján felismerve. Eredmény = havi bevétel − összes kiadás ({ft(d.bank.out30 || 0)}, K&H utolsó 30 nap). Ha egy AI-előfizetést nem ismer fel, küldd el a banki tétel nevét, és hozzáadom.
             </div>
           </section>
 

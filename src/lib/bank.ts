@@ -114,11 +114,14 @@ export interface BankSnapshot {
   recent: { date: string; amount: number; dir: "in" | "out"; party: string; info: string }[];
   /** 30 napos KIADÁS-bontás partnerenként (mire megy el a pénz) — Mihály ebbol elemez. */
   outByParty: { party: string; total: number; count: number }[];
+  /** AI-előfizetésekre költött összeg (30 nap) + bontása — MINDEN tételbol (nem csak a top-12-bol). */
+  aiSpend: number;
+  aiByParty: { party: string; total: number; count: number }[];
   asOf: string | null;
   note?: string;
 }
 
-const EMPTY_SNAP: BankSnapshot = { ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], outByParty: [], asOf: null };
+const EMPTY_SNAP: BankSnapshot = { ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], outByParty: [], aiSpend: 0, aiByParty: [], asOf: null };
 
 /** Partnernév normalizálása a kiadás-csoportosításhoz (kisbetu, rövidítve). */
 function partyKey(name: string): string {
@@ -151,6 +154,11 @@ export async function runBankSync(): Promise<BankSnapshot> {
     let balDebug = "";
     const recent: BankSnapshot["recent"] = [];
     const outMap = new Map<string, { party: string; total: number; count: number }>();
+    // AI-előfizetések felismerése MINDEN kiadási tételbol (a top-12-ben nem látszanak, mert kis havidíjak).
+    const aiMap = new Map<string, { party: string; total: number; count: number }>();
+    let aiSpend = 0;
+    const AI_RE =
+      /bolt|stackblitz|anthropic|claude|openai|chatgpt|\bgpt[- ]?[0-9]|higgsfield|midjourney|fal\.?ai|replicate|eleven\s?labs|runway|\bpika\b|perplexity|copilot|cursor|hugging\s?face|together\.?ai|\bgroq\b|mistral|cohere|stability\.?ai|leonardo\.?ai|heygen|synthesia|descript|lovable|\bv0\b|\bsuno\b|\bkling\b|luma\s?(ai|labs)|ideogram|\bkrea\b|freepik|deepl|jasper|writesonic|gamma\.app|openrouter|poe\.com|\bgemini\b|character\.ai/i;
 
     const amtOf = (x: any) => x?.balance_amount || x?.balanceAmount || (x?.amount !== undefined ? x : null);
 
@@ -190,6 +198,14 @@ export async function runBankSync(): Promise<BankSnapshot> {
             e.total += amt;
             e.count++;
             outMap.set(k.toLowerCase(), e);
+            // AI-előfizetés? (a partnernév vagy a közlemény alapján)
+            if (AI_RE.test(`${t.creditor?.name || ""} ${info}`)) {
+              aiSpend += amt;
+              const ae = aiMap.get(k.toLowerCase()) || { party: k, total: 0, count: 0 };
+              ae.total += amt;
+              ae.count++;
+              aiMap.set(k.toLowerCase(), ae);
+            }
           }
           recent.push({ date: t.booking_date || t.value_date || "", amount: amt, dir, party, info });
         }
@@ -199,6 +215,7 @@ export async function runBankSync(): Promise<BankSnapshot> {
 
     recent.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
     const outByParty = [...outMap.values()].sort((a, b) => b.total - a.total).slice(0, 12);
+    const aiByParty = [...aiMap.values()].sort((a, b) => b.total - a.total).slice(0, 10);
     const snap: BankSnapshot = {
       ok: true,
       connected: true,
@@ -208,6 +225,8 @@ export async function runBankSync(): Promise<BankSnapshot> {
       out30,
       recent: recent.slice(0, 10),
       outByParty,
+      aiSpend,
+      aiByParty,
       asOf: new Date().toISOString(),
       note: balance === null ? "A K&H az AIS-en nem ad egyenleget — a forgalom (be/ki) és a tételek alapján elemzünk." : undefined,
     };
