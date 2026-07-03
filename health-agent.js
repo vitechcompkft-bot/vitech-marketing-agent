@@ -22,8 +22,9 @@ const SITES = [
   { id: "kereskedelmi", url: "http://10.49.8.2:3000/" },
   { id: "munkaugyi", url: "http://10.49.8.43:3001/" },
   { id: "nyomtato", url: "http://10.49.8.2:3300/nyomtatok/allasok" },
-  // A garancia-app EZEN a gepen fut → ha leall, az agent AUTOMATIKUSAN ujrainditja (restart parancs).
-  { id: "garancia", url: "http://localhost:8000/", restart: { cmd: 'wscript.exe "start-garancia.vbs"', cwd: "C:\\Projects\\vitech-garancia" } },
+  // A garancia-app mostantól WINDOWS-SZOLGÁLTATÁSként fut (VitechGarancia, NSSM → auto-restart, boot-indítás).
+  // A health-agent ezért CSAK FIGYELI (a szolgáltatás gondoskodik az újraindításról) — így nincs dupla-indítás.
+  { id: "garancia", url: "http://localhost:8000/" },
 ];
 
 async function pingOne(url) {
@@ -79,6 +80,16 @@ async function runOnce() {
     console.log("Jelentve a felhobe:", res.status, await res.text());
   } catch (e) {
     console.error("Nem sikerult jelenteni:", e && e.message);
+  }
+
+  // ERIKA menetrend-tick: a feladatok idopontja utan par perccel ellenoriz + nogat (ezt a gyakori,
+  // 2 perces futas vezerli). A felho egyedul nem tud ilyen surun futni (Vercel Hobby cron limit).
+  try {
+    const er = await fetch(`${BASE}/api/erika/audit`, { method: "POST", headers: { authorization: `Bearer ${KEY}` } });
+    const ej = await er.json().catch(() => ({}));
+    console.log("Erika tick:", er.status, ej && ej.doneCount !== undefined ? `${ej.doneCount}/${ej.total} kesz` : "");
+  } catch (e) {
+    console.error("Erika tick hiba:", e && e.message);
   }
 }
 

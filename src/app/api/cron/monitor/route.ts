@@ -43,18 +43,16 @@ async function handle(req: NextRequest) {
     //     hogy a fo ciklus + Erika jelentés biztosan beférjen 60s-be.
     await fireBg(secret, "/api/seo/audit");
     await fireBg(secret, "/api/bank/sync");
-    await fireBg(secret, "/api/finance/run");
-    await fireBg(secret, "/api/luca/reach");
-    await fireBg(secret, "/api/judit/run"); // Judit napi LinkedIn-posztja
+    // A napi ügynök-feladatokat (Klári, Judit, Mihály, Luca, Gyula) mostantól ERIKA MENETRENDJE indítja
+    // a saját idopontjukban (a helyi 2 perces figyelo vezérli) → itt már NEM tüzeljük oket külön.
     // Judit heti webshop-blogcikke — hétfonként (Europe/Budapest).
     const weekdayBp = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Budapest", weekday: "short" }).format(new Date());
     if (weekdayBp === "Mon") await fireBg(secret, "/api/blog/run");
     // Mihály havi könyveloi-emailje — minden hónap 4-én (Europe/Budapest).
     const dayBp = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest", day: "2-digit" }).format(new Date());
     if (dayBp === "04") await fireBg(secret, "/api/accounting/send");
-    await fireBg(secret, "/api/klari/run"); // plakát-pótló: ha a reggeli cron kimaradt, este pótolja (napi-egy or véd)
-    // 1c) ERIKA FELÜGYELET: ellenőrzi, minden ügynök végzett-e ma, és a hiányzó munkát
-    //     körönként (külön invokációkban) addig nógatja, amíg el nem készül (vagy riaszt).
+    // ERIKA menetrend-tick (FELHO-TARTALÉK): ha a gép ki volt kapcsolva egész nap, ez indítja el a
+    //   még hiányzó feladatokat + lezárja a napot + elküldi az esti összegzést.
     await fireBg(secret, "/api/erika/audit");
     // 2) Google Ads ciklus + Erika napi jelentés (csapat-státuszokkal).
     const result = await runMonitorCycle({ sendReport: true });

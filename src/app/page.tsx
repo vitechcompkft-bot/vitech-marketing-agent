@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 import { loadDashboard } from "@/lib/dashboard";
 import RunNowButton from "@/components/RunNowButton";
-import TasksPanel from "@/components/TasksPanel";
+import { getTodaySchedule, SUMMARY_TIME } from "@/lib/erika";
 
 export const dynamic = "force-dynamic";
 
+const AGENT_NAME: Record<string, string> = { klari: "Klári", judit: "Judit", mihaly: "Mihály", luca: "Luca", gyula: "Gyula" };
+
 export default async function Overview() {
   const { config, agents, statuses, supabaseReady, mock } = await loadDashboard();
+  const schedule = await getTodaySchedule();
   const erika = agents.find((a) => a.key === "erika");
   const gyula = agents.find((a) => a.key === "gyula");
   const mihaly = agents.find((a) => a.key === "mihaly");
@@ -70,13 +73,50 @@ export default async function Overview() {
         <div className="mt-2 text-xs text-white/40">Kattints egy osztályra a részletekért (hirdetés, felügyelet, pénzügy).</div>
       </Panel>
 
-      {/* Feladatok — Gyula (Informatika) + Erika (Egyéb), pipálható */}
+      {/* Mai menetrend — Erika felügyeli: a feladat idopontja után pár perccel ellenoriz + nógat */}
       <Panel accent="#a855f7">
-        <TasksPanel />
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="section-title">🗓️ Mai menetrend — {schedule.date}</h2>
+          <span className="text-xs text-white/50">Erika felügyeli · esti összegzés {SUMMARY_TIME}</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-white/50">
+              <tr>
+                <th className="py-1.5 pr-3">Időpont</th>
+                <th className="pr-3">Munkatárs</th>
+                <th className="pr-3">Feladat</th>
+                <th>Ellenőrzési állapot</th>
+              </tr>
+            </thead>
+            <tbody>
+              {schedule.tasks.map((t) => (
+                <tr key={t.key} className="border-t border-white/5 align-top">
+                  <td className="py-2 pr-3 font-mono text-white/80">{t.time}</td>
+                  <td className="pr-3 font-semibold">{AGENT_NAME[t.key] || t.key}</td>
+                  <td className="pr-3 text-white/70">{t.label}</td>
+                  <td><SchedStatus t={t} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-2 text-xs text-white/40">
+          A feladat időpontja után pár perccel Erika ellenőrzi; ha nincs kész, rászól a felelősre és újraindítja — nem hagyja elkészületlenül.
+        </div>
       </Panel>
 
     </main>
   );
+}
+
+function SchedStatus({ t }: { t: { status: string; doneAt?: string | null; nudges?: number } }) {
+  if (t.status === "done")
+    return <span className="badge bg-green-500/20 text-green-300">✅ kész{t.doneAt ? ` · ${t.doneAt}` : ""}</span>;
+  if (t.status === "late")
+    return <span className="badge bg-red-500/20 text-red-300">🔴 késik{t.nudges ? ` · nógatva ${t.nudges}×` : ""}</span>;
+  if (t.status === "working") return <span className="badge bg-amber-500/20 text-amber-300">🟡 folyamatban</span>;
+  return <span className="badge bg-white/10 text-white/50">⚪ még nem esedékes</span>;
 }
 
 const FALLBACK_AVATAR = (seed: string) => `https://api.dicebear.com/9.x/lorelei/svg?seed=${seed}&backgroundColor=11243f`;
