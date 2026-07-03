@@ -108,7 +108,7 @@ export async function loadDashboard(): Promise<DashboardData> {
   const meta = await getMetaStatus().catch(() => null);
   const facebook = await getFacebookStatus().catch(() => ({ configured: false, connected: false }) as FacebookStatus);
   const bank = await getBankSnapshot().catch(
-    () => ({ ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], outByParty: [], asOf: null }) as BankSnapshot
+    () => ({ ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], outByParty: [], aiSpend: 0, aiByParty: [], asOf: null }) as BankSnapshot
   );
 
   let actions: AgentAction[] = [];

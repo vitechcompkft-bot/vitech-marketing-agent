@@ -34,7 +34,7 @@ export async function getFinanceSnapshot(): Promise<FinanceSnapshot> {
     () => ({ ok: false, outCount: 0, outTotalHuf: 0, outExpired: 0, out: [], inCount: 0, inTotalHuf: 0, inExpired: 0, in: [] }) as BillingoSummary
   );
   const bank = await getBankSnapshot().catch(
-    () => ({ ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], outByParty: [], asOf: null }) as BankSnapshot
+    () => ({ ok: false, connected: false, balance: null, currency: "HUF", in30: 0, out30: 0, recent: [], outByParty: [], aiSpend: 0, aiByParty: [], asOf: null }) as BankSnapshot
   );
   return {
     ok: !!orders?.ok,
