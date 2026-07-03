@@ -372,7 +372,7 @@ export async function lucaJudgeDeal(
 ): Promise<{ approve: boolean; verdict: string }> {
   const anthropic = client();
   const msg = await anthropic.messages.create({
-    model: SMART,
+    model: FAST, // gyors modell — a szoveg-fazis igy biztosan befer a Vercel 60s-be (nincs plakat-kimaradas)
     max_tokens: 400,
     system:
       buildSystem(persona.name, persona.persona) +
@@ -472,7 +472,7 @@ export async function klariResearch(
       model: FAST,
       max_tokens: 1000,
       system: buildSystem(persona.name, persona.persona) + "\n\nMOST KLÁRI vagy. Gyors piackutatást végzel a legjobb áru ajánlat megtalálásához.",
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 } as any],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 } as any], // 2→1: gyorsabb, hogy a szoveg-fazis beferjen 60s-be
       messages: [
         {
           role: "user",

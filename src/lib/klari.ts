@@ -178,7 +178,6 @@ export async function runKlariText(opts?: { force?: boolean }): Promise<KlariRes
 
   // 2) Klári: gyors piackutatás → kifogástalan, VÁLTOZATOS ajánlat összeállítása.
   const productList = pool.map((p) => ({ id: p.id, name: p.name, priceGross: p.priceGross }));
-  const __t0 = Date.now(); // idokorlát-védelem: a szöveg-újrapróbálás ne lépje túl a Vercel 60s limitet
   const research = await klariResearch(productList, klariPersona);
   const composeCtx = research + varietyNote;
   await setAgentStatus("klari", "working", `Mai szög: ${angle} — ajánlat + Luca jóváhagyása…`);
@@ -201,19 +200,12 @@ export async function runKlariText(opts?: { force?: boolean }): Promise<KlariRes
   //    amíg Luca el nem fogadja (nem „holnap új", hanem MOST, ugyanabban a futásban). Felso korlát
   //    a végtelen ciklus ellen; ha addig sem fogadja el, a LEGJOBB verzióval megyünk tovább, hogy
   //    reggel biztosan legyen kész plakát.
-  const TEXT_MAX = 3;
-  let judge = await judgeFor(deal);
-  let critiques = "";
-  // A retry EGY invokációban fut → IDOKORLÁT: ha közelít a 60s-hez, a LEGJOBB addigi verzióval
-  // megyünk tovább, hogy a plakát biztosan elkészüljön (ne ölje meg a Vercel a függvényt).
-  for (let i = 1; i < TEXT_MAX && !judge.approve && Date.now() - __t0 < 42000; i++) {
-    await setAgentStatus("klari", "working", `Luca észrevételezte a szöveget — Klári újra nekifut (${i + 1}. próba)…`);
-    critiques += "\n\nLUCA KRITIKÁJA (KÖTELEZO kijavítani, ne ismételd a hibát):\n" + judge.verdict;
-    const dN = await klariCompose(productList, composeCtx + critiques, klariPersona, lucaBrief);
-    if (!dN) break;
-    deal = dN;
-    judge = await judgeFor(deal);
-  }
+  // MEGBÍZHATÓSÁG (2026-07-03): NINCS szinkron újrapróbálás — pontosan az okozta, hogy a szöveg-fázis
+  // TÚLLÉPTE a Vercel 60s-limitjét (FUNCTION_INVOCATION_TIMEOUT) → NEM készült plakát (se reggel, se FB).
+  // EGY elbírálás; ha Luca nem tökéletesnek látja, AKKOR IS a meglévo (jó) szöveggel megyünk tovább, hogy
+  // a plakát BIZTOSAN elkészüljön. A vizuális minoséget a kép-fázis Luca-QC-je gondozza (az robusztus,
+  // külön invokációkban próbálkozik); a szöveg változatosságát a fenti tiltólista + prompt biztosítja.
+  const judge = await judgeFor(deal);
 
   // LUCA KORREKTÚRA — a plakátra és az FB-caption-be kerülo magyar szöveg helyesírása/ékezetei.
   // Ékezethibás plakát/poszt SOHA nem mehet ki.
@@ -226,7 +218,7 @@ export async function runKlariText(opts?: { force?: boolean }): Promise<KlariRes
   const dateLabel = todayLabel();
   const textVerdict = judge.approve
     ? judge.verdict
-    : `Luca észrevételei beépítve (legjobb verzió ${TEXT_MAX} próbából): ${judge.verdict}`;
+    : `Luca észrevétele (a szöveg így ment tovább): ${judge.verdict}`;
 
   // A szöveg KÉSZ → 'pending_image' sor + render_data a kép-fázishoz (a kép-fázis Klári addig
   // csinálja a plakátot, amíg Luca vizuálisan is el nem fogadja).
