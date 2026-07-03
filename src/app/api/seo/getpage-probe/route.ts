@@ -38,13 +38,17 @@ export async function GET(req: NextRequest) {
       const page = sp.get("id") || "";
       const link = sp.get("link") || "";
       const fmt = sp.get("fmt") || "1";
+      const type = sp.get("type") || "normal";
       const content =
         fmt === "2"
           ? `<Content>${link}</Content>`
           : fmt === "3"
           ? `<PageContent><Id>${link}</Id></PageContent>`
+          : fmt === "4"
+          ? `<Content><Id>${link}</Id><Order>1</Order></Content>`
           : `<Content><Id>${link}</Id></Content>`;
-      body = `<?xml version="1.0" encoding="UTF-8" ?>\n<Pages><Page><Action>modify</Action><Id>${page}</Id><Contents>${content}</Contents></Page></Pages>`;
+      const ident = `<Lang>hu</Lang><Name><![CDATA[Blog]]></Name><Type>${type}</Type>`;
+      body = `<?xml version="1.0" encoding="UTF-8" ?>\n<Pages><Page><Action>modify</Action><Id>${page}</Id>${ident}<Contents>${content}</Contents></Page></Pages>`;
     }
 
     const res = await fetch(`${UNAS}/${ep}`, { method: "POST", headers: auth, body });
