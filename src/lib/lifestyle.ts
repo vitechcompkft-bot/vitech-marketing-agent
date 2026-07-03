@@ -24,9 +24,18 @@ const STYLES: Style[] = [
   { key: "garden", label: "kerti napsütés", prompt: "a person relaxing in a sunny green garden with an open modern business laptop on a wooden table, blooming flowers and warm summer daylight, cheerful lifestyle vibe" },
 ];
 
+/** A jelenet laptopjának kinézete illeszkedjen a valódi termékhez (pl. ThinkPad = fekete). */
+function laptopLook(name: string): string {
+  const n = (name || "").toLowerCase();
+  if (/thinkpad|thinkbook|latitude|vostro/.test(n)) return "a professional matte BLACK clamshell business laptop";
+  if (/macbook/.test(n)) return "a slim silver aluminium laptop";
+  if (/elitebook|probook|zbook|\bhp\b/.test(n)) return "a dark silver-grey business laptop";
+  return "a modern slim business laptop";
+}
+
 /** Fotorealisztikus, felirat nélküli LAPTOP-jelenet — felül üres hely a focímnek. */
-const wrap = (p: string) =>
-  `Ultra-photorealistic advertising photograph, shot on a full-frame camera, premium commercial lifestyle photography, true to life, natural colors, sharp focus: ${p}. The device is clearly a modern clamshell LAPTOP (never a desktop PC, tower or monitor). The laptop screen shows a vibrant colorful abstract wallpaper. Leave clean, calm empty space in the UPPER part of the image for a headline. Absolutely NO text, NO letters, NO numbers, NO logos, NO watermarks, NO brand names anywhere.`;
+const wrap = (p: string, look: string) =>
+  `Ultra-photorealistic advertising photograph, shot on a full-frame camera, premium commercial lifestyle photography, true to life, natural colors, sharp focus: ${p}. The device is clearly ${look} — an open modern clamshell LAPTOP (never a desktop PC, tower or monitor). The laptop screen shows a vibrant colorful abstract wallpaper. Leave clean, calm empty space in the UPPER part of the image for a headline. Absolutely NO text, NO letters, NO numbers, NO logos, NO watermarks, NO brand names anywhere.`;
 
 /**
  * LAPTOP-e a termék? A lifestyle-jelenet MINDIG laptopot mutat, ezért csak laptopot hirdethetünk
@@ -120,7 +129,9 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   // POSZTOLÁS ELOTTI KÖTELEZO ELLENORZÉS (nyelvhelyesség + laptop-egyezés, javítással).
   const qc = await lifestyleReview({ name: product.name }, style.label, drafted);
 
-  const bg = await generateLifestyleImage(wrap(style.prompt));
+  // A style-prompt "silver" szavát elhagyjuk, a laptop színét a termékhez igazítjuk (laptopLook).
+  const scenePrompt = wrap(style.prompt.replace(/\bsilver\s?/gi, ""), laptopLook(product.name));
+  const bg = await generateLifestyleImage(scenePrompt);
   if (!bg) throw new Error("kép-generálás sikertelen (fal.ai)");
 
   const poster = await renderLifestylePosterPng({ bgUrl: bg, headline: qc.headline, sub: qc.sub });
