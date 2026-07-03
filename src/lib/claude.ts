@@ -566,7 +566,7 @@ export async function lifestyleCompose(
           content: `Termék: ${product.name}${product.priceGross ? ` (${product.priceGross} Ft)` : ""}. Hirdetés-hangulat: ${styleLabel}.
 ${recentHeadlines.length ? "NE ismételd ezeket a korábbi focímeket (a mintájukat sem): " + recentHeadlines.join(" | ") + "." : ""}
 Írj EGYEDI, energikus, friss anyagot a lifestyle-plakáthoz:
-- headline: 2-5 szavas ütos focím a plakátra (a hangulathoz illo, ÁR NÉLKÜL).
+- headline: 2-5 szavas ütos focím a plakátra (a hangulathoz illo, ÁR NÉLKÜL). Természetes, hétköznapi magyar szavak és HELYES igealakok (pl. "Dolgozz a parton", NEM "Munkálj"); kerüld a ritka/mesterséges/rossz ragozású szavakat.
 - sub: 1 rövid mondat a plakát aljára (felújított / bevizsgált / garancia értéke, de MINDEN nap más megfogalmazásban).
 - caption: 2-4 soros Facebook-poszt emojikkal, a lifestyle hangulatra építve, a végén hívd a vitechcompkft.hu-ra. NE írj bele URL-t/linket (azt a rendszer teszi hozzá).
 SZABÁLYOK: hibátlan magyar, helyes ékezetek; ne túlozz; TILOS a "tört áron" kifejezés — helyette "kedvezményes áron".
