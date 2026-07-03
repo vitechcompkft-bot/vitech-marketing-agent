@@ -117,3 +117,25 @@ export async function generateAdImage(prompt: string): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * LIFESTYLE jelenet (text-to-image, fal.ai Recraft V4, VALÓSÁGHU/realistic) → tartós URL (re-host).
+ * Természetes színek (nincs márka-szín kényszer), 16:9. A logót + feliratot a lifestyle-sablon teszi rá.
+ */
+export async function generateLifestyleImage(prompt: string): Promise<string | null> {
+  const key = process.env.FAL_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch("https://fal.run/fal-ai/recraft/v4/text-to-image", {
+      method: "POST",
+      headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, image_size: "landscape_16_9", style: "realistic_image" }),
+    });
+    const j = await res.json();
+    const url = j?.images?.[0]?.url;
+    if (!url) return null;
+    return await rehost(url, "lifestyle");
+  } catch {
+    return null;
+  }
+}

@@ -547,6 +547,42 @@ Válaszolj PONTOSAN ebben a JSON-ban, utána semmi:
   }
 }
 
+/** LIFESTYLE napi plakát — változatos focím + alcím + FB-poszt szöveg (a linket a hívó teszi hozzá). */
+export async function lifestyleCompose(
+  product: { name: string; priceGross?: string },
+  styleLabel: string,
+  recentHeadlines: string[]
+): Promise<{ headline: string; sub: string; caption: string } | null> {
+  const anthropic = client();
+  try {
+    const msg = await anthropic.messages.create({
+      model: FAST,
+      max_tokens: 500,
+      system:
+        "Te vagy Klári, a Vitech Comp Kft. (felújított üzleti laptopok, vitechcompkft.hu) kreatív marketingese. Vágykeltő, lifestyle Facebook-hirdetéshez írsz magyar szöveget.",
+      messages: [
+        {
+          role: "user",
+          content: `Termék: ${product.name}${product.priceGross ? ` (${product.priceGross} Ft)` : ""}. Hirdetés-hangulat: ${styleLabel}.
+${recentHeadlines.length ? "NE ismételd ezeket a korábbi focímeket (a mintájukat sem): " + recentHeadlines.join(" | ") + "." : ""}
+Írj EGYEDI, energikus, friss anyagot a lifestyle-plakáthoz:
+- headline: 2-5 szavas ütos focím a plakátra (a hangulathoz illo, ÁR NÉLKÜL).
+- sub: 1 rövid mondat a plakát aljára (felújított / bevizsgált / garancia értéke, de MINDEN nap más megfogalmazásban).
+- caption: 2-4 soros Facebook-poszt emojikkal, a lifestyle hangulatra építve, a végén hívd a vitechcompkft.hu-ra. NE írj bele URL-t/linket (azt a rendszer teszi hozzá).
+SZABÁLYOK: hibátlan magyar, helyes ékezetek; ne túlozz; TILOS a "tört áron" kifejezés — helyette "kedvezményes áron".
+Válaszolj PONTOSAN ebben a JSON-ban, utána semmi: { "headline":"", "sub":"", "caption":"" }`,
+        },
+      ],
+    });
+    const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+    const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    if (!j.headline) return null;
+    return { headline: String(j.headline).trim(), sub: String(j.sub || "").trim(), caption: String(j.caption || "").trim() };
+  } catch {
+    return null;
+  }
+}
+
 /** ERIKA: egy beérkezo e-mail triázsa — összegzés, osztály, sürgosség. */
 export async function erikaTriageEmail(
   email: { from: string; subject: string; body: string },

@@ -36,6 +36,7 @@ export const SCHEDULE: SchedTask[] = [
   { key: "mihaly", label: "Napi pénzügyi jelentés", time: "11:00", kind: "endpoint", trigger: "/api/finance/run?force=1" },
   { key: "luca", label: "Hirdetés-figyelés, optimalizálás", time: "13:00", kind: "endpoint", trigger: "/api/luca/reach?force=1" },
   { key: "gyula", label: "Rendszer-ellenorzés", time: "15:00", kind: "gyula" },
+  { key: "lifestyle", label: "Napi lifestyle-plakát (FB)", time: "17:00", kind: "endpoint", trigger: "/api/klari/lifestyle?force=1" },
 ];
 export const SUMMARY_TIME = "18:00";
 const GRACE_MIN = 6; // a feladat idopontja UTÁN ennyi perccel nógat Erika, ha nincs kész
@@ -89,6 +90,17 @@ async function triggerTask(t: SchedTask) {
 }
 
 async function isDoneToday(key: string, statuses: any[], today: string): Promise<boolean> {
+  if (key === "lifestyle") {
+    // A lifestyle-plakát a "klari" agent-státuszt írja, ezért külön mérjük: app_state "lifestyle_last".
+    try {
+      const { data } = await supabaseAdmin().from("app_state").select("value").eq("key", "lifestyle_last").maybeSingle();
+      if (!data?.value) return false;
+      const j = JSON.parse(data.value);
+      return j.ok === true && !!j.asOf && bpDay(new Date(j.asOf)) === today;
+    } catch {
+      return false;
+    }
+  }
   if (key === "klari") {
     try {
       const { data } = await supabaseAdmin().from("klari_posts").select("status, created_at").eq("status", "approved").order("id", { ascending: false }).limit(1);

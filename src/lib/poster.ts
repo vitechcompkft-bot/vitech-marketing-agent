@@ -197,3 +197,41 @@ export async function renderPosterPng(o: PosterData): Promise<string | null> {
     return null;
   }
 }
+
+/** LIFESTYLE plakát render (TISZTA: jelenet-háttér + focím + alcím + logó + CTA) → PNG hcti-vel. */
+export async function renderLifestylePosterPng(o: { bgUrl: string; headline: string; sub?: string }): Promise<string | null> {
+  const uid = process.env.HCTI_USER_ID;
+  const key = process.env.HCTI_API_KEY;
+  if (!uid || !key || !o.bgUrl) return null;
+  const html = `
+  <div class="p">
+    <div class="bg" style="background-image:url('${o.bgUrl}')"></div>
+    <div class="gt"></div><div class="gb"></div>
+    <div class="head">${esc(o.headline)}</div>
+    ${o.sub ? `<div class="sub">${esc(o.sub)}</div>` : ""}
+    <div class="chip"><div class="logo"><img src="${LOGO_URL}"/></div><div class="cta">vitechcompkft.hu</div></div>
+  </div>`;
+  const css = `
+  *{margin:0;padding:0;box-sizing:border-box}
+  .p{position:relative;width:1200px;height:675px;overflow:hidden;font-family:Montserrat,Arial,sans-serif}
+  .bg{position:absolute;inset:0;background-size:cover;background-position:center}
+  .gt{position:absolute;top:0;left:0;right:0;height:48%;background:linear-gradient(180deg,rgba(6,15,35,.55),rgba(6,15,35,0))}
+  .gb{position:absolute;bottom:0;left:0;right:0;height:44%;background:linear-gradient(0deg,rgba(6,15,35,.66),rgba(6,15,35,0))}
+  .head{position:absolute;top:40px;left:52px;color:#fff;font-weight:900;font-size:60px;line-height:1.03;max-width:66%;text-shadow:0 3px 18px rgba(0,0,0,.6)}
+  .sub{position:absolute;bottom:108px;left:52px;color:#fff;font-weight:600;font-size:28px;text-shadow:0 2px 12px rgba(0,0,0,.8)}
+  .chip{position:absolute;bottom:30px;left:52px;display:flex;align-items:center;gap:14px}
+  .logo{background:#fff;border-radius:14px;padding:8px 14px}
+  .logo img{height:40px;display:block}
+  .cta{color:#fff;font-weight:800;font-size:25px;text-shadow:0 2px 10px rgba(0,0,0,.85)}`;
+  try {
+    const res = await fetch("https://hcti.io/v1/image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Basic " + Buffer.from(`${uid}:${key}`).toString("base64") },
+      body: JSON.stringify({ html, css, google_fonts: "Montserrat:wght@400;600;700;800;900", viewport_width: 1200, viewport_height: 675, device_scale: 2 }),
+    });
+    const j = await res.json();
+    return j?.url || null;
+  } catch {
+    return null;
+  }
+}
