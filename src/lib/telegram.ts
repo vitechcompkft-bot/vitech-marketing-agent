@@ -1,7 +1,18 @@
 /** Telegram bot — kimenő üzenet küldése. */
 export async function sendTelegram(text: string, chatIdOverride?: string): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = chatIdOverride || process.env.TELEGRAM_CHAT_ID;
+  let chatId = chatIdOverride || process.env.TELEGRAM_CHAT_ID;
+  // Ha nincs env CHAT_ID, essünk vissza az agent_config-ban tárolt értékre (a bot a tulajdonos
+  // üzenetébol mentette a webhookon). Így MINDEN értesítés a muködo chat-id-t használja.
+  if (!chatId) {
+    try {
+      const { supabaseAdmin } = await import("./supabase");
+      const { data } = await supabaseAdmin().from("agent_config").select("telegram_chat_id").eq("id", 1).single();
+      if (data?.telegram_chat_id) chatId = String(data.telegram_chat_id);
+    } catch {
+      /* best-effort */
+    }
+  }
   if (!token || !chatId) {
     console.warn("[telegram] hiányzó TELEGRAM_BOT_TOKEN vagy CHAT_ID — kihagyom a küldést.");
     return false;

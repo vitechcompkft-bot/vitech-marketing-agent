@@ -20,11 +20,10 @@ async function handle(req: NextRequest) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const hasToken = !!token;
   const hasChatId = !!process.env.TELEGRAM_CHAT_ID;
-  const sent = hasChatId
-    ? await sendTelegram(
-        `🔔 <b>Vitech teszt-értesítés</b> — ha ezt látod, a Telegram működik, és ma este jönni fog az <b>Erika napi összegzés</b> is. 👍`
-      )
-    : false;
+  // A sendTelegram mostantól visszaesik az agent_config-ban tárolt chat-id-re, ha nincs env CHAT_ID.
+  const sent = await sendTelegram(
+    `🔔 <b>Vitech teszt-értesítés</b> — ha ezt látod, a Telegram működik, és mostantól MINDEN értesítés megérkezik (Klári, Erika napi összegzés, riasztások). 👍`
+  );
 
   // Ha nincs beállított CHAT_ID: kiolvassuk a botnak KÜLDÖTT üzenetekbol a chat-id(ke)t,
   // hogy a tulajdonos tudja, mit kell a Vercelen a TELEGRAM_CHAT_ID-hez beállítani.
