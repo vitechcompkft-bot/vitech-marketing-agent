@@ -89,6 +89,15 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
   const arukeresoSpend = (d.bank.outByParty || [])
     .filter((s) => /áruk?eres|arukeres|comparison shop|heureka/i.test(s.party))
     .reduce((a, s) => a + s.total, 0);
+  // Havi kép Mihálynak: hirdetés (Google Ads + Árukereső + Meta) és AI-előfizetés a K&H tételeibol.
+  const metaSpend = (d.bank.outByParty || [])
+    .filter((s) => /facebook|meta\s|meta\*|meta platform|instagram/i.test(s.party))
+    .reduce((a, s) => a + s.total, 0);
+  const totalAdSpend = adSpendMonth + arukeresoSpend + metaSpend;
+  const aiSpend = (d.bank.outByParty || [])
+    .filter((s) => /anthropic|claude|openai|chatgpt|higgsfield|vercel|supabase|cursor|midjourney|elevenlabs|runway|replicate|fal\.?ai|openrouter/i.test(s.party))
+    .reduce((a, s) => a + s.total, 0);
+  const monthResult = d.orders.monthRevenue - (d.bank.out30 || 0);
 
   const labelOf = (k: string) =>
     (({ erika: "Erika", luca: "Luca", klari: "Klári", judit: "Judit", gyula: "Gyula", mihaly: "Mihály" } as Record<string, string>)[k] || k);
@@ -105,63 +114,7 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
         <Link className="btn btn-ghost" href="/">← Áttekintés</Link>
       </div>
 
-      {d.agentMessages?.length > 0 && (
-        <section>
-          <h2 className="section-title">💬 Csapat-kommunikáció</h2>
-          <div className="flex flex-col gap-2">
-            {d.agentMessages.slice(0, 10).map((m) => (
-              <div key={m.id} className="card">
-                <div className="mb-1 flex items-center gap-2 text-xs">
-                  <span className="font-semibold">{labelOf(m.from)}</span>
-                  <span className="text-white/40">→</span>
-                  <span className="font-semibold">{labelOf(m.to)}</span>
-                  <span className={`badge ${m.type === "válasz" ? "bg-green-500/20 text-green-300" : m.type === "riasztás" ? "bg-amber-500/20 text-amber-200" : "bg-sky-500/20 text-sky-200"}`}>{m.type}</span>
-                </div>
-                <div className="whitespace-pre-wrap text-sm text-white/85">{m.body}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-xs text-white/45">Az ügynökök egymással is egyeztetnek: kérdés / kérés / riasztás → a megszólított a saját szakterületi adataival válaszol.</div>
-        </section>
-      )}
-
-      {d.tasks?.length > 0 && (
-        <section>
-          <h2 className="section-title">📋 Feladatok (tulajdonostól)</h2>
-          <div className="flex flex-col gap-2">
-            {d.tasks.slice(0, 8).map((t) => (
-              <div key={t.id} className="card">
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-white/50">Megbízott:</span>
-                    <span className="font-semibold">{t.who?.name || labelOf(t.to)}</span>
-                    <span className="text-xs text-white/40">· {t.who?.department}</span>
-                  </div>
-                  <span className={`badge ${t.status === "kész" ? "bg-green-500/20 text-green-300" : t.status === "folyamatban" ? "bg-amber-500/20 text-amber-200" : "bg-sky-500/20 text-sky-200"}`}>
-                    {t.status === "kész" ? "✅ kész" : t.status === "folyamatban" ? "⚙️ folyamatban" : "📥 fogadva"}
-                  </span>
-                </div>
-                <div className="text-sm text-white/85">{t.title}</div>
-                {t.response && (
-                  <div className="mt-2 rounded-lg border border-white/10 bg-black/20 p-3">
-                    <div className="mb-1 text-xs text-white/45">{t.who?.name} válasza:</div>
-                    <div className="whitespace-pre-wrap text-sm text-white/90">{t.response}</div>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                      <a className="btn btn-ghost" href={`/api/export/file?id=${t.id}&format=pdf`}>📄 PDF</a>
-                      <a className="btn btn-ghost" href={`/api/export/file?id=${t.id}&format=docx`}>📝 DOCX</a>
-                      <a className="btn btn-ghost" href={`/api/export/file?id=${t.id}&format=xlsx`}>📊 XLSX</a>
-                      <a className="btn btn-ghost" href={`/api/export/email?id=${t.id}&format=pdf`} target="_blank" rel="noreferrer">✉️ Emailben kérem</a>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-xs text-white/45">Erika a feladatot a megfelelő munkatárshoz továbbítja; itt látod, hogyan halad (fogadva → folyamatban → kész) és a választ.</div>
-        </section>
-      )}
-
-      {d.bank?.connected && (
+      {params.key === "gazdasagi" && d.bank?.connected && (
         <section>
           <h2 className="section-title">💰 Banki kivonat / számlatörténet</h2>
           <div className="card flex flex-col gap-3 text-sm">
@@ -405,41 +358,18 @@ export default async function OsztalyPage({ params }: { params: { key: string } 
             </section>
           )}
 
-          {(d.mihalyReport?.spendingReview?.length || d.bank.outByParty?.length) ? (
-            <section>
-              <h2 className="section-title">💸 Mire megy el a pénz (K&H · utolsó 30 nap)</h2>
-              {d.mihalyReport?.spendingReview?.length ? (
-                <div className="grid gap-2 md:grid-cols-2">
-                  {d.mihalyReport.spendingReview.map((r, i) => {
-                    const v = (r.verdict || "").toLowerCase();
-                    const badge = v.includes("elhagy") ? "bg-red-500/20 text-red-200" : v.includes("optim") ? "bg-amber-500/20 text-amber-200" : "bg-green-500/20 text-green-300";
-                    return (
-                      <div key={i} className="card">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold">{r.item}</span>
-                          <span className="shrink-0 font-semibold">{ft(r.amount)}</span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className={`badge ${badge}`}>{r.verdict || "—"}</span>
-                          <span className="text-xs text-white/65">{r.note}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="card">
-                  {d.bank.outByParty.slice(0, 12).map((s, i) => (
-                    <div key={i} className="flex justify-between gap-2 border-t border-white/5 py-1.5 text-sm first:border-t-0">
-                      <span className="min-w-0 truncate">{s.party} <span className="text-white/40">· {s.count} tétel</span></span>
-                      <span className="shrink-0 font-semibold">{ft(s.total)}</span>
-                    </div>
-                  ))}
-                  <div className="mt-2 text-xs text-white/40">A tételenkénti értékelés (kell / optimalizálható / elhagyható) a következő napi pénzügyi futás után jelenik meg.</div>
-                </div>
-              )}
-            </section>
-          ) : null}
+          <section>
+            <h2 className="section-title">📊 Havi pénzügyi kép (utolsó 30 nap)</h2>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <Kpi title="Rendszeres havi bevétel" value={ft(d.orders.monthRevenue)} accent={d.orders.monthRevenue > 0 ? "good" : undefined} />
+              <Kpi title="Hirdetésekre" value={ft(totalAdSpend)} accent="warn" />
+              <Kpi title="AI-előfizetésekre" value={aiSpend ? ft(aiSpend) : "—"} accent="warn" />
+              <Kpi title="Eredmény (bevétel − kiadás)" value={ft(monthResult)} accent={monthResult >= 0 ? "good" : "warn"} />
+            </div>
+            <div className="mt-2 text-xs text-white/45">
+              Hirdetés = Google Ads (~{ft(adSpendMonth)}) + Árukereső (~{ft(arukeresoSpend)}) + Meta (~{ft(metaSpend)}). AI-előfizetés = a rendszer szolgáltatásai (Claude, Higgsfield, Vercel, Supabase) a K&H tételeiből. Eredmény = havi bevétel − összes kiadás ({ft(d.bank.out30 || 0)}, K&H utolsó 30 nap).
+            </div>
+          </section>
 
           <section>
             <h2 className="section-title">Bevétel vs. hirdetési költés</h2>

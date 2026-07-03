@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/", label: "Áttekintés" },
   { href: "/iroda", label: "Titkárság" },
   { href: "/feladatok", label: "Feladatok" },
+  { href: "/csapat", label: "Csapat" },
   { href: "/creatives", label: "Kreatívok" },
   { href: "/naplo", label: "Napló" },
   { href: "/settings", label: "Beállítások" },
