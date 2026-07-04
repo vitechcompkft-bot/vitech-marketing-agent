@@ -6,6 +6,7 @@ import { renderLifestylePosterPng, getLastLifestyleRenderError } from "./poster"
 import { publishKlariPoster } from "./facebook";
 import { setAgentStatus } from "./team";
 import { sendTelegram } from "./telegram";
+import { isLive } from "./productLive";
 
 const STATE_KEY = "lifestyle_state";
 const PREVIEW_KEY = "lifestyle_preview";
@@ -101,20 +102,6 @@ function pickStyle(recent: string[]): Style {
   const fresh = STYLES.filter((s) => !last.includes(s.key));
   const pool = fresh.length ? fresh : STYLES;
   return pool[Math.floor(Math.random() * pool.length)];
-}
-
-/**
- * ÉLO-e a termék a boltban? A Unas API a nem publikált / kifutott termékeket is visszaadja, de azok
- * oldala 404 — ilyet SOHA nem hirdetünk (a hirdetett gépnek megvásárolhatónak kell lennie).
- */
-async function isLive(url?: string): Promise<boolean> {
-  if (!url) return false;
-  try {
-    const r = await fetch(url, { method: "GET", redirect: "follow", signal: AbortSignal.timeout(8000) });
-    return r.ok; // 200–299
-  } catch {
-    return false;
-  }
 }
 
 /** Valódi, ÉLO Vitech-LAPTOP kiválasztása az Unasból (csak amelyik oldala tényleg elérheto a boltban). */

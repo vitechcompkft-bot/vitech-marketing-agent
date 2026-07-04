@@ -95,10 +95,14 @@ export async function renderLifestylePosterOG(o: { bgUrl: string; headline: stri
     chip
   );
 
-  const img = new ImageResponse(root, { width: 1200, height: 675, fonts });
-  const buf = Buffer.from(await img.arrayBuffer());
+  return toPngUrl(root, fonts);
+}
 
+/** ImageResponse → PNG bytes → Supabase Storage feltöltés → publikus URL. */
+async function toPngUrl(root: any, fonts: any[]): Promise<string | null> {
   try {
+    const img = new ImageResponse(root, { width: 1200, height: 675, fonts });
+    const buf = Buffer.from(await img.arrayBuffer());
     await ensureBucket();
     const sb = supabaseAdmin();
     const path = `poster-${Date.now()}.png`;
@@ -108,7 +112,85 @@ export async function renderLifestylePosterOG(o: { bgUrl: string; headline: stri
       if (data?.publicUrl) return data.publicUrl;
     }
   } catch {
-    /* feltöltési hiba → null */
+    /* render/feltöltési hiba → null */
   }
   return null;
+}
+
+/**
+ * KLÁRI „deal" plakát (jelenet a VALÓDI termékkel + focím + ÁR + jelvények + logó + CTA) — next/og,
+ * kvóta nélkül. A busy spec-lista helyett tiszta, figyelemfelkelto elrendezés; a részletek a FB-caption-ben.
+ */
+export async function renderDealPosterOG(o: { bgUrl: string; headline: string; priceHuf?: number; badges?: string[] }): Promise<string | null> {
+  if (!o.bgUrl) return null;
+  const [w600, w800, w900] = await Promise.all([loadMontserrat(600), loadMontserrat(800), loadMontserrat(900)]);
+  if (!w900) return null;
+  const fonts: any[] = [];
+  if (w600) fonts.push({ name: "Montserrat", data: w600, weight: 600, style: "normal" });
+  if (w800) fonts.push({ name: "Montserrat", data: w800, weight: 800, style: "normal" });
+  fonts.push({ name: "Montserrat", data: w900, weight: 900, style: "normal" });
+
+  const headline = clean(o.headline);
+  const price = o.priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(o.priceHuf)) + " Ft" : "";
+  const badges = (o.badges || []).map(clean).filter(Boolean).slice(0, 3);
+
+  const bg = h("img", { src: o.bgUrl, width: 1200, height: 675, style: { position: "absolute", top: 0, left: 0, width: 1200, height: 675, objectFit: "cover" } });
+  const gTop = h("div", { style: { position: "absolute", top: 0, left: 0, width: 1200, height: 300, display: "flex", backgroundImage: "linear-gradient(180deg, rgba(6,15,35,0.6), rgba(6,15,35,0))" } });
+  const gBot = h("div", { style: { position: "absolute", bottom: 0, left: 0, width: 1200, height: 320, display: "flex", backgroundImage: "linear-gradient(0deg, rgba(6,15,35,0.72), rgba(6,15,35,0))" } });
+  const head = h(
+    "div",
+    { style: { position: "absolute", top: 34, left: 52, width: 760, display: "flex", color: "#fff", fontSize: 60, fontWeight: 900, lineHeight: 1.02, letterSpacing: -0.5, textShadow: "0 3px 16px rgba(0,0,0,0.6)" } },
+    headline
+  );
+  const badgeRow = badges.length
+    ? h(
+        "div",
+        { style: { position: "absolute", top: 176, left: 52, display: "flex", alignItems: "center" } },
+        ...badges.map((b, i) =>
+          h(
+            "div",
+            {
+              key: i,
+              style: {
+                display: "flex",
+                marginRight: 12,
+                padding: "7px 16px",
+                borderRadius: 999,
+                background: "rgba(26,115,232,0.92)",
+                color: "#fff",
+                fontSize: 20,
+                fontWeight: 800,
+                letterSpacing: 0.3,
+              },
+            },
+            b
+          )
+        )
+      )
+    : null;
+  const pricePill = price
+    ? h(
+        "div",
+        { style: { position: "absolute", bottom: 30, right: 52, display: "flex", alignItems: "center", padding: "12px 26px", borderRadius: 18, background: "#1a73e8", color: "#fff", fontSize: 44, fontWeight: 900, boxShadow: "0 6px 22px rgba(0,0,0,0.4)" } },
+        price
+      )
+    : null;
+  const chip = h(
+    "div",
+    { style: { position: "absolute", bottom: 30, left: 52, display: "flex", alignItems: "center" } },
+    h("div", { style: { display: "flex", background: "#fff", borderRadius: 14, padding: "8px 14px" } }, h("img", { src: LOGO_URL, height: 40, style: { height: 40 } })),
+    h("div", { style: { display: "flex", color: "#fff", fontSize: 26, fontWeight: 800, marginLeft: 14, textShadow: "0 2px 10px rgba(0,0,0,0.85)" } }, "vitechcompkft.hu")
+  );
+  const root = h(
+    "div",
+    { style: { width: 1200, height: 675, display: "flex", position: "relative", fontFamily: "Montserrat", overflow: "hidden" } },
+    bg,
+    gTop,
+    gBot,
+    head,
+    badgeRow,
+    pricePill,
+    chip
+  );
+  return toPngUrl(root, fonts);
 }

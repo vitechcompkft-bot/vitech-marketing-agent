@@ -4,8 +4,8 @@ import { klariResearch, klariCompose, lucaJudgeDeal, lucaReviewPoster, lucaProof
 import { generateProductScene } from "./falai";
 import { generateProductSceneHF, higgsfieldEnabled } from "./higgsfield";
 import { buildDealPoster } from "./creatives";
-import { renderPosterPng } from "./poster";
 import { setAgentStatus } from "./team";
+import { pickLiveProducts } from "./productLive";
 import { sendTelegram } from "./telegram";
 import { facebookConfigured, facebookAutopostEnabled, publishKlariPoster } from "./facebook";
 
@@ -160,7 +160,16 @@ export async function runKlariText(opts?: { force?: boolean }): Promise<KlariRes
   const recentHeadlines = (recentPosts || []).map((r: any) => r.headline).filter(Boolean).slice(0, 6);
   const recentCaptions = (recentPosts || []).map((r: any) => r.caption).filter(Boolean).slice(0, 5);
   const poolSrc = live.filter((p) => !recentIds.has(p.id));
-  const pool = poolSrc.length >= 5 ? poolSrc : live; // ha kifogyna, ne akadjon el
+  const basePool = poolSrc.length >= 5 ? poolSrc : live; // ha kifogyna, ne akadjon el
+  // CSAK ÉLO (megvásárolható) termék kerülhet Klári elé — a Unas a nem publikált/kifutott (404) tételeket
+  // is visszaadja, azokat SOHA nem hirdetjük. Véletlen sorrend a változatosságért, majd élo-szures.
+  await setAgentStatus("klari", "working", "Élo termékek ellenorzése a boltban…");
+  let pool = await pickLiveProducts([...basePool].sort(() => Math.random() - 0.5), 10, 16);
+  if (pool.length < 3) pool = await pickLiveProducts([...live].sort(() => Math.random() - 0.5), 8, 28);
+  if (pool.length === 0) {
+    await setAgentStatus("klari", "error", "Nincs ÉLO (elérheto) termék az Unasban — nem posztolunk 404-es terméket.");
+    return { ran: false, reason: "Nincs élo (elérheto oldalú) termék." };
+  }
   const ANGLES = ["kiemelt ár-előny", "üzleti teljesítmény", "tanuláshoz / diákoknak", "home office kényelem", "megbízhatóság + 12 hó garancia", "kompakt és hordozható", "kreatív munkára", "gamer/eros hardver", "utazáshoz/hordozható", "otthoni tanulás/család"];
   // VÉLETLEN szög (ne a nap-index szerint, mert egy napon több futás ugyanazt adná) — és kerüljük a
   // legutóbbi szöveg hangulatát; a korábbi CAPTION-öket is tiltólistába tesszük, hogy NE ismétlodjön a szöveg.
@@ -189,7 +198,7 @@ export async function runKlariText(opts?: { force?: boolean }): Promise<KlariRes
 
   // Luca elbírálás az aktuális ajánlatra (a termékét a deal-bol keressük ki).
   const judgeFor = (d: NonNullable<typeof deal>) => {
-    const p = live.find((x) => x.id === d.product_id) || live[0];
+    const p = live.find((x) => x.id === d.product_id) || pool[0];
     return lucaJudgeDeal(
       { name: p.name, price: p.priceGross, headline: d.headline, market_note: d.market_note, caption: d.caption, reason: d.reason },
       lucaPersona
@@ -213,7 +222,7 @@ export async function runKlariText(opts?: { force?: boolean }): Promise<KlariRes
   deal.headline = await lucaProofreadHungarian(deal.headline);
   if (deal.caption) deal.caption = await lucaProofreadHungarian(deal.caption);
 
-  const product = live.find((p) => p.id === deal.product_id) || live[0];
+  const product = live.find((p) => p.id === deal.product_id) || pool[0];
   const priceHuf = product.priceGross ? Number(product.priceGross) : undefined;
   const dateLabel = todayLabel();
   const textVerdict = judge.approve
@@ -333,7 +342,9 @@ export async function runKlariImage(opts?: { postId?: number; renderData?: Rende
     if (!sceneUrl) {
       reason = "Gyula nem tudott AI-jelenetet készíteni (fal hiba).";
     } else {
-      url = await renderPosterPng({ ...base, bgUrl: sceneUrl, productInScene: true }).catch(() => null);
+      // SAJÁT, kvóta nélküli renderelo (next/og) a hcti helyett — jelenet + focím + ár + jelvények + logó.
+      const { renderDealPosterOG } = await import("./ogPoster");
+      url = await renderDealPosterOG({ bgUrl: sceneUrl, headline: rd.headline, priceHuf: rd.priceHuf, badges: rd.badges }).catch(() => null);
       if (!url) {
         reason = "A plakát renderelése nem sikerült.";
       } else {
