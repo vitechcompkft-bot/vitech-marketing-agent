@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts, type UnasProduct } from "./unas";
 import { lifestyleCompose, lifestyleReview } from "./claude";
-import { generateLifestyleImage } from "./falai";
+import { generateLifestyleImage, generateProductScene } from "./falai";
 import { renderLifestylePosterPng } from "./poster";
 import { publishKlariPoster } from "./facebook";
 import { setAgentStatus } from "./team";
@@ -10,18 +10,19 @@ import { sendTelegram } from "./telegram";
 const STATE_KEY = "lifestyle_state";
 const PREVIEW_KEY = "lifestyle_preview";
 
-type Style = { key: string; label: string; prompt: string };
+// prompt = generikus text-to-image (fallback); scene = Bria háttér, amibe a VALÓDI terméket illesztjük.
+type Style = { key: string; label: string; prompt: string; scene: string };
 
 /** Rotálódó lifestyle-hangulatok (nyár + foci-nyár). Egymás után NEM ismétlodnek. Mind LAPTOP-jelenet. */
 const STYLES: Style[] = [
-  { key: "beach", label: "tengerparti nyaralás", prompt: "a happy person in stylish white summer clothes and sunglasses on a beautiful tropical beach, holding an open modern silver business laptop, turquoise sea, palm trees and sun loungers, bright sunny day" },
-  { key: "yacht", label: "luxusjacht a tengeren", prompt: "a relaxed person in a light linen shirt on the deck of a luxury white yacht, an open modern silver business laptop on the table in front, turquoise Mediterranean sea and coastline, bright sunlight" },
-  { key: "pool", label: "medencés luxusnyaraló", prompt: "an open modern silver business laptop on a lounge table beside a luxury infinity pool, turquoise water, sun loungers and palm trees, bright summer day, aspirational vacation vibe" },
-  { key: "terrace", label: "nyári teraszos home-office", prompt: "an open modern silver business laptop and a cup of coffee on a stylish sunny outdoor terrace table, lush green garden and warm summer sunlight, relaxed premium remote-work vibe" },
-  { key: "cafe", label: "napsütötte kávézó, digitális nomád", prompt: "a person working on an open modern business laptop at a sunny stylish outdoor cafe table, warm softly blurred street background, coffee cup, cheerful summer city vibe" },
-  { key: "rooftop", label: "city rooftop naplementében", prompt: "an open modern business laptop on a modern rooftop bar table at golden-hour sunset, warm glowing city skyline in the background, premium summer evening lifestyle vibe" },
-  { key: "football", label: "foci-nyár, stadion hangulat", prompt: "a sleek modern dark business laptop on a clean table with a classic black-and-white soccer ball beside it, a softly blurred green football stadium pitch and glowing floodlights in the background, evening golden light, energetic football summer atmosphere, NO logos, NO trophies, NO team names, NO flags" },
-  { key: "garden", label: "kerti napsütés", prompt: "a person relaxing in a sunny green garden with an open modern business laptop on a wooden table, blooming flowers and warm summer daylight, cheerful lifestyle vibe" },
+  { key: "beach", label: "tengerparti nyaralás", prompt: "a happy person in stylish white summer clothes and sunglasses on a beautiful tropical beach, holding an open modern silver business laptop, turquoise sea, palm trees and sun loungers, bright sunny day", scene: "a beautiful tropical beach with turquoise sea, white sand, palm trees and sun loungers, bright sunny day; the laptop placed on a small light wooden beach table with a realistic contact shadow; calm empty bright sky in the UPPER area; premium lifestyle advertising photography" },
+  { key: "yacht", label: "luxusjacht a tengeren", prompt: "a relaxed person in a light linen shirt on the deck of a luxury white yacht, an open modern silver business laptop on the table in front, turquoise Mediterranean sea and coastline, bright sunlight", scene: "the deck of a luxury white yacht with turquoise Mediterranean sea and coastline, bright sunlight; the laptop placed on a polished wooden yacht table with a realistic contact shadow and soft reflection; calm empty sky in the UPPER area; premium lifestyle advertising photography" },
+  { key: "pool", label: "medencés luxusnyaraló", prompt: "an open modern silver business laptop on a lounge table beside a luxury infinity pool, turquoise water, sun loungers and palm trees, bright summer day, aspirational vacation vibe", scene: "beside a luxury infinity pool with turquoise water, sun loungers and palm trees, bright summer day; the laptop placed on a stylish poolside lounge table with a realistic contact shadow; calm empty bright area in the UPPER part; premium lifestyle advertising photography" },
+  { key: "terrace", label: "nyári teraszos home-office", prompt: "an open modern silver business laptop and a cup of coffee on a stylish sunny outdoor terrace table, lush green garden and warm summer sunlight, relaxed premium remote-work vibe", scene: "a stylish sunny outdoor terrace with a lush green garden and warm summer sunlight; the laptop placed on a wooden terrace table next to a coffee cup, with a realistic contact shadow; calm empty space in the UPPER area; premium lifestyle advertising photography" },
+  { key: "cafe", label: "napsütötte kávézó, digitális nomád", prompt: "a person working on an open modern business laptop at a sunny stylish outdoor cafe table, warm softly blurred street background, coffee cup, cheerful summer city vibe", scene: "a sunny stylish outdoor cafe with a warm softly blurred summer street background; the laptop placed on a small round cafe table next to a coffee cup, with a realistic contact shadow; calm empty area in the UPPER part; premium lifestyle advertising photography" },
+  { key: "rooftop", label: "city rooftop naplementében", prompt: "an open modern business laptop on a modern rooftop bar table at golden-hour sunset, warm glowing city skyline in the background, premium summer evening lifestyle vibe", scene: "a modern rooftop bar at golden-hour sunset with a warm glowing city skyline in the background; the laptop placed on a rooftop table with a realistic contact shadow; calm warm empty sky in the UPPER area; premium lifestyle advertising photography" },
+  { key: "football", label: "foci-nyár, stadion hangulat", prompt: "a sleek modern dark business laptop on a clean table with a classic black-and-white soccer ball beside it, a softly blurred green football stadium pitch and glowing floodlights in the background, evening golden light, energetic football summer atmosphere, NO logos, NO trophies, NO team names, NO flags", scene: "a clean table with a classic black-and-white soccer ball beside the laptop; a softly blurred green football stadium pitch and glowing floodlights in the background; evening golden light; the laptop with a realistic contact shadow; calm empty area in the UPPER part; energetic football summer atmosphere; NO logos, NO trophies, NO team names, NO flags" },
+  { key: "garden", label: "kerti napsütés", prompt: "a person relaxing in a sunny green garden with an open modern business laptop on a wooden table, blooming flowers and warm summer daylight, cheerful lifestyle vibe", scene: "a sunny green garden with blooming flowers and warm summer daylight; the laptop placed on a wooden garden table with a realistic contact shadow; calm empty space in the UPPER area; cheerful lifestyle advertising photography" },
 ];
 
 /** A jelenet laptopjának kinézete illeszkedjen a valódi termékhez (pl. ThinkPad = fekete). */
@@ -102,6 +103,7 @@ export interface LifestyleDraft {
   sub: string;
   caption: string;
   poster: string; // renderelt PNG URL
+  realProduct: boolean; // a VALÓDI termékfotó került a jelenetbe (Bria) vagy generikus (fallback)?
   qcOk: boolean;
   qcNote: string;
 }
@@ -129,9 +131,22 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   // POSZTOLÁS ELOTTI KÖTELEZO ELLENORZÉS (nyelvhelyesség + laptop-egyezés, javítással).
   const qc = await lifestyleReview({ name: product.name }, style.label, drafted);
 
-  // A style-prompt "silver" szavát elhagyjuk, a laptop színét a termékhez igazítjuk (laptopLook).
-  const scenePrompt = wrap(style.prompt.replace(/\bsilver\s?/gi, ""), laptopLook(product.name));
-  const bg = await generateLifestyleImage(scenePrompt);
+  // ELSODLEGES: a VALÓDI termékfotót illesztjük a lifestyle-jelenetbe (Bria product-shot) — így nem
+  // hasonló, hanem PONTOSAN a hirdetett gép látszik. Ha nincs termékfotó vagy hibázik → generikus jelenet.
+  let bg: string | null = null;
+  let usedRealProduct = false;
+  if (product.imageUrl) {
+    bg = await generateProductScene(product.imageUrl, {
+      scene: style.scene,
+      placement: "center_right",
+      shotSize: [1600, 900],
+    }).catch(() => null);
+    if (bg) usedRealProduct = true;
+  }
+  if (!bg) {
+    const scenePrompt = wrap(style.prompt.replace(/\bsilver\s?/gi, ""), laptopLook(product.name));
+    bg = await generateLifestyleImage(scenePrompt);
+  }
   if (!bg) throw new Error("kép-generálás sikertelen (fal.ai)");
 
   const poster = await renderLifestylePosterPng({ bgUrl: bg, headline: qc.headline, sub: qc.sub });
@@ -147,6 +162,7 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
     sub: qc.sub,
     caption: qc.caption,
     poster,
+    realProduct: usedRealProduct,
     qcOk: qc.ok,
     qcNote: qc.note,
   };
