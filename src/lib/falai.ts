@@ -49,9 +49,14 @@ export async function generateProductScene(
 ): Promise<string | null> {
   const key = process.env.FAL_KEY;
   if (!key || !productImageUrl) return null;
-  const scene =
+  // A Bria csak sima angol szöveget fogad (különleges karakterek nélkül) → a pontosvesszot/idézojelet kiszurjük.
+  const scene = (
     opts?.scene ??
-    "a modern bright corporate office, the laptop standing on a glossy dark desk on the RIGHT side, large window with a city skyline, soft natural daylight, a subtle plant, realistic contact shadow and reflection under the laptop, the LEFT side is calm empty office space, premium advertising photography, navy and blue tones";
+    "a modern bright corporate office, the laptop standing on a glossy dark desk on the RIGHT side, large window with a city skyline, soft natural daylight, a subtle plant, realistic contact shadow and reflection under the laptop, the LEFT side is calm empty office space, premium advertising photography, navy and blue tones"
+  )
+    .replace(/[;:"]/g, ",")
+    .replace(/\s+/g, " ")
+    .trim();
   try {
     const res = await fetch("https://fal.run/fal-ai/bria/product-shot", {
       method: "POST",

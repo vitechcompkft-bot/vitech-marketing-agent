@@ -138,7 +138,7 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   if (product.imageUrl) {
     bg = await generateProductScene(product.imageUrl, {
       scene: style.scene,
-      placement: "center_right",
+      placement: "right_center",
       shotSize: [1600, 900],
     }).catch(() => null);
     if (bg) usedRealProduct = true;
