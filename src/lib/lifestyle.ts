@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts, type UnasProduct } from "./unas";
-import { lifestyleCompose, lifestyleReview } from "./claude";
+import { lifestyleCompose } from "./claude";
 import { generateLifestyleImage, generateProductScene } from "./falai";
 import { renderLifestylePosterPng } from "./poster";
 import { publishKlariPoster } from "./facebook";
@@ -78,6 +78,23 @@ async function saveState(s: { styles: string[]; headlines: string[] }) {
   }
 }
 
+/**
+ * Azonnali (kód-alapú) tartalmi ellenorzés: TILOS a "tört ár", és TILOS a kitalált garancia-ido
+ * (csak az szerepelhet, ami a termék nevében pontosan benne van). Így nem megy ki valótlan állítás.
+ */
+function textGuard(productName: string, headline: string, sub: string, caption: string): { ok: boolean; note: string } {
+  const all = `${headline} ${sub} ${caption}`.toLowerCase();
+  if (/tört\s*ár/.test(all)) return { ok: false, note: "tört ár kifejezés" };
+  const claim = all.match(/(\d+)\s*(hónap|év)\s*garanci/);
+  if (claim) {
+    const inName = (productName || "").toLowerCase().match(/(\d+)\s*(hónap|év)\s*garanci/);
+    if (!inName || inName[1] !== claim[1] || inName[2] !== claim[2]) {
+      return { ok: false, note: `kitalált garancia-ido (${claim[1]} ${claim[2]}) — a termék nevében nincs ilyen` };
+    }
+  }
+  return { ok: true, note: "" };
+}
+
 /** Olyan stílust választ, ami az utolsó 4-ben NEM szerepelt (így nem ismétlodik). */
 function pickStyle(recent: string[]): Style {
   const last = recent.slice(-4);
@@ -105,7 +122,8 @@ async function pickLaptop(token: string): Promise<UnasProduct | null> {
   const dayIdx = Math.floor(Date.now() / 86_400_000);
   const seen = new Set<string>();
   const pool: UnasProduct[] = [];
-  for (let w = 0; w < 4; w++) {
+  // 1-2 lap általában boven elég laptopból; a gyorsaságért nem söprünk többet.
+  for (let w = 0; w < 2 && pool.length < 24; w++) {
     const limitStart = ((dayIdx + w) * 23) % 500;
     const products = await unasGetProducts(token, { limitNum: 100, limitStart }).catch(() => [] as UnasProduct[]);
     for (const p of products) {
@@ -114,11 +132,10 @@ async function pickLaptop(token: string): Promise<UnasProduct | null> {
         pool.push(p);
       }
     }
-    if (pool.length >= 40) break;
   }
-  // Véletlen sorrend a változatosságért, majd párhuzamos élo-ellenorzés — az elso ÉLO nyer.
+  // Véletlen sorrend a változatosságért, majd párhuzamos élo-ellenorzés — az elso ÉLO nyer (max ~16 ellenorzés).
   pool.sort(() => Math.random() - 0.5);
-  for (let i = 0; i < pool.length && i < 40; i += 8) {
+  for (let i = 0; i < pool.length && i < 16; i += 8) {
     const batch = pool.slice(i, i + 8);
     const flags = await Promise.all(batch.map((p) => isLive(p.url)));
     const idx = flags.findIndex(Boolean);
@@ -155,15 +172,15 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   const state = await loadState();
   const style = pickStyle(state.styles);
 
-  const drafted =
+  const qc =
     (await lifestyleCompose({ name: product.name, priceGross: product.priceGross }, style.label, state.headlines.slice(-6))) || {
       headline: "Dolgozz bárhonnan",
-      sub: "Felújított, bevizsgált üzleti laptopok garanciával.",
-      caption: "Idén nyáron vidd magaddal az irodát! 💻☀️ Nézd meg a felújított laptopjainkat a vitechcompkft.hu-n!",
+      sub: "Bevizsgált üzleti laptopok garanciával.",
+      caption: "Idén nyáron vidd magaddal az irodát! 💻☀️ Nézd meg a laptopjainkat a vitechcompkft.hu-n!",
     };
 
-  // POSZTOLÁS ELOTTI KÖTELEZO ELLENORZÉS (nyelvhelyesség + laptop-egyezés, javítással).
-  const qc = await lifestyleReview({ name: product.name }, style.label, drafted);
+  // POSZTOLÁS ELOTTI KÖTELEZO tartalmi ellenorzés (tört ár + kitalált garancia) — azonnali, kód-alapú.
+  const guard = textGuard(product.name, qc.headline, qc.sub, qc.caption);
 
   // ELSODLEGES: a VALÓDI termékfotót illesztjük a lifestyle-jelenetbe (Bria product-shot) — így nem
   // HASONLÓ, hanem PONTOSAN a hirdetett gép látszik. A szép hatásért elobb egy világos ÜRES jelenetet
@@ -200,8 +217,8 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
     caption: qc.caption,
     poster,
     realProduct: usedRealProduct,
-    qcOk: qc.ok,
-    qcNote: qc.note,
+    qcOk: guard.ok,
+    qcNote: guard.note,
   };
 
   try {

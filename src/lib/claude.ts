@@ -556,10 +556,10 @@ export async function lifestyleCompose(
   const anthropic = client();
   try {
     const msg = await anthropic.messages.create({
-      model: FAST,
+      model: SMART,
       max_tokens: 500,
       system:
-        "Te vagy Klári, a Vitech Comp Kft. (felújított üzleti laptopok, vitechcompkft.hu) kreatív marketingese. Vágykeltő, lifestyle Facebook-hirdetéshez írsz magyar szöveget.",
+        "Te vagy Klári, a Vitech Comp Kft. (felújított üzleti laptopok, vitechcompkft.hu) kreatív marketingese. Vágykeltő, lifestyle Facebook-hirdetéshez írsz HIBÁTLAN magyar szöveget.",
       messages: [
         {
           role: "user",
