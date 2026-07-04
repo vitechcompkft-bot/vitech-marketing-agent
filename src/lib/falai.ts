@@ -45,7 +45,7 @@ async function rehost(url: string, prefix: string): Promise<string> {
  */
 export async function generateProductScene(
   productImageUrl: string,
-  opts?: { scene?: string; placement?: string; shotSize?: [number, number] }
+  opts?: { scene?: string; placement?: string; shotSize?: [number, number]; refImageUrl?: string }
 ): Promise<string | null> {
   const key = process.env.FAL_KEY;
   if (!key || !productImageUrl) return null;
@@ -63,12 +63,12 @@ export async function generateProductScene(
       headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         image_url: productImageUrl,
-        scene_description: scene,
+        // Ha van referencia-jelenet (elore legenerált szép háttér), AZT használjuk; különben szöveges leírás.
+        ...(opts?.refImageUrl ? { ref_image_url: opts.refImageUrl } : { scene_description: scene, optimize_description: true }),
         placement_type: "manual_placement",
         manual_placement_selection: opts?.placement ?? "right_center",
         shot_size: opts?.shotSize ?? [1200, 800],
         fast: true,
-        optimize_description: true,
         num_results: 1,
       }),
     });
