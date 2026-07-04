@@ -570,6 +570,7 @@ ${recentHeadlines.length ? "NE ismételd ezeket a korábbi focímeket (a mintáj
 - sub: 1 rövid mondat a plakát aljára (felújított / bevizsgált / garancia értéke, de MINDEN nap más megfogalmazásban).
 - caption: 2-4 soros Facebook-poszt emojikkal, a lifestyle hangulatra építve, a végén hívd a vitechcompkft.hu-ra. NE írj bele URL-t/linket (azt a rendszer teszi hozzá).
 SZABÁLYOK: hibátlan magyar, helyes ékezetek; ne túlozz; TILOS a "tört áron" kifejezés — helyette "kedvezményes áron".
+GARANCIA: SOHA ne találj ki garancia-idot! Csak akkor írj konkrét idotartamot (pl. "12 hónap garancia"), ha az PONTOSAN benne van a fenti termék nevében. Ha a termék nevében NINCS garancia-ido, akkor csak ennyit írj: "garanciával" (szám nélkül). Egyéb muszaki adatot se találj ki.
 Válaszolj PONTOSAN ebben a JSON-ban, utána semmi: { "headline":"", "sub":"", "caption":"" }`,
         },
       ],
@@ -613,6 +614,7 @@ Követelmények:
 - headline: ütos, 2-5 szó, ÁR NÉLKÜL.
 - A szöveg LAPTOPHOZ illjen (a kép laptopot mutat) — SOHA ne említsen asztali gépet, PC-t, tornyot vagy monitort.
 - TILOS a "tört áron" (helyette "kedvezményes áron"). Ne legyen valótlan túlzás.
+- GARANCIA/MUSZAKI ADAT: SOHA ne találj ki garancia-idot vagy adatot! Ha a szövegben szerepel konkrét garancia-ido (pl. "3 év garancia"), de az NINCS benne a termék fenti nevében, akkor JAVÍTSD "garanciával"-ra (szám nélkül). Csak a termék nevében ténylegesen szereplo garancia-idot szabad meghagyni.
 - caption: 2-4 sor emojival, a végén NE legyen URL (a rendszer teszi hozzá).
 Add vissza a VÉGLEGES (szükség esetén kijavított) szöveget. ok=true, ha kifogástalanul közölheto; ok=false CSAK ha alapvetoen hibás/nem mentheto.
 Válaszolj PONTOSAN ebben a JSON-ban, utána semmi: { "ok": true, "headline": "", "sub": "", "caption": "", "note": "" }`,
