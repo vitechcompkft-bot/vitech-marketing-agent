@@ -86,14 +86,43 @@ function pickStyle(recent: string[]): Style {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-/** Valódi Vitech-LAPTOP kiválasztása az Unasból (több lapot is átnéz, míg talál laptopot). */
+/**
+ * ÉLO-e a termék a boltban? A Unas API a nem publikált / kifutott termékeket is visszaadja, de azok
+ * oldala 404 — ilyet SOHA nem hirdetünk (a hirdetett gépnek megvásárolhatónak kell lennie).
+ */
+async function isLive(url?: string): Promise<boolean> {
+  if (!url) return false;
+  try {
+    const r = await fetch(url, { method: "GET", redirect: "follow", signal: AbortSignal.timeout(8000) });
+    return r.ok; // 200–299
+  } catch {
+    return false;
+  }
+}
+
+/** Valódi, ÉLO Vitech-LAPTOP kiválasztása az Unasból (csak amelyik oldala tényleg elérheto a boltban). */
 async function pickLaptop(token: string): Promise<UnasProduct | null> {
   const dayIdx = Math.floor(Date.now() / 86_400_000);
-  for (let w = 0; w < 5; w++) {
+  const seen = new Set<string>();
+  const pool: UnasProduct[] = [];
+  for (let w = 0; w < 4; w++) {
     const limitStart = ((dayIdx + w) * 23) % 500;
     const products = await unasGetProducts(token, { limitNum: 100, limitStart }).catch(() => [] as UnasProduct[]);
-    const laptops = products.filter((p) => p.priceGross && p.name && p.url && isLaptopProduct(p.name));
-    if (laptops.length) return laptops[Math.floor(Math.random() * laptops.length)];
+    for (const p of products) {
+      if (p.priceGross && p.name && p.url && isLaptopProduct(p.name) && !seen.has(p.id)) {
+        seen.add(p.id);
+        pool.push(p);
+      }
+    }
+    if (pool.length >= 40) break;
+  }
+  // Véletlen sorrend a változatosságért, majd párhuzamos élo-ellenorzés — az elso ÉLO nyer.
+  pool.sort(() => Math.random() - 0.5);
+  for (let i = 0; i < pool.length && i < 40; i += 8) {
+    const batch = pool.slice(i, i + 8);
+    const flags = await Promise.all(batch.map((p) => isLive(p.url)));
+    const idx = flags.findIndex(Boolean);
+    if (idx >= 0) return batch[idx];
   }
   return null;
 }
@@ -120,7 +149,7 @@ export interface LifestyleDraft {
 export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   const token = await unasLogin();
   const product = await pickLaptop(token);
-  if (!product) throw new Error("nem találtam LAPTOP terméket az Unasban");
+  if (!product) throw new Error("nem találtam ÉLO (elérheto) laptop terméket az Unasban");
   const price = Number(String(product.priceGross).replace(/[^\d]/g, "")) || null;
 
   const state = await loadState();
