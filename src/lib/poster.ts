@@ -229,9 +229,18 @@ export async function renderLifestylePosterPng(o: { bgUrl: string; headline: str
       headers: { "Content-Type": "application/json", Authorization: "Basic " + Buffer.from(`${uid}:${key}`).toString("base64") },
       body: JSON.stringify({ html, css, google_fonts: "Montserrat:wght@400;600;700;800;900", viewport_width: 1200, viewport_height: 675, device_scale: 2 }),
     });
-    const j = await res.json();
-    return j?.url || null;
-  } catch {
+    const j = await res.json().catch(() => null);
+    if (j?.url) return j.url;
+    _lastLifestyleRenderError = `hcti ${res.status}: ${JSON.stringify(j).slice(0, 200)}`;
+    return null;
+  } catch (e: any) {
+    _lastLifestyleRenderError = `hcti kivétel: ${e?.message || e}`;
     return null;
   }
+}
+
+let _lastLifestyleRenderError = "";
+/** A legutóbbi lifestyle-render hcti-hibája (diagnosztikához). */
+export function getLastLifestyleRenderError(): string {
+  return _lastLifestyleRenderError;
 }

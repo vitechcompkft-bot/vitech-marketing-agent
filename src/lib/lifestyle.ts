@@ -2,7 +2,7 @@ import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts, type UnasProduct } from "./unas";
 import { lifestyleCompose } from "./claude";
 import { generateLifestyleImage, generateProductScene } from "./falai";
-import { renderLifestylePosterPng } from "./poster";
+import { renderLifestylePosterPng, getLastLifestyleRenderError } from "./poster";
 import { publishKlariPoster } from "./facebook";
 import { setAgentStatus } from "./team";
 import { sendTelegram } from "./telegram";
@@ -204,7 +204,7 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   if (!bg) throw new Error("kép-generálás sikertelen (fal.ai)");
 
   const poster = await renderLifestylePosterPng({ bgUrl: bg, headline: qc.headline, sub: qc.sub });
-  if (!poster) throw new Error("poszter-render sikertelen (hcti)");
+  if (!poster) throw new Error("poszter-render sikertelen (hcti) — " + (getLastLifestyleRenderError() || "ismeretlen"));
 
   const draft: LifestyleDraft = {
     styleKey: style.key,
