@@ -43,16 +43,14 @@ async function handle(req: NextRequest) {
       const j = await res.json();
       const docs = j?.data || [];
       out.billingoCount = docs.length;
-      out.billingoSample = docs.slice(0, 5).map((d: any) => ({
+      out.billingoFirstFull = docs[0] || null; // TELJES elso dokumentum (settings/partner/tags megtekintéshez)
+      out.billingoSample = docs.slice(0, 8).map((d: any) => ({
         invoice_number: d.invoice_number,
         partner: d.partner?.name,
         gross_total: d.gross_total,
         invoice_date: d.invoice_date,
-        payment_status: d.payment_status,
-        order_number: d.order_number,
-        comment: d.comment,
-        // teljes kulcslista (hogy lássam, van-e rendelés-mezo)
-        keys: Object.keys(d),
+        settings: d.settings,
+        tags: d.tags,
       }));
     }
   } catch (e: any) {
