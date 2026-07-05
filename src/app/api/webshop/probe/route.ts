@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unasLogin, unasGetOrdersRaw } from "@/lib/unas";
+import { getWebshopData } from "@/lib/webshop";
+import { getAllBillingoInvoices } from "@/lib/billingo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +57,16 @@ async function handle(req: NextRequest) {
     }
   } catch (e: any) {
     out.billingoError = e?.message || "hiba";
+  }
+
+  // (c) Rendelések ÉS számlák egymás mellett (a párosítás kalibrálásához).
+  try {
+    const d = await getWebshopData();
+    out.orders = d.orders.map((o) => ({ key: o.key, name: o.customerName, gross: o.sumGross, invoiced: o.invoiced, num: o.invoiceNumber }));
+    const inv = await getAllBillingoInvoices(200);
+    out.invoices = inv.map((i) => ({ number: i.number, partner: i.partner, gross: i.gross, cancelled: i.cancelled }));
+  } catch (e: any) {
+    out.compareError = e?.message || "hiba";
   }
 
   return NextResponse.json({ ok: true, ...out });
