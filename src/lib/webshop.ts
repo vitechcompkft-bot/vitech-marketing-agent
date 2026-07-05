@@ -1,6 +1,40 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetOrdersFull, type UnasOrderSummary } from "./unas";
-import { getInvoicedOrders } from "./billingo";
+import { getInvoicedOrders, getAllBillingoInvoices, type BillingoInvoiceLite } from "./billingo";
+
+/** Névtokenek: kisbetu, ékezet nélkül, rendezve (a szórend/ékezet ne számítson: „Robert Shell" ↔ „Shell Róbert"). */
+function nameTokens(s?: string): string[] {
+  const ascii = (s || "")
+    .toLowerCase()
+    .replace(/[áàâä]/g, "a")
+    .replace(/[éèêë]/g, "e")
+    .replace(/[íìîï]/g, "i")
+    .replace(/[óòôöőõ]/g, "o")
+    .replace(/[úùûüűũ]/g, "u")
+    .replace(/[^a-z0-9 ]/g, " ");
+  return ascii
+    .split(/\s+/)
+    .filter((t) => t.length >= 2)
+    .sort();
+}
+/** a minden tokene benne van-e b-ben (részhalmaz)? */
+function subset(a: string[], b: string[]): boolean {
+  if (!a.length) return false;
+  const setB = new Set(b);
+  return a.every((t) => setB.has(t));
+}
+/** Egy rendeléshez tartozó Billingo-számla: bruttó egyezik (±5 Ft, kerekítés) ÉS a név illik (szórend/ékezet nélkül). */
+function matchInvoice(order: UnasOrderSummary, invoices: BillingoInvoiceLite[]): BillingoInvoiceLite | null {
+  const otoks = nameTokens(order.customerName || order.invoiceName);
+  if (!otoks.length) return null;
+  for (const inv of invoices) {
+    if (inv.cancelled) continue;
+    if (Math.abs(inv.gross - (order.sumGross || 0)) > 5) continue;
+    const itoks = nameTokens(inv.partner);
+    if (subset(otoks, itoks) || subset(itoks, otoks)) return inv;
+  }
+  return null;
+}
 
 const STATE_KEY = "webshop_orders";
 const SYNC_MIN = 30; // 30 percenként frissítünk az Unasból
@@ -90,12 +124,15 @@ const bpMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budap
 
 /** A Webshop-oldal adatai: rendelések (számlázott jelöléssel), vásárlók, KPI-k. */
 export async function getWebshopData(): Promise<WebshopData> {
-  const stored = await load();
-  const invoiced = await getInvoicedOrders();
+  const [stored, invoiced, invoices] = await Promise.all([load(), getInvoicedOrders(), getAllBillingoInvoices(200)]);
 
   const orders: WebshopOrderRow[] = stored.orders.map((o) => {
-    const inv = invoiced[o.key];
-    return { ...o, invoiced: !!inv, invoiceNumber: inv?.invoiceNumber || undefined, invoiceUrl: inv?.publicUrl || undefined };
+    // 1) amit EZ az app állított ki (pontos rendelésszám-kötés), 2) különben Billingo-egyezés (név+összeg).
+    const appInv = invoiced[o.key];
+    if (appInv) return { ...o, invoiced: true, invoiceNumber: appInv.invoiceNumber || undefined, invoiceUrl: appInv.publicUrl || undefined };
+    const m = matchInvoice(o, invoices);
+    if (m) return { ...o, invoiced: true, invoiceNumber: m.number, invoiceUrl: undefined };
+    return { ...o, invoiced: false };
   });
 
   // Az Unas dátumformátuma "2026.07.04 18:07:59" → a hónap-prefix "2026.07".

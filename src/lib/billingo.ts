@@ -132,6 +132,41 @@ export async function getBillingoSummary(): Promise<BillingoSummary> {
   }
 }
 
+export interface BillingoInvoiceLite {
+  number: string;
+  partner: string;
+  gross: number;
+  date: string;
+  paymentStatus: string;
+  cancelled: boolean;
+}
+
+/** ÖSSZES kiállított számla (nem csak a fizetetlen) — a webshop-rendelések számlához kötéséhez. */
+export async function getAllBillingoInvoices(max = 200): Promise<BillingoInvoiceLite[]> {
+  if (!billingoEnabled()) return [];
+  const out: BillingoInvoiceLite[] = [];
+  try {
+    for (let page = 1; page <= Math.ceil(max / 100); page++) {
+      const j = await bgFetch(`/documents?type=invoice&per_page=100&page=${page}`).catch(() => ({ data: [] }));
+      const docs: any[] = j.data || [];
+      for (const d of docs) {
+        out.push({
+          number: d.invoice_number || String(d.id),
+          partner: d.partner?.name || "",
+          gross: Number(d.gross_total || 0),
+          date: (d.invoice_date || "").slice(0, 10),
+          paymentStatus: d.payment_status || "",
+          cancelled: !!d.cancelled,
+        });
+      }
+      if (docs.length < 100) break;
+    }
+  } catch {
+    /* Billingo hiba → üres lista (nem blokkoljuk a webshop-oldalt) */
+  }
+  return out;
+}
+
 // ============================================================================
 // SZÁMLÁZÁS — webshop-rendelésbol Billingo-számla (elonézet → jóváhagyás → kiállítás)
 // ============================================================================
