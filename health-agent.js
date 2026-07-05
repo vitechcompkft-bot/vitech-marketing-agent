@@ -91,6 +91,16 @@ async function runOnce() {
   } catch (e) {
     console.error("Erika tick hiba:", e && e.message);
   }
+
+  // WEBSHOP: rendelesek frissitese az Unasbol. A vegpont 30 percre throttle-oli, igy a 2 perces
+  // hivas ellenere csak felorankent kerdez le tenylegesen (uj rendeleseket betolti a Webshop-oldalra).
+  try {
+    const ws = await fetch(`${BASE}/api/webshop/sync`, { method: "POST", headers: { authorization: `Bearer ${KEY}` } });
+    const wj = await ws.json().catch(() => ({}));
+    console.log("Webshop sync:", ws.status, wj && wj.synced ? `+${wj.added} uj (${wj.total})` : (wj && wj.skipped) || "");
+  } catch (e) {
+    console.error("Webshop sync hiba:", e && e.message);
+  }
 }
 
 (async () => {

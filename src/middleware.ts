@@ -39,7 +39,8 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/api/erika") ||
     pathname.startsWith("/api/health") ||
     pathname.startsWith("/api/higgsfield") ||
-    pathname.startsWith("/api/bank")
+    pathname.startsWith("/api/bank") ||
+    pathname.startsWith("/api/webshop")
   ) {
     return NextResponse.next();
   }

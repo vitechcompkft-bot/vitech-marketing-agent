@@ -260,6 +260,53 @@ export async function unasGetOrders(token: string, opts?: { limitNum?: number })
     .filter((o) => o.key);
 }
 
+export interface UnasOrderSummary {
+  key: string;
+  date: string;
+  status: string;
+  statusType: string;
+  sumGross: number;
+  customerName?: string;
+  email?: string;
+  phone?: string;
+  invoiceName?: string;
+  city?: string;
+  zip?: string;
+  itemCount: number;
+  firstItem?: string;
+}
+
+/** Rendelés-LISTA vevoadatokkal együtt (a Webshop-oldalhoz) — egy full-content lekérésbol, per-rendelés hívás nélkül. */
+export async function unasGetOrdersFull(token: string, opts?: { limitNum?: number }): Promise<UnasOrderSummary[]> {
+  const xml = await unasGetOrdersRaw(token, { limitNum: opts?.limitNum ?? 500 });
+  const blocks = xml.match(/<Order>[\s\S]*?<\/Order>/g) || [];
+  return blocks
+    .map((b): UnasOrderSummary => {
+      const customer = (b.match(/<Customer>([\s\S]*?)<\/Customer>/) || [])[1] || "";
+      const contact = (customer.match(/<Contact>([\s\S]*?)<\/Contact>/) || [])[1] || "";
+      const addresses = (customer.match(/<Addresses>([\s\S]*?)<\/Addresses>/) || [])[1] || "";
+      const inv = (addresses.match(/<Invoice>([\s\S]*?)<\/Invoice>/) || [])[1] || "";
+      const itemsBlock = (b.match(/<Items>([\s\S]*?)<\/Items>/) || [])[1] || "";
+      const items = itemsBlock.match(/<Item>[\s\S]*?<\/Item>/g) || [];
+      return {
+        key: field(b, "Key") || "",
+        date: field(b, "Date") || "",
+        status: field(b, "Status") || "",
+        statusType: field(b, "StatusType") || "",
+        sumGross: Number(field(b, "SumPriceGross") || 0),
+        customerName: field(contact, "Name") || field(inv, "Name"),
+        email: field(customer, "Email"),
+        phone: field(contact, "Phone"),
+        invoiceName: field(inv, "Name"),
+        city: field(inv, "City"),
+        zip: field(inv, "ZIP"),
+        itemCount: items.length,
+        firstItem: items[0] ? field(items[0], "Name") : undefined,
+      };
+    })
+    .filter((o) => o.key);
+}
+
 /** Nyers rendelés-XML lekérés (a mezok felderítéséhez / bevétel-statisztikához / számlázáshoz). */
 export async function unasGetOrdersRaw(
   token: string,

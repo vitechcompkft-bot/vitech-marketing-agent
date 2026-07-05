@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/", label: "Áttekintés" },
+  { href: "/webshop", label: "Webshop" },
   { href: "/iroda", label: "Titkárság" },
   { href: "/feladatok", label: "Feladatok" },
   { href: "/csapat", label: "Csapat" },
