@@ -23,6 +23,15 @@ function subset(a: string[], b: string[]): boolean {
   const setB = new Set(b);
   return a.every((t) => setB.has(t));
 }
+/** Tulajdonos saját/teszt rendelése (Vida László / László Vida, v. a tulaj e-mailjei) — alapból „számlázott”
+ *  (vagy teszt volt, vagy más névre szól a számla; a user kérésére nem számít nyitottnak). */
+function isOwnerOrder(o: UnasOrderSummary): boolean {
+  const set = new Set(nameTokens(o.customerName || o.invoiceName));
+  if (set.has("vida") && set.has("laszlo")) return true;
+  const email = (o.email || "").toLowerCase().trim();
+  return email === "vitechcompkft@gmail.com" || email === "v.laszlo@hunorcoop.hu";
+}
+
 /** Egy rendeléshez tartozó Billingo-számla: bruttó egyezik (±5 Ft, kerekítés) ÉS a név illik (szórend/ékezet nélkül). */
 function matchInvoice(order: UnasOrderSummary, invoices: BillingoInvoiceLite[]): BillingoInvoiceLite | null {
   const otoks = nameTokens(order.customerName || order.invoiceName);
@@ -130,6 +139,7 @@ export async function getWebshopData(): Promise<WebshopData> {
     // 1) amit EZ az app állított ki (pontos rendelésszám-kötés), 2) különben Billingo-egyezés (név+összeg).
     const appInv = invoiced[o.key];
     if (appInv) return { ...o, invoiced: true, invoiceNumber: appInv.invoiceNumber || undefined, invoiceUrl: appInv.publicUrl || undefined };
+    if (isOwnerOrder(o)) return { ...o, invoiced: true, invoiceNumber: "saját" };
     const m = matchInvoice(o, invoices);
     if (m) return { ...o, invoiced: true, invoiceNumber: m.number, invoiceUrl: undefined };
     return { ...o, invoiced: false };
