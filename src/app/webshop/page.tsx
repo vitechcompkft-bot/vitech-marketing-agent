@@ -37,7 +37,7 @@ export default async function WebshopPage() {
       </div>
 
       {/* KPI-k */}
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <div className="card">
           <div className="text-xs text-white/50">Összes rendelés</div>
           <div className="text-2xl font-bold">{k.totalOrders}</div>
@@ -56,6 +56,14 @@ export default async function WebshopPage() {
           </div>
         </div>
         <div className="card">
+          <div className="text-xs text-white/50">Kifizetve / fizetetlen</div>
+          <div className="text-2xl font-bold">
+            <span className="text-green-300">{k.paidCount}</span>
+            <span className="text-white/30"> / </span>
+            <span className="text-red-300">{k.unpaidCount}</span>
+          </div>
+        </div>
+        <div className="card">
           <div className="text-xs text-white/50">Vásárlók</div>
           <div className="text-2xl font-bold">{k.customerCount}</div>
         </div>
@@ -70,7 +78,7 @@ export default async function WebshopPage() {
         </div>
         {d.orders.length ? (
           <div className="overflow-x-auto rounded-xl border border-white/10">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[940px] text-sm">
               <thead>
                 <tr className="bg-white/5 text-left text-xs uppercase text-white/50">
                   <th className="p-2">Dátum</th>
@@ -80,6 +88,7 @@ export default async function WebshopPage() {
                   <th className="p-2 text-right">Összeg</th>
                   <th className="p-2">Státusz</th>
                   <th className="p-2">Számla</th>
+                  <th className="p-2">Fizetve</th>
                 </tr>
               </thead>
               <tbody>
@@ -116,6 +125,15 @@ export default async function WebshopPage() {
                         )
                       ) : (
                         <span className="badge bg-amber-500/15 text-amber-200/80">nyitott</span>
+                      )}
+                    </td>
+                    <td className="p-2">
+                      {o.paid === true ? (
+                        <span className="badge bg-green-500/20 text-green-200">✓ fizetve</span>
+                      ) : o.paid === false ? (
+                        <span className="badge bg-red-500/20 text-red-200">fizetetlen</span>
+                      ) : (
+                        <span className="text-white/30">—</span>
                       )}
                     </td>
                   </tr>

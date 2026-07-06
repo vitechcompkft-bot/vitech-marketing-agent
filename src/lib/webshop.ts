@@ -101,6 +101,8 @@ export interface WebshopOrderRow extends UnasOrderSummary {
   invoiced: boolean;
   invoiceNumber?: string;
   invoiceUrl?: string;
+  paid: boolean | null; // true=kifizetve, false=fizetetlen (számla nyitott/lejárt), null=nincs adat (nincs számla)
+  paymentStatus?: string; // Billingo payment_status (paid/outstanding/expired/…)
 }
 
 export interface WebshopCustomer {
@@ -125,6 +127,8 @@ export interface WebshopData {
     monthRevenue: number;
     invoicedCount: number;
     notInvoicedCount: number;
+    paidCount: number;
+    unpaidCount: number;
     customerCount: number;
   };
 }
@@ -135,14 +139,26 @@ const bpMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budap
 export async function getWebshopData(): Promise<WebshopData> {
   const [stored, invoiced, invoices] = await Promise.all([load(), getInvoicedOrders(), getAllBillingoInvoices(200)]);
 
+  // Számlaszám → fizetettség (Billingo payment_status): a fizetve-állapot forrása.
+  const invByNumber = new Map(invoices.map((i) => [i.number, i]));
+  const payOf = (num?: string): { paid: boolean | null; paymentStatus?: string } => {
+    if (!num) return { paid: null };
+    const inv = invByNumber.get(num);
+    if (!inv) return { paid: null };
+    return { paid: inv.paymentStatus === "paid", paymentStatus: inv.paymentStatus };
+  };
+
   const orders: WebshopOrderRow[] = stored.orders.map((o) => {
-    // 1) amit EZ az app állított ki (pontos rendelésszám-kötés), 2) különben Billingo-egyezés (név+összeg).
+    // 1) amit EZ az app állított ki (pontos rendelésszám-kötés), 2) tulaj saját/teszt, 3) Billingo-egyezés (név+összeg).
     const appInv = invoiced[o.key];
-    if (appInv) return { ...o, invoiced: true, invoiceNumber: appInv.invoiceNumber || undefined, invoiceUrl: appInv.publicUrl || undefined };
-    if (isOwnerOrder(o)) return { ...o, invoiced: true, invoiceNumber: "saját" };
+    if (appInv) {
+      const num = appInv.invoiceNumber || undefined;
+      return { ...o, invoiced: true, invoiceNumber: num, invoiceUrl: appInv.publicUrl || undefined, ...payOf(num) };
+    }
+    if (isOwnerOrder(o)) return { ...o, invoiced: true, invoiceNumber: "saját", paid: null };
     const m = matchInvoice(o, invoices);
-    if (m) return { ...o, invoiced: true, invoiceNumber: m.number, invoiceUrl: undefined };
-    return { ...o, invoiced: false };
+    if (m) return { ...o, invoiced: true, invoiceNumber: m.number, invoiceUrl: undefined, paid: m.paymentStatus === "paid", paymentStatus: m.paymentStatus };
+    return { ...o, invoiced: false, paid: null };
   });
 
   // Az Unas dátumformátuma "2026.07.04 18:07:59" → a hónap-prefix "2026.07".
@@ -178,6 +194,8 @@ export async function getWebshopData(): Promise<WebshopData> {
       monthRevenue: monthOrders.reduce((s, o) => s + (o.sumGross || 0), 0),
       invoicedCount,
       notInvoicedCount: orders.length - invoicedCount,
+      paidCount: orders.filter((o) => o.paid === true).length,
+      unpaidCount: orders.filter((o) => o.paid === false).length,
       customerCount: customers.length,
     },
   };
