@@ -216,6 +216,35 @@ export async function renderLifestylePosterPng(o: { bgUrl: string; headline: str
   }
 }
 
+/**
+ * LETISZTULT, DESIGNOLT plakát a VALÓDI termékkel (háttér kivágva) → PNG. next/og, kvóta nélkül.
+ * Nincs fotó-jelenet-kompozit (nem lebeg a laptop) — gradiens háttér + kivágott termék + szöveg + ár.
+ */
+export async function renderCleanProductPosterPng(o: {
+  cutoutUrl: string;
+  onWhiteCard?: boolean;
+  headline: string;
+  sub?: string;
+  priceHuf?: number;
+  badges?: string[];
+  ribbon?: string;
+  from: string;
+  to: string;
+  accent: string;
+}): Promise<string | null> {
+  if (!o.cutoutUrl) return null;
+  try {
+    const { renderCleanProductPosterOG } = await import("./ogPoster");
+    const url = await renderCleanProductPosterOG(o);
+    if (url) return url;
+    _lastLifestyleRenderError = "clean og render null";
+    return null;
+  } catch (e: any) {
+    _lastLifestyleRenderError = `clean og kivétel: ${e?.message || e}`;
+    return null;
+  }
+}
+
 let _lastLifestyleRenderError = "";
 /** A legutóbbi lifestyle-render hibája (diagnosztikához). */
 export function getLastLifestyleRenderError(): string {

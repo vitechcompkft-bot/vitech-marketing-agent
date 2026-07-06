@@ -194,3 +194,88 @@ export async function renderDealPosterOG(o: { bgUrl: string; headline: string; p
   );
   return toPngUrl(root, fonts);
 }
+
+/**
+ * LETISZTULT, DESIGNOLT plakát a VALÓDI termékkel (háttér kivágva) — next/og, nincs fotó-jelenet-kompozit.
+ * Gradiens háttér (nyári színvilág) + kivágott termék jobb oldalon + focím/alcím/jelvények/ár + logó + CTA.
+ * cutoutUrl: átlátszó PNG (remove.bg data URI); ha nincs kivágás → onWhiteCard=true (fehér kártyára tesszük).
+ */
+export async function renderCleanProductPosterOG(o: {
+  cutoutUrl: string;
+  onWhiteCard?: boolean;
+  headline: string;
+  sub?: string;
+  priceHuf?: number;
+  badges?: string[];
+  ribbon?: string;
+  from: string;
+  to: string;
+  accent: string;
+}): Promise<string | null> {
+  if (!o.cutoutUrl) return null;
+  const [w600, w800, w900] = await Promise.all([loadMontserrat(600), loadMontserrat(800), loadMontserrat(900)]);
+  if (!w900) return null;
+  const fonts: any[] = [];
+  if (w600) fonts.push({ name: "Montserrat", data: w600, weight: 600, style: "normal" });
+  if (w800) fonts.push({ name: "Montserrat", data: w800, weight: 800, style: "normal" });
+  fonts.push({ name: "Montserrat", data: w900, weight: 900, style: "normal" });
+
+  const headline = clean(o.headline);
+  const sub = o.sub ? clean(o.sub) : "";
+  const price = o.priceHuf ? new Intl.NumberFormat("hu-HU").format(Math.round(o.priceHuf)) + " Ft" : "";
+  const badges = (o.badges || []).map(clean).filter(Boolean).slice(0, 3);
+  const navy = "#0b1f3f";
+
+  // Háttér: gradiens + lágy „nap" fénykör.
+  const bg = h("div", { style: { position: "absolute", top: 0, left: 0, width: 1200, height: 675, display: "flex", backgroundImage: `linear-gradient(135deg, ${o.from}, ${o.to})` } });
+  const sun = h("div", { style: { position: "absolute", top: -150, right: -90, width: 460, height: 460, borderRadius: 9999, background: "rgba(255,255,255,0.13)", display: "flex" } });
+  const sun2 = h("div", { style: { position: "absolute", bottom: -170, left: -110, width: 380, height: 380, borderRadius: 9999, background: "rgba(255,255,255,0.08)", display: "flex" } });
+
+  // Termék jobb oldalon (kivágva vagy fehér kártyán).
+  const productImg = h("img", { src: o.cutoutUrl, style: { width: "100%", height: "100%", objectFit: "contain" } });
+  const product = o.onWhiteCard
+    ? h("div", { style: { position: "absolute", right: 40, top: 96, width: 560, height: 470, display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", borderRadius: 24, padding: 24 } }, productImg)
+    : h("div", { style: { position: "absolute", right: 28, top: 70, width: 600, height: 545, display: "flex", alignItems: "center", justifyContent: "center" } }, productImg);
+
+  // Bal oldali szöveg-oszlop.
+  const col: any[] = [];
+  if (o.ribbon)
+    col.push(
+      h("div", { style: { display: "flex", alignSelf: "flex-start", background: o.accent, color: navy, fontSize: 18, fontWeight: 900, letterSpacing: 1, padding: "7px 16px", borderRadius: 999, marginBottom: 16 } }, o.ribbon.toUpperCase())
+    );
+  col.push(h("div", { style: { display: "flex", color: "#fff", fontSize: 56, fontWeight: 900, lineHeight: 1.03, letterSpacing: -0.5, textShadow: "0 3px 16px rgba(0,0,0,0.35)" } }, headline));
+  if (sub) col.push(h("div", { style: { display: "flex", color: "rgba(255,255,255,0.94)", fontSize: 24, fontWeight: 600, marginTop: 14, textShadow: "0 2px 10px rgba(0,0,0,0.3)" } }, sub));
+  if (badges.length)
+    col.push(
+      h(
+        "div",
+        { style: { display: "flex", marginTop: 20 } },
+        ...badges.map((b, i) => h("div", { key: i, style: { display: "flex", marginRight: 10, background: "rgba(255,255,255,0.18)", color: "#fff", fontSize: 17, fontWeight: 800, padding: "6px 14px", borderRadius: 999 } }, b))
+      )
+    );
+  const leftCol = h("div", { style: { position: "absolute", left: 56, top: 78, width: 560, display: "flex", flexDirection: "column" } }, ...col);
+
+  // Ár-pill (jobb alul) + logó/CTA (bal alul).
+  const pricePill = price
+    ? h("div", { style: { position: "absolute", bottom: 30, right: 40, display: "flex", alignItems: "center", padding: "12px 28px", borderRadius: 18, background: "#fff", color: navy, fontSize: 46, fontWeight: 900, boxShadow: "0 6px 22px rgba(0,0,0,0.3)" } }, price)
+    : null;
+  const chip = h(
+    "div",
+    { style: { position: "absolute", bottom: 30, left: 56, display: "flex", alignItems: "center" } },
+    h("div", { style: { display: "flex", background: "#fff", borderRadius: 14, padding: "8px 14px" } }, h("img", { src: LOGO_URL, height: 40, style: { height: 40 } })),
+    h("div", { style: { display: "flex", color: "#fff", fontSize: 26, fontWeight: 800, marginLeft: 14, textShadow: "0 2px 10px rgba(0,0,0,0.4)" } }, "vitechcompkft.hu")
+  );
+
+  const root = h(
+    "div",
+    { style: { width: 1200, height: 675, display: "flex", position: "relative", fontFamily: "Montserrat", overflow: "hidden" } },
+    bg,
+    sun,
+    sun2,
+    product,
+    leftCol,
+    pricePill,
+    chip
+  );
+  return toPngUrl(root, fonts);
+}

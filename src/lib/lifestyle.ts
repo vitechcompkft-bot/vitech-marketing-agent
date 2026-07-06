@@ -1,8 +1,8 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts, type UnasProduct } from "./unas";
 import { lifestyleCompose } from "./claude";
-import { generateLifestyleImage, generateProductScene } from "./falai";
-import { renderLifestylePosterPng, getLastLifestyleRenderError } from "./poster";
+import { removeBg } from "./removebg";
+import { renderCleanProductPosterPng, getLastLifestyleRenderError } from "./poster";
 import { publishKlariPoster } from "./facebook";
 import { setAgentStatus } from "./team";
 import { sendTelegram } from "./telegram";
@@ -11,34 +11,31 @@ import { isLive } from "./productLive";
 const STATE_KEY = "lifestyle_state";
 const PREVIEW_KEY = "lifestyle_preview";
 
-// prompt = generikus text-to-image (fallback); scene = Bria szöveges háttér; bg = szép ÜRES jelenet
-// (text-to-image, laptop nélkül), amit referenciaként a Bria-ba adunk, hogy a VALÓDI termék abba kerüljön.
-type Style = { key: string; label: string; prompt: string; scene: string; bg: string };
+// LETISZTULT, DESIGNOLT plakát: rotálódó nyári SZÍNTÉMÁK (nem fotó-jelenet), a VALÓDI termék kivágva rákerül.
+type Theme = { key: string; label: string; from: string; to: string; accent: string };
 
-/** Rotálódó lifestyle-hangulatok (nyár + foci-nyár). Egymás után NEM ismétlodnek. Mind LAPTOP-jelenet. */
-const STYLES: Style[] = [
-  { key: "beach", label: "tengerparti nyaralás", prompt: "a happy person in stylish white summer clothes and sunglasses on a beautiful tropical beach, holding an open modern silver business laptop, turquoise sea, palm trees and sun loungers, bright sunny day", scene: "a beautiful tropical beach with turquoise sea, white sand, palm trees and sun loungers, bright sunny day, the laptop placed on a NORMAL FULL-SIZED wooden table with a comfortable chair, realistic contact shadow, calm empty bright sky in the UPPER area, premium lifestyle advertising photography", bg: "a beautiful tropical beach with turquoise sea, white sand, palm trees and sun loungers, a NORMAL FULL-SIZED wooden table and a comfortable chair set up in the lower-right foreground, the table clearly big enough for a laptop" },
-  { key: "yacht", label: "luxusjacht a tengeren", prompt: "a relaxed person in a light linen shirt on the deck of a luxury white yacht, an open modern silver business laptop on the table in front, turquoise Mediterranean sea and coastline, bright sunlight", scene: "the deck of a luxury white yacht with turquoise Mediterranean sea and coastline, bright sunlight, the laptop placed on a NORMAL FULL-SIZED polished wooden table with a comfortable chair, realistic contact shadow and soft reflection, calm empty sky in the UPPER area, premium lifestyle advertising photography", bg: "the sunny deck of a luxury white yacht, turquoise Mediterranean sea and coastline, bright sunlight, a NORMAL FULL-SIZED polished wooden table and a comfortable chair in the lower-right foreground, the table clearly big enough for a laptop" },
-  { key: "pool", label: "medencés luxusnyaraló", prompt: "an open modern silver business laptop on a lounge table beside a luxury infinity pool, turquoise water, sun loungers and palm trees, bright summer day, aspirational vacation vibe", scene: "beside a luxury infinity pool with turquoise water, sun loungers and palm trees, bright summer day, the laptop placed on a NORMAL FULL-SIZED poolside table with a comfortable chair, realistic contact shadow, calm empty bright area in the UPPER part, premium lifestyle advertising photography", bg: "a luxury infinity pool with turquoise water, sun loungers and palm trees, bright summer day, a NORMAL FULL-SIZED poolside table and a comfortable chair in the lower-right foreground, the table clearly big enough for a laptop" },
-  { key: "terrace", label: "nyári teraszos home-office", prompt: "an open modern silver business laptop and a cup of coffee on a stylish sunny outdoor terrace table, lush green garden and warm summer sunlight, relaxed premium remote-work vibe", scene: "a stylish sunny outdoor terrace with a lush green garden and warm summer sunlight, the laptop placed on a NORMAL FULL-SIZED wooden terrace table with a comfortable chair and a coffee cup, realistic contact shadow, calm empty space in the UPPER area, premium lifestyle advertising photography", bg: "a stylish sunny outdoor terrace with a lush green garden and warm bright summer sunlight, a NORMAL FULL-SIZED wooden terrace table with a coffee cup and a comfortable chair in the lower-right foreground, the table clearly big enough for a laptop" },
-  { key: "cafe", label: "napsütötte kávézó, digitális nomád", prompt: "a person working on an open modern business laptop at a sunny stylish outdoor cafe table, warm softly blurred street background, coffee cup, cheerful summer city vibe", scene: "a sunny stylish outdoor cafe with a warm softly blurred summer street background, the laptop placed on a NORMAL FULL-SIZED cafe table with a comfortable chair and a coffee cup, realistic contact shadow, calm empty area in the UPPER part, premium lifestyle advertising photography", bg: "a sunny stylish outdoor cafe with a warm softly blurred bright summer street background, a NORMAL FULL-SIZED cafe table with a coffee cup and a comfortable chair in the lower-right foreground, the table clearly big enough for a laptop" },
-  { key: "rooftop", label: "city rooftop naplementében", prompt: "an open modern business laptop on a modern rooftop bar table at golden-hour sunset, warm glowing city skyline in the background, premium summer evening lifestyle vibe", scene: "a modern rooftop bar at golden-hour sunset with a warm glowing city skyline in the background, the laptop placed on a NORMAL FULL-SIZED rooftop table with a comfortable chair, realistic contact shadow, calm warm empty sky in the UPPER area, premium lifestyle advertising photography", bg: "a modern rooftop bar at bright golden-hour sunset, a warm glowing city skyline in the background, a NORMAL FULL-SIZED rooftop table and a comfortable chair in the lower-right foreground, the table clearly big enough for a laptop" },
-  { key: "football", label: "foci-nyár, stadion hangulat", prompt: "a sleek modern dark business laptop on a clean table with a classic black-and-white soccer ball beside it, a softly blurred green football stadium pitch and glowing floodlights in the background, evening golden light, energetic football summer atmosphere, NO logos, NO trophies, NO team names, NO flags", scene: "a NORMAL FULL-SIZED clean table with a comfortable chair and a classic black-and-white soccer ball beside the laptop, a softly blurred green football stadium pitch and glowing floodlights in the background, evening golden light, the laptop with a realistic contact shadow, calm empty area in the UPPER part, energetic football summer atmosphere, NO logos, NO trophies, NO team names, NO flags", bg: "a bright softly blurred green football stadium pitch with glowing floodlights in the background, a NORMAL FULL-SIZED table with a classic black-and-white soccer ball and a comfortable chair in the lower-right foreground, the table clearly big enough for a laptop, no logos no trophies no team names no flags" },
-  { key: "garden", label: "kerti napsütés", prompt: "a person relaxing in a sunny green garden with an open modern business laptop on a wooden table, blooming flowers and warm summer daylight, cheerful lifestyle vibe", scene: "a sunny green garden with blooming flowers and warm summer daylight, the laptop placed on a NORMAL FULL-SIZED wooden garden table with a comfortable chair, realistic contact shadow, calm empty space in the UPPER area, cheerful lifestyle advertising photography", bg: "a bright sunny green garden with blooming flowers and warm summer daylight, a NORMAL FULL-SIZED wooden garden table and a comfortable chair in the lower-right foreground, the table clearly big enough for a laptop" },
+/** Rotálódó nyári SZÍNTÉMÁK a designolt plakáthoz (gradiens + jelvény-szín). Egymás után NEM ismétlodnek. */
+const THEMES: Theme[] = [
+  { key: "beach", label: "Nyári tengerpart", from: "#22d3ee", to: "#0369a1", accent: "#fbbf24" },
+  { key: "sunset", label: "Nyári naplemente", from: "#fb7185", to: "#ea580c", accent: "#fde047" },
+  { key: "pool", label: "Medence-parti nyár", from: "#38bdf8", to: "#1d4ed8", accent: "#67e8f9" },
+  { key: "garden", label: "Kerti nyár", from: "#4ade80", to: "#15803d", accent: "#fde047" },
+  { key: "citrus", label: "Nyári frissesség", from: "#fbbf24", to: "#ea580c", accent: "#fff7cd" },
+  { key: "sky", label: "Nyári ég", from: "#60a5fa", to: "#1e40af", accent: "#fde047" },
+  { key: "football", label: "Foci-nyár", from: "#22c55e", to: "#064e3b", accent: "#fde047" },
+  { key: "brand", label: "Vitech nyár", from: "#1a73e8", to: "#0b1f3f", accent: "#38bdf8" },
 ];
 
-/** A jelenet laptopjának kinézete illeszkedjen a valódi termékhez (pl. ThinkPad = fekete). */
-function laptopLook(name: string): string {
-  const n = (name || "").toLowerCase();
-  if (/thinkpad|thinkbook|latitude|vostro/.test(n)) return "a professional matte BLACK clamshell business laptop";
-  if (/macbook/.test(n)) return "a slim silver aluminium laptop";
-  if (/elitebook|probook|zbook|\bhp\b/.test(n)) return "a dark silver-grey business laptop";
-  return "a modern slim business laptop";
+/** Biztonságos jelvények: garancia CSAK a termék nevébol; nincs kitalált adat. */
+function buildBadges(name: string): string[] {
+  const b: string[] = [];
+  const g = (name || "").match(/(\d+)\s*(hónap|év)\s*garanci/i);
+  if (g) b.push(`${g[1]} ${g[2].toLowerCase() === "év" ? "ÉV" : "HÓ"} GARANCIA`);
+  else b.push("GARANCIÁVAL");
+  b.push("BEVIZSGÁLVA");
+  b.push("GYORS SZÁLLÍTÁS");
+  return b.slice(0, 3);
 }
-
-/** Fotorealisztikus, felirat nélküli LAPTOP-jelenet — felül üres hely a focímnek. */
-const wrap = (p: string, look: string) =>
-  `Ultra-photorealistic advertising photograph, shot on a full-frame camera, premium commercial lifestyle photography, true to life, natural colors, sharp focus: ${p}. The device is clearly ${look} — an open modern clamshell LAPTOP (never a desktop PC, tower or monitor). The laptop screen shows a vibrant colorful abstract wallpaper. Leave clean, calm empty space in the UPPER part of the image for a headline. Absolutely NO text, NO letters, NO numbers, NO logos, NO watermarks, NO brand names anywhere.`;
 
 /**
  * LAPTOP-e a termék? A lifestyle-jelenet MINDIG laptopot mutat, ezért csak laptopot hirdethetünk
@@ -92,11 +89,11 @@ function textGuard(productName: string, headline: string, sub: string, caption: 
   return { ok: true, note: "" };
 }
 
-/** Olyan stílust választ, ami az utolsó 4-ben NEM szerepelt (így nem ismétlodik). */
-function pickStyle(recent: string[]): Style {
+/** Olyan témát választ, ami az utolsó 4-ben NEM szerepelt (így nem ismétlodik). */
+function pickTheme(recent: string[]): Theme {
   const last = recent.slice(-4);
-  const fresh = STYLES.filter((s) => !last.includes(s.key));
-  const pool = fresh.length ? fresh : STYLES;
+  const fresh = THEMES.filter((s) => !last.includes(s.key));
+  const pool = fresh.length ? fresh : THEMES;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -153,10 +150,10 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   const price = Number(String(product.priceGross).replace(/[^\d]/g, "")) || null;
 
   const state = await loadState();
-  const style = pickStyle(state.styles);
+  const theme = pickTheme(state.styles);
 
   const qc =
-    (await lifestyleCompose({ name: product.name, priceGross: product.priceGross }, style.label, state.headlines.slice(-6))) || {
+    (await lifestyleCompose({ name: product.name, priceGross: product.priceGross }, theme.label, state.headlines.slice(-6))) || {
       headline: "Dolgozz bárhonnan",
       sub: "Bevizsgált üzleti laptopok garanciával.",
       caption: "Idén nyáron vidd magaddal az irodát! 💻☀️ Nézd meg a laptopjainkat a vitechcompkft.hu-n!",
@@ -165,32 +162,31 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   // POSZTOLÁS ELOTTI KÖTELEZO tartalmi ellenorzés (tört ár + kitalált garancia) — azonnali, kód-alapú.
   const guard = textGuard(product.name, qc.headline, qc.sub, qc.caption);
 
-  // ELSODLEGES: a VALÓDI termékfotót illesztjük a lifestyle-jelenetbe (Bria product-shot) — így nem
-  // HASONLÓ, hanem PONTOSAN a hirdetett gép látszik. A Bria EGY lépésben, a jelenetleírás alapján komponálja
-  // a terméket → a laptop KOHERENSEN a normál asztalon ül (nem lebeg mellette, mint a külön ref-háttérnél).
-  let bg: string | null = null;
-  let usedRealProduct = false;
-  if (product.imageUrl) {
-    const scene = `bright, sunny, high-key lighting, vivid natural colors: ${style.scene}`;
-    bg = await generateProductScene(product.imageUrl, {
-      scene,
-      placement: "right_center",
-      shotSize: [1600, 900],
-    }).catch(() => null);
-    if (bg) usedRealProduct = true;
-  }
-  if (!bg) {
-    const scenePrompt = wrap(style.prompt.replace(/\bsilver\s?/gi, ""), laptopLook(product.name));
-    bg = await generateLifestyleImage(scenePrompt);
-  }
-  if (!bg) throw new Error("kép-generálás sikertelen (fal.ai)");
+  // A VALÓDI termékfotó háttér-kivágása (remove.bg) → átlátszó PNG a designolt plakátra.
+  // Ha nincs kulcs / hiba → a sima fotót fehér kártyára tesszük (a fehér háttér így szándékosnak tunik).
+  let cutout: string | null = null;
+  if (product.imageUrl) cutout = await removeBg(product.imageUrl).catch(() => null);
+  const cutoutUrl = cutout || product.imageUrl;
+  if (!cutoutUrl) throw new Error("nincs termékfotó a plakáthoz");
+  const usedRealProduct = true; // MINDIG a valódi termék van a plakáton (kivágva vagy fehér kártyán)
 
-  const poster = await renderLifestylePosterPng({ bgUrl: bg, headline: qc.headline, sub: qc.sub });
-  if (!poster) throw new Error("poszter-render sikertelen (hcti) — " + (getLastLifestyleRenderError() || "ismeretlen"));
+  const poster = await renderCleanProductPosterPng({
+    cutoutUrl,
+    onWhiteCard: !cutout,
+    headline: qc.headline,
+    sub: qc.sub,
+    priceHuf: price ?? undefined,
+    badges: buildBadges(product.name),
+    ribbon: theme.label,
+    from: theme.from,
+    to: theme.to,
+    accent: theme.accent,
+  });
+  if (!poster) throw new Error("poszter-render sikertelen — " + (getLastLifestyleRenderError() || "ismeretlen"));
 
   const draft: LifestyleDraft = {
-    styleKey: style.key,
-    style: style.label,
+    styleKey: theme.key,
+    style: theme.label,
     product: product.name,
     productUrl: product.url || "https://vitechcompkft.hu",
     priceHuf: price,
