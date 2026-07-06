@@ -39,7 +39,12 @@ async function handle(req: NextRequest) {
   // 4) Publikált posztok külön
   out.publishedPosts = await get(`${pageId}/published_posts?fields=id,created_time,is_published,is_hidden&limit=6`);
   // 5) Feltöltött fotók
-  out.photos = await get(`${pageId}/photos?type=uploaded&fields=id,created_time,name,link,album&limit=6`);
+  out.photos = await get(`${pageId}/photos?type=uploaded&fields=id,created_time,name,link,album&limit=3`);
+  // 6) Kor-/ország-korlátozás + vanity-név (külön, hogy egy hibás mezo ne rontsa el a többit)
+  out.restrictions = await get(`${pageId}?fields=username,name,restrictions{age,type},country_page_likes,is_eligible_for_branded_content`);
+  // 7) Egy konkrét poszt láthatósági részletei (az elso feed-poszt)
+  const first = out.feed?.data?.[0]?.id;
+  if (first) out.firstPostDetail = await get(`${first}?fields=id,is_published,is_hidden,privacy,promotion_status,targeting,feed_targeting,actions`);
 
   return NextResponse.json({ ok: true, ...out });
 }
