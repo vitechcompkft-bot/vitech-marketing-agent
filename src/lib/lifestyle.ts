@@ -36,10 +36,6 @@ function laptopLook(name: string): string {
   return "a modern slim business laptop";
 }
 
-/** Szép, ÜRES lifestyle-jelenet (laptop NÉLKÜL) — ezt adjuk referenciának a Bria-ba a valódi termékhez. */
-const wrapEmpty = (p: string) =>
-  `Ultra-photorealistic advertising photograph, shot on a full-frame camera, premium commercial lifestyle photography, true to life, natural colors, bright and airy, sharp focus: ${p}. IMPORTANT: the scene must contain a NORMAL, FULL-SIZED table (a proper large table surface at natural desk height, clearly big enough for a laptop — NOT a tiny side table or stool) together with a matching comfortable chair, arranged as a real usable outdoor workspace. NO laptop, NO computer, NO device and NO people in the foreground. Leave clean, calm empty space in the UPPER part of the image for a headline. Absolutely NO text, NO letters, NO numbers, NO logos, NO watermarks anywhere.`;
-
 /** Fotorealisztikus, felirat nélküli LAPTOP-jelenet — felül üres hely a focímnek. */
 const wrap = (p: string, look: string) =>
   `Ultra-photorealistic advertising photograph, shot on a full-frame camera, premium commercial lifestyle photography, true to life, natural colors, sharp focus: ${p}. The device is clearly ${look} — an open modern clamshell LAPTOP (never a desktop PC, tower or monitor). The laptop screen shows a vibrant colorful abstract wallpaper. Leave clean, calm empty space in the UPPER part of the image for a headline. Absolutely NO text, NO letters, NO numbers, NO logos, NO watermarks, NO brand names anywhere.`;
@@ -170,15 +166,14 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   const guard = textGuard(product.name, qc.headline, qc.sub, qc.caption);
 
   // ELSODLEGES: a VALÓDI termékfotót illesztjük a lifestyle-jelenetbe (Bria product-shot) — így nem
-  // HASONLÓ, hanem PONTOSAN a hirdetett gép látszik. A szép hatásért elobb egy világos ÜRES jelenetet
-  // generálunk (text-to-image), és AZT adjuk referenciának a Bria-nak → szép jelenet + valódi termék.
+  // HASONLÓ, hanem PONTOSAN a hirdetett gép látszik. A Bria EGY lépésben, a jelenetleírás alapján komponálja
+  // a terméket → a laptop KOHERENSEN a normál asztalon ül (nem lebeg mellette, mint a külön ref-háttérnél).
   let bg: string | null = null;
   let usedRealProduct = false;
   if (product.imageUrl) {
-    const refBg = await generateLifestyleImage(wrapEmpty(style.bg)).catch(() => null);
+    const scene = `bright, sunny, high-key lighting, vivid natural colors: ${style.scene}`;
     bg = await generateProductScene(product.imageUrl, {
-      refImageUrl: refBg || undefined,
-      scene: style.scene, // ha nincs refBg, szöveges leírással dolgozik a Bria
+      scene,
       placement: "right_center",
       shotSize: [1600, 900],
     }).catch(() => null);
