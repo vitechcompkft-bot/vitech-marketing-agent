@@ -15,10 +15,19 @@ function cleanBlogBody(text: string): string {
   // 1) A legelso bennragadt ===...=== markertol a végéig minden szemét levágása.
   t = t.replace(/\s*={2,}[^\n]*?={2,}[\s\S]*$/, "");
   // 2) A legutolsó HTML-tag (>) UTÁNI rövid, sima-szöveges maradék (leaked sign-off) levágása.
-  const lastGt = t.lastIndexOf(">");
+  let lastGt = t.lastIndexOf(">");
   if (lastGt !== -1) {
     const tail = t.slice(lastGt + 1).trim();
     if (tail && tail.length < 200 && !/[<>]/.test(tail)) t = t.slice(0, lastGt + 1);
+  }
+  // 3) Végi „Nem csak … hanem …" típusú zárószlogen levágása — CSAK a cikk legvégén (blokk-tagba csomagolva vagy sima szövegként).
+  t = t.replace(/<(p|div|h[1-6])[^>]*>\s*(?:<[^>]+>\s*)*Nem csak [\s\S]{0,160}?<\/\1>\s*$/i, "").trim();
+  t = t.replace(/\s*Nem csak [^\n<]{0,160}?\.\s*$/i, "").trim();
+  // ismételt üres-tag / szóköz takarítás a végén
+  lastGt = t.lastIndexOf(">");
+  if (lastGt !== -1) {
+    const tail2 = t.slice(lastGt + 1).trim();
+    if (tail2 && tail2.length < 200 && !/[<>]/.test(tail2)) t = t.slice(0, lastGt + 1);
   }
   return t.trim();
 }
