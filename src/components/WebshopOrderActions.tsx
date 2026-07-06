@@ -32,20 +32,20 @@ export default function WebshopOrderActions({
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center justify-end gap-1">
       {paid !== true && (
         <button
-          className="btn btn-ghost px-2 py-1 text-xs"
+          className="rounded-md px-1.5 py-1 text-sm hover:bg-white/10 disabled:opacity-40"
           title="Fizetettre állítom (pl. készpénzes fizetés)"
           disabled={!!busy}
           onClick={() => act("markPaid")}
         >
-          💵 Fizetve
+          💵
         </button>
       )}
       {paid === true && paymentStatus === "kézi" && (
         <button
-          className="btn btn-ghost px-2 py-1 text-xs"
+          className="rounded-md px-1.5 py-1 text-sm hover:bg-white/10 disabled:opacity-40"
           title="Kézi fizetettség visszavonása"
           disabled={!!busy}
           onClick={() => act("unmarkPaid")}
@@ -54,7 +54,7 @@ export default function WebshopOrderActions({
         </button>
       )}
       <button
-        className="btn btn-ghost px-2 py-1 text-xs"
+        className="rounded-md px-1.5 py-1 text-sm hover:bg-white/10 disabled:opacity-40"
         title="Törlés a dashboardról (pl. próba rendelés) — a valódi Unas-rendelést NEM törli"
         disabled={!!busy}
         onClick={() => act("delete", "Biztosan törlöd ezt a rendelést a dashboardról? (A valódi webshop-rendelést nem törli, csak innen rejti el.)")}

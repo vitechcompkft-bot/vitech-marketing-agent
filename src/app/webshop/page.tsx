@@ -7,6 +7,10 @@ export const dynamic = "force-dynamic";
 
 const ft = (n: number) => new Intl.NumberFormat("hu-HU").format(Math.round(n || 0)) + " Ft";
 const shortDate = (s: string) => (s || "").slice(0, 16); // "2026.07.04 18:07"
+const shortDT = (s: string) => (s || "").slice(5, 16); // "07.04 18:07" (év nélkül)
+const shortKey = (k: string) => (k || "").split("-").pop() || k; // "64089-100013" → "100013"
+const shortStatus = (o: { status?: string; statusType?: string }) =>
+  o.statusType === "close_ok" ? "lezárva" : (o.status || o.statusType || "—").replace(/^Megrendelés\s+/i, "");
 
 function relTime(iso: string | null): string {
   if (!iso) return "még nem frissült";
@@ -79,18 +83,29 @@ export default async function WebshopPage() {
         </div>
         {d.orders.length ? (
           <div className="overflow-x-auto rounded-xl border border-white/10">
-            <table className="w-full min-w-[1060px] text-sm">
+            <table className="w-full table-fixed text-xs">
+              <colgroup>
+                <col className="w-[9%]" />
+                <col className="w-[7%]" />
+                <col className="w-[20%]" />
+                <col className="w-[21%]" />
+                <col className="w-[10%]" />
+                <col className="w-[8%]" />
+                <col className="w-[9%]" />
+                <col className="w-[9%]" />
+                <col className="w-[7%]" />
+              </colgroup>
               <thead>
-                <tr className="bg-white/5 text-left text-xs uppercase text-white/50">
-                  <th className="p-2">Dátum</th>
-                  <th className="p-2">Rendelés</th>
-                  <th className="p-2">Vásárló</th>
-                  <th className="p-2">Termék</th>
-                  <th className="p-2 text-right">Összeg</th>
-                  <th className="p-2">Státusz</th>
-                  <th className="p-2">Számla</th>
-                  <th className="p-2">Fizetve</th>
-                  <th className="p-2 text-right">Muvelet</th>
+                <tr className="bg-white/5 text-left text-[10px] uppercase tracking-wide text-white/50">
+                  <th className="p-1.5 font-medium">Dátum</th>
+                  <th className="p-1.5 font-medium">Rend.</th>
+                  <th className="p-1.5 font-medium">Vásárló</th>
+                  <th className="p-1.5 font-medium">Termék</th>
+                  <th className="p-1.5 text-right font-medium">Összeg</th>
+                  <th className="p-1.5 font-medium">Státusz</th>
+                  <th className="p-1.5 font-medium">Számla</th>
+                  <th className="p-1.5 font-medium">Fizetve</th>
+                  <th className="p-1.5 text-right font-medium"> </th>
                 </tr>
               </thead>
               <tbody>
@@ -99,46 +114,45 @@ export default async function WebshopPage() {
                     key={o.key}
                     className={`border-t border-white/10 ${o.invoiced ? "bg-green-500/10" : "bg-amber-500/[0.04]"}`}
                   >
-                    <td className="whitespace-nowrap p-2 text-white/70">{shortDate(o.date)}</td>
-                    <td className="whitespace-nowrap p-2 font-mono text-xs text-white/85">{o.key}</td>
-                    <td className="p-2">
-                      <div className="font-medium text-white/90">{o.customerName || "—"}</div>
-                      <div className="text-xs text-white/45">
-                        {[o.city, o.email].filter(Boolean).join(" · ")}
-                        {o.phone ? ` · ${o.phone}` : ""}
+                    <td className="whitespace-nowrap p-1.5 text-white/70" title={o.date}>{shortDT(o.date)}</td>
+                    <td className="whitespace-nowrap p-1.5 font-mono text-white/85" title={o.key}>{shortKey(o.key)}</td>
+                    <td className="overflow-hidden p-1.5">
+                      <div className="truncate font-medium text-white/90" title={o.customerName || ""}>{o.customerName || "—"}</div>
+                      <div className="truncate text-[11px] text-white/45" title={[o.city, o.email, o.phone].filter(Boolean).join(" · ")}>
+                        {[o.city, o.email].filter(Boolean).join(" · ") || o.phone || ""}
                       </div>
                     </td>
-                    <td className="p-2 text-white/80">
-                      <div className="max-w-[260px] truncate" title={o.firstItem || ""}>{o.firstItem || "—"}</div>
-                      {o.itemCount > 1 && <div className="text-xs text-white/45">+{o.itemCount - 1} tétel</div>}
+                    <td className="overflow-hidden p-1.5 text-white/80">
+                      <div className="truncate" title={o.firstItem || ""}>{o.firstItem || "—"}</div>
+                      {o.itemCount > 1 && <div className="text-[11px] text-white/45">+{o.itemCount - 1} tétel</div>}
                     </td>
-                    <td className="whitespace-nowrap p-2 text-right font-semibold">{ft(o.sumGross)}</td>
-                    <td className="p-2">
-                      <span className="badge bg-white/10 text-white/70">{o.status || o.statusType || "—"}</span>
+                    <td className="whitespace-nowrap p-1.5 text-right font-semibold">{ft(o.sumGross)}</td>
+                    <td className="overflow-hidden p-1.5">
+                      <span className="text-white/60" title={o.status || ""}>{shortStatus(o)}</span>
                     </td>
-                    <td className="p-2">
+                    <td className="overflow-hidden p-1.5">
                       {o.invoiced ? (
                         o.invoiceUrl ? (
-                          <a className="badge bg-green-500/20 text-green-200" href={o.invoiceUrl} target="_blank" rel="noreferrer">
+                          <a className="block truncate text-green-300 underline" href={o.invoiceUrl} target="_blank" rel="noreferrer" title={o.invoiceNumber || "számla"}>
                             🧾 {o.invoiceNumber || "számla"}
                           </a>
                         ) : (
-                          <span className="badge bg-green-500/20 text-green-200">🧾 {o.invoiceNumber || "számlázva"}</span>
+                          <span className="block truncate text-green-300" title={o.invoiceNumber || "számlázva"}>🧾 {o.invoiceNumber || "kész"}</span>
                         )
                       ) : (
-                        <span className="badge bg-amber-500/15 text-amber-200/80">nyitott</span>
+                        <span className="text-amber-200/80">nyitott</span>
                       )}
                     </td>
-                    <td className="p-2">
+                    <td className="p-1.5">
                       {o.paid === true ? (
-                        <span className="badge bg-green-500/20 text-green-200">✓ fizetve{o.paymentStatus === "kézi" ? " (kézi)" : ""}</span>
+                        <span className="text-green-300" title={o.paymentStatus === "kézi" ? "kézi (készpénz)" : "fizetve"}>✓ fizetve</span>
                       ) : o.paid === false ? (
-                        <span className="badge bg-red-500/20 text-red-200">fizetetlen</span>
+                        <span className="text-red-300">fizetetlen</span>
                       ) : (
                         <span className="text-white/30">—</span>
                       )}
                     </td>
-                    <td className="p-2 text-right">
+                    <td className="p-1.5 text-right">
                       <WebshopOrderActions orderKey={o.key} paid={o.paid} paymentStatus={o.paymentStatus} />
                     </td>
                   </tr>
@@ -157,26 +171,34 @@ export default async function WebshopPage() {
         <h2 className="section-title">👤 Vásárlók ({d.customers.length})</h2>
         {d.customers.length ? (
           <div className="overflow-x-auto rounded-xl border border-white/10">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full table-fixed text-xs">
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[34%]" />
+                <col className="w-[16%]" />
+                <col className="w-[8%]" />
+                <col className="w-[12%]" />
+                <col className="w-[8%]" />
+              </colgroup>
               <thead>
-                <tr className="bg-white/5 text-left text-xs uppercase text-white/50">
-                  <th className="p-2">Név</th>
-                  <th className="p-2">Elérhetoség</th>
-                  <th className="p-2">Város</th>
-                  <th className="p-2 text-right">Rendelés</th>
-                  <th className="p-2 text-right">Összesen költött</th>
-                  <th className="p-2">Utolsó</th>
+                <tr className="bg-white/5 text-left text-[10px] uppercase tracking-wide text-white/50">
+                  <th className="p-1.5 font-medium">Név</th>
+                  <th className="p-1.5 font-medium">Elérhetoség</th>
+                  <th className="p-1.5 font-medium">Város</th>
+                  <th className="p-1.5 text-right font-medium">Rend.</th>
+                  <th className="p-1.5 text-right font-medium">Költött</th>
+                  <th className="p-1.5 font-medium">Utolsó</th>
                 </tr>
               </thead>
               <tbody>
                 {d.customers.slice(0, 100).map((c, i) => (
                   <tr key={i} className="border-t border-white/10">
-                    <td className="p-2 font-medium text-white/90">{c.name}</td>
-                    <td className="p-2 text-xs text-white/60">{[c.email, c.phone].filter(Boolean).join(" · ") || "—"}</td>
-                    <td className="p-2 text-white/70">{c.city || "—"}</td>
-                    <td className="p-2 text-right">{c.orders}</td>
-                    <td className="p-2 text-right font-semibold">{ft(c.total)}</td>
-                    <td className="whitespace-nowrap p-2 text-white/60">{shortDate(c.lastDate)}</td>
+                    <td className="overflow-hidden p-1.5"><div className="truncate font-medium text-white/90" title={c.name}>{c.name}</div></td>
+                    <td className="overflow-hidden p-1.5 text-white/60"><div className="truncate" title={[c.email, c.phone].filter(Boolean).join(" · ")}>{[c.email, c.phone].filter(Boolean).join(" · ") || "—"}</div></td>
+                    <td className="overflow-hidden p-1.5 text-white/70"><div className="truncate" title={c.city || ""}>{c.city || "—"}</div></td>
+                    <td className="p-1.5 text-right">{c.orders}</td>
+                    <td className="whitespace-nowrap p-1.5 text-right font-semibold">{ft(c.total)}</td>
+                    <td className="whitespace-nowrap p-1.5 text-white/60" title={c.lastDate}>{shortDT(c.lastDate)}</td>
                   </tr>
                 ))}
               </tbody>
