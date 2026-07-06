@@ -31,7 +31,7 @@ async function handle(req: NextRequest) {
 
   const out: any = {};
   // 1) Oldal alapadatai + publikáltság
-  out.page = await get(`${pageId}?fields=name,is_published,fan_count,followers_count,link,verification_status,is_permanently_closed,restrictions,country_page_likes`);
+  out.page = await get(`${pageId}?fields=name,is_published,fan_count,followers_count,link,verification_status,is_permanently_closed,category,about,published_posts.limit(0).summary(true)`);
   // 2) Token-adatok: milyen jogosultságok, tényleg PAGE token-e
   out.tokenDebug = await get(`me?fields=id,name`);
   // 3) Legutóbbi feed-posztok (minden, amit az oldal posztolt) + láthatóság
