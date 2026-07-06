@@ -20,7 +20,30 @@ export function facebookAutopostEnabled(): boolean {
   return process.env.FB_AUTOPOST !== "0";
 }
 
-/** Fotó-poszt a FB-oldalra: a kép URL-jét a Graph tölti be, a caption a szöveg. */
+/**
+ * RÉGI módszer (tartalék): a képet közvetlenül a /photos-ra teszi caption-nel.
+ * Ez a fotóalbumba kerül — a New Pages Experience nézetben NEM rendes idovonal-poszt.
+ */
+async function legacyPhotoPost(caption: string, imageUrl: string, pageId: string, token: string) {
+  const body = new URLSearchParams({ url: imageUrl, caption: caption.slice(0, 5000), access_token: token });
+  const res = await fetch(`${GRAPH}/${pageId}/photos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    signal: AbortSignal.timeout(20000),
+  });
+  const j: any = await res.json().catch(() => ({}));
+  if (!res.ok || j.error) return { ok: false, error: `FB ${res.status}: ${JSON.stringify(j.error || j).slice(0, 220)}` };
+  const postId = j.post_id || j.id;
+  return { ok: true, id: postId, url: postId ? `https://www.facebook.com/${postId}` : undefined };
+}
+
+/**
+ * Fotó-poszt a FB-oldalra RENDES IDOVONAL-BEJEGYZÉSKÉNT (mint a szerkeszto):
+ *  1) a képet PUBLIKÁLATLANUL feltölti → photo id,
+ *  2) feed-posztot hoz létre a képet CSATOLVA (attached_media) → az idovonalon látszik, nem csak a Fényképekben.
+ * Ha a 2. lépés nem megy, visszaesik a régi (közvetlen /photos) módszerre, hogy a poszt biztosan kimenjen.
+ */
 export async function postPhotoToFacebook(
   caption: string,
   imageUrl: string
@@ -29,18 +52,37 @@ export async function postPhotoToFacebook(
   const token = process.env.FB_PAGE_TOKEN;
   if (!pageId || !token) return { ok: false, error: "A Facebook-oldal nincs összekötve (FB_PAGE_ID/FB_PAGE_TOKEN hiányzik)." };
   try {
-    const body = new URLSearchParams({ url: imageUrl, caption: caption.slice(0, 5000), access_token: token });
-    const res = await fetch(`${GRAPH}/${pageId}/photos`, {
+    // 1) Kép feltöltése PUBLIKÁLATLANUL (published=false) → photo id (ezt csatoljuk a bejegyzéshez).
+    const upBody = new URLSearchParams({ url: imageUrl, published: "false", temporary: "false", access_token: token });
+    const upRes = await fetch(`${GRAPH}/${pageId}/photos`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
+      body: upBody,
       signal: AbortSignal.timeout(20000),
     });
-    const j: any = await res.json().catch(() => ({}));
-    if (!res.ok || j.error) return { ok: false, error: `FB ${res.status}: ${JSON.stringify(j.error || j).slice(0, 220)}` };
-    const postId = j.post_id || j.id;
-    const url = postId ? `https://www.facebook.com/${postId}` : undefined;
-    return { ok: true, id: postId, url };
+    const upJson: any = await upRes.json().catch(() => ({}));
+    const photoId = upJson?.id;
+    if (!upRes.ok || !photoId) {
+      // Feltöltés nem ment → régi módszer (a poszt biztosan kimenjen).
+      return await legacyPhotoPost(caption, imageUrl, pageId, token);
+    }
+
+    // 2) RENDES bejegyzés a képpel csatolva → megjelenik az idovonalon.
+    const feedBody = new URLSearchParams({ message: caption.slice(0, 5000), access_token: token });
+    feedBody.append("attached_media[0]", JSON.stringify({ media_fbid: photoId }));
+    const feedRes = await fetch(`${GRAPH}/${pageId}/feed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: feedBody,
+      signal: AbortSignal.timeout(20000),
+    });
+    const feedJson: any = await feedRes.json().catch(() => ({}));
+    if (!feedRes.ok || feedJson.error || !feedJson.id) {
+      // A feed-poszt nem ment → tartalék: a régi közvetlen módszer (legalább a Fényképekben ott lesz).
+      return await legacyPhotoPost(caption, imageUrl, pageId, token);
+    }
+    const postId = feedJson.id;
+    return { ok: true, id: postId, url: `https://www.facebook.com/${postId}` };
   } catch (e: any) {
     return { ok: false, error: e?.message || "ismeretlen hiba" };
   }
