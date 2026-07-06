@@ -178,6 +178,47 @@ export async function unasCreateBlogPost(
   return { ok: false, message: "Unas setPageContent hiba: " + text.slice(0, 300) };
 }
 
+/** Az összes BLOG tartalmi elem TELJES adata (id, cím, HTML-szöveg) — a takarításhoz/olvasáshoz. */
+export async function unasGetBlogContentsFull(token: string): Promise<{ id: string; title: string; text: string }[]> {
+  const res = await fetch(`${API_BASE}/getPageContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+    body: `<?xml version="1.0" encoding="UTF-8" ?>\n<Params><ContentType>full</ContentType></Params>`,
+  });
+  const xml = await res.text();
+  const out: { id: string; title: string; text: string }[] = [];
+  const re = /<PageContent>([\s\S]*?)<\/PageContent>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml))) {
+    const block = m[1];
+    if (!/<Type>\s*blog\s*<\/Type>/i.test(block)) continue;
+    const id = (block.match(/<Id>(\d+)<\/Id>/) || [])[1] || "";
+    const title = field(block, "Title") || "";
+    const tm = block.match(/<Text>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/Text>/);
+    const text = tm ? tm[1] : "";
+    if (id) out.push({ id, title, text });
+  }
+  return out;
+}
+
+/** Egy blog tartalmi elem HTML-szövegének frissítése (setPageContent modify). */
+export async function unasUpdateBlogText(token: string, id: string, text: string): Promise<{ ok: boolean; message: string }> {
+  const body =
+    `<?xml version="1.0" encoding="UTF-8" ?>\n` +
+    `<PageContents><PageContent><Action>modify</Action><Id>${id}</Id>` +
+    `<BlogContent><Text>${cdata(text)}</Text><ContentIsHTML>yes</ContentIsHTML></BlogContent>` +
+    `</PageContent></PageContents>`;
+  const res = await fetch(`${API_BASE}/setPageContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/xml", Authorization: `Bearer ${token}` },
+    body,
+  });
+  const t = await res.text();
+  const status = (t.match(/<Status>([\s\S]*?)<\/Status>/) || [])[1];
+  if (status && /ok/i.test(status)) return { ok: true, message: "Blog szöveg frissítve." };
+  return { ok: false, message: "Unas modify hiba: " + t.slice(0, 300) };
+}
+
 /** Az összes BLOG típusú tartalmi elem Id-ja (a kapcsoláshoz — a TELJES listát küldjük, hogy a setPage
  *  akár cserél, akár hozzáad, minden blog kapcsolva maradjon a Blog oldalhoz). */
 export async function unasListBlogContentIds(token: string): Promise<string[]> {
