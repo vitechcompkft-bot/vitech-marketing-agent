@@ -1055,8 +1055,13 @@ a teljes cikk HTML törzse a megengedett tagekkel`,
     });
     const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
     const sec = (name: string): string => {
-      const m = text.match(new RegExp(`===${name}===\\s*([\\s\\S]*?)(?=\\n===[A-Z]+===|$)`));
-      return m ? m[1].trim() : "";
+      // A szakasz a KÖVETKEZO ===...=== jelölolig tart (bármilyen — ékezetes is, pl. a modell által
+      // hozzátett ===VÉGE===), nem csak [A-Z]-ig; így a záró-marker NEM ragad bele a BODY-ba.
+      const m = text.match(new RegExp(`===${name}===\\s*([\\s\\S]*?)(?=\\n===|$)`));
+      let v = m ? m[1].trim() : "";
+      // Biztonsági szures: bármilyen bennragadt ===...=== jelölo (pl. ===VÉGE===) eltávolítása.
+      v = v.replace(/={2,}\s*[^\n=]*\s*={2,}/g, "").trim();
+      return v;
     };
     const title = sec("TITLE");
     const bodyHtml = sec("BODY");
