@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getWebshopData, syncWebshopOrders } from "@/lib/webshop";
 import WebshopRefresh from "@/components/WebshopRefresh";
+import WebshopOrderActions from "@/components/WebshopOrderActions";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +79,7 @@ export default async function WebshopPage() {
         </div>
         {d.orders.length ? (
           <div className="overflow-x-auto rounded-xl border border-white/10">
-            <table className="w-full min-w-[940px] text-sm">
+            <table className="w-full min-w-[1060px] text-sm">
               <thead>
                 <tr className="bg-white/5 text-left text-xs uppercase text-white/50">
                   <th className="p-2">Dátum</th>
@@ -89,6 +90,7 @@ export default async function WebshopPage() {
                   <th className="p-2">Státusz</th>
                   <th className="p-2">Számla</th>
                   <th className="p-2">Fizetve</th>
+                  <th className="p-2 text-right">Muvelet</th>
                 </tr>
               </thead>
               <tbody>
@@ -129,12 +131,15 @@ export default async function WebshopPage() {
                     </td>
                     <td className="p-2">
                       {o.paid === true ? (
-                        <span className="badge bg-green-500/20 text-green-200">✓ fizetve</span>
+                        <span className="badge bg-green-500/20 text-green-200">✓ fizetve{o.paymentStatus === "kézi" ? " (kézi)" : ""}</span>
                       ) : o.paid === false ? (
                         <span className="badge bg-red-500/20 text-red-200">fizetetlen</span>
                       ) : (
                         <span className="text-white/30">—</span>
                       )}
+                    </td>
+                    <td className="p-2 text-right">
+                      <WebshopOrderActions orderKey={o.key} paid={o.paid} paymentStatus={o.paymentStatus} />
                     </td>
                   </tr>
                 ))}

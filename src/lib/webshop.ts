@@ -133,11 +133,56 @@ export interface WebshopData {
   };
 }
 
+// ── Kézi felülírások: elrejtett (törölt) rendelések + kézzel „fizetettnek” jelöltek (pl. készpénz) ──
+const OVERRIDES_KEY = "webshop_overrides";
+interface Overrides {
+  hidden: string[]; // dashboardról elrejtett (pl. próba) rendelések kulcsai
+  paid: string[]; // kézzel fizetettre állított rendelések kulcsai (készpénz stb.)
+}
+async function loadOverrides(): Promise<Overrides> {
+  try {
+    const { data } = await supabaseAdmin().from("app_state").select("value").eq("key", OVERRIDES_KEY).maybeSingle();
+    if (data?.value) {
+      const j = JSON.parse(data.value);
+      return { hidden: Array.isArray(j.hidden) ? j.hidden : [], paid: Array.isArray(j.paid) ? j.paid : [] };
+    }
+  } catch {
+    /* nincs még felülírás */
+  }
+  return { hidden: [], paid: [] };
+}
+async function saveOverrides(o: Overrides) {
+  await supabaseAdmin().from("app_state").upsert({ key: OVERRIDES_KEY, value: JSON.stringify(o), updated_at: new Date().toISOString() });
+}
+
+/** Rendelés elrejtése/visszaállítása a dashboardon (a valódi Unas-rendelést NEM törli). */
+export async function setOrderHidden(key: string, hidden: boolean): Promise<{ ok: boolean }> {
+  if (!key) return { ok: false };
+  const o = await loadOverrides();
+  const set = new Set(o.hidden);
+  hidden ? set.add(key) : set.delete(key);
+  o.hidden = [...set];
+  await saveOverrides(o);
+  return { ok: true };
+}
+/** Rendelés kézi fizetettre állítása/visszavonása (pl. készpénzes fizetés, ami nincs a Billingóban). */
+export async function setOrderPaid(key: string, paid: boolean): Promise<{ ok: boolean }> {
+  if (!key) return { ok: false };
+  const o = await loadOverrides();
+  const set = new Set(o.paid);
+  paid ? set.add(key) : set.delete(key);
+  o.paid = [...set];
+  await saveOverrides(o);
+  return { ok: true };
+}
+
 const bpMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest", year: "numeric", month: "2-digit" }).format(new Date()); // "2026-07"
 
 /** A Webshop-oldal adatai: rendelések (számlázott jelöléssel), vásárlók, KPI-k. */
 export async function getWebshopData(): Promise<WebshopData> {
-  const [stored, invoiced, invoices] = await Promise.all([load(), getInvoicedOrders(), getAllBillingoInvoices(200)]);
+  const [stored, invoiced, invoices, overrides] = await Promise.all([load(), getInvoicedOrders(), getAllBillingoInvoices(200), loadOverrides()]);
+  const hiddenSet = new Set(overrides.hidden);
+  const paidSet = new Set(overrides.paid);
 
   // Számlaszám → fizetettség (Billingo payment_status): a fizetve-állapot forrása.
   const invByNumber = new Map(invoices.map((i) => [i.number, i]));
@@ -148,18 +193,30 @@ export async function getWebshopData(): Promise<WebshopData> {
     return { paid: inv.paymentStatus === "paid", paymentStatus: inv.paymentStatus };
   };
 
-  const orders: WebshopOrderRow[] = stored.orders.map((o) => {
-    // 1) amit EZ az app állított ki (pontos rendelésszám-kötés), 2) tulaj saját/teszt, 3) Billingo-egyezés (név+összeg).
-    const appInv = invoiced[o.key];
-    if (appInv) {
-      const num = appInv.invoiceNumber || undefined;
-      return { ...o, invoiced: true, invoiceNumber: num, invoiceUrl: appInv.publicUrl || undefined, ...payOf(num) };
-    }
-    if (isOwnerOrder(o)) return { ...o, invoiced: true, invoiceNumber: "saját", paid: null };
-    const m = matchInvoice(o, invoices);
-    if (m) return { ...o, invoiced: true, invoiceNumber: m.number, invoiceUrl: undefined, paid: m.paymentStatus === "paid", paymentStatus: m.paymentStatus };
-    return { ...o, invoiced: false, paid: null };
-  });
+  const orders: WebshopOrderRow[] = stored.orders
+    .filter((o) => !hiddenSet.has(o.key)) // elrejtett (törölt) rendelések kihagyása
+    .map((o) => {
+      // 1) amit EZ az app állított ki (pontos rendelésszám-kötés), 2) tulaj saját/teszt, 3) Billingo-egyezés (név+összeg).
+      const appInv = invoiced[o.key];
+      let row: WebshopOrderRow;
+      if (appInv) {
+        const num = appInv.invoiceNumber || undefined;
+        row = { ...o, invoiced: true, invoiceNumber: num, invoiceUrl: appInv.publicUrl || undefined, ...payOf(num) };
+      } else if (isOwnerOrder(o)) {
+        row = { ...o, invoiced: true, invoiceNumber: "saját", paid: null };
+      } else {
+        const m = matchInvoice(o, invoices);
+        row = m
+          ? { ...o, invoiced: true, invoiceNumber: m.number, invoiceUrl: undefined, paid: m.paymentStatus === "paid", paymentStatus: m.paymentStatus }
+          : { ...o, invoiced: false, paid: null };
+      }
+      // Kézi fizetettre állítás (pl. készpénz) — felülírja a Billingo-állapotot.
+      if (paidSet.has(o.key)) {
+        row.paid = true;
+        row.paymentStatus = "kézi";
+      }
+      return row;
+    });
 
   // Az Unas dátumformátuma "2026.07.04 18:07:59" → a hónap-prefix "2026.07".
   const monthPrefix = bpMonth().replace("-", ".");
