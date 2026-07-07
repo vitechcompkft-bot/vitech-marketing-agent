@@ -14,17 +14,46 @@ const PREVIEW_KEY = "lifestyle_preview";
 // LETISZTULT, DESIGNOLT plakát: rotálódó nyári SZÍNTÉMÁK (nem fotó-jelenet), a VALÓDI termék kivágva rákerül.
 type Theme = { key: string; label: string; from: string; to: string; accent: string };
 
-/** Rotálódó nyári SZÍNTÉMÁK a designolt plakáthoz (gradiens + jelvény-szín). Egymás után NEM ismétlodnek. */
+/** Rotálódó, VISSZAFOGOTT, MÁRKAHU színtémák (kék/türkiz — nincs rikító sárga/narancs). NEM ismétlodnek. */
 const THEMES: Theme[] = [
-  { key: "beach", label: "Nyári tengerpart", from: "#22d3ee", to: "#0369a1", accent: "#fbbf24" },
-  { key: "sunset", label: "Nyári naplemente", from: "#fb7185", to: "#ea580c", accent: "#fde047" },
-  { key: "pool", label: "Medence-parti nyár", from: "#38bdf8", to: "#1d4ed8", accent: "#67e8f9" },
-  { key: "garden", label: "Kerti nyár", from: "#4ade80", to: "#15803d", accent: "#fde047" },
-  { key: "citrus", label: "Nyári frissesség", from: "#fbbf24", to: "#ea580c", accent: "#fff7cd" },
-  { key: "sky", label: "Nyári ég", from: "#60a5fa", to: "#1e40af", accent: "#fde047" },
-  { key: "football", label: "Foci-nyár", from: "#22c55e", to: "#064e3b", accent: "#fde047" },
-  { key: "brand", label: "Vitech nyár", from: "#1a73e8", to: "#0b1f3f", accent: "#38bdf8" },
+  { key: "brand", label: "Vitech ajánlat", from: "#1a73e8", to: "#0b1f3f", accent: "#bfdbfe" },
+  { key: "ocean", label: "Nyári ajánlat", from: "#0ea5e9", to: "#0c4a6e", accent: "#bae6fd" },
+  { key: "teal", label: "Friss nyár", from: "#0d9488", to: "#134e4a", accent: "#99f6e4" },
+  { key: "sky", label: "Tiszta nyár", from: "#3b82f6", to: "#1e3a8a", accent: "#bfdbfe" },
+  { key: "indigo", label: "Prémium ajánlat", from: "#4f46e5", to: "#1e1b4b", accent: "#c7d2fe" },
+  { key: "slate", label: "Üzleti ajánlat", from: "#334155", to: "#0f172a", accent: "#93c5fd" },
 ];
+
+/** BEVÁLT, ÉRTELMES focímek — nem az AI találja ki (folyton kockázatos), hanem ezekbol forgatunk. */
+const HEADLINES: string[] = [
+  "Nyári laptop-akció",
+  "Eros laptop, baráti ár",
+  "Felújított laptop, garanciával",
+  "Válts gépet még nyáron!",
+  "Megbízható laptop, jó áron",
+  "Prémium laptop, elérheto áron",
+  "Itt a nyári laptop-ajánlat",
+  "Üzleti laptop, teljes garanciával",
+  "Vidd magaddal a nyárba",
+  "Laptop, ami bírja a tempót",
+  "Dolgozz bárhonnan nyáron",
+  "Nyári ajánlat felújított laptopokra",
+];
+
+/** Világos, mindig helyes alcím a termékbol (nincs kitalált adat; garancia csak a névbol). */
+function buildSub(name: string): string {
+  const g = (name || "").match(/(\d+)\s*(hónap|év)\s*garanci/i);
+  const gar = g ? `${g[1]} ${g[2].toLowerCase()} garanciával` : "garanciával";
+  return `Gondosan bevizsgált, felújított üzleti laptop ${gar}, kedvezményes áron.`;
+}
+
+/** Olyan focím, ami az utolsó 6-ban NEM szerepelt (változatosság, de mindig ÉRTELMES). */
+function pickHeadline(recent: string[]): string {
+  const last = recent.slice(-6);
+  const fresh = HEADLINES.filter((h) => !last.includes(h));
+  const pool = fresh.length ? fresh : HEADLINES;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 
 /** Biztonságos jelvények: garancia CSAK a termék nevébol; nincs kitalált adat. */
 function buildBadges(name: string): string[] {
@@ -151,16 +180,22 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
 
   const state = await loadState();
   const theme = pickTheme(state.styles);
+  // A FOCÍM bevált készletbol (nem AI-nonsense), az ALCÍM determinista — mindig ÉRTELMES és helyes.
+  const headline = pickHeadline(state.headlines);
+  const sub = buildSub(product.name);
 
-  const qc =
-    (await lifestyleCompose({ name: product.name, priceGross: product.priceGross }, theme.label, state.headlines.slice(-6))) || {
-      headline: "Dolgozz bárhonnan",
-      sub: "Bevizsgált üzleti laptopok garanciával.",
-      caption: "Idén nyáron vidd magaddal az irodát! 💻☀️ Nézd meg a laptopjainkat a vitechcompkft.hu-n!",
-    };
+  // Az AI CSAK a FB-poszt SZÖVEGÉT (caption) írja; a focímet/alcímet NEM (ott volt a „Nyár, sí, gépelj"-nonsense).
+  const composed = await lifestyleCompose(
+    { name: product.name, priceGross: product.priceGross },
+    theme.label,
+    state.headlines.slice(-6)
+  ).catch(() => null);
+  const caption =
+    (composed?.caption && composed.caption.trim()) ||
+    "Idén nyáron dolgozz a legjobb géppel! Nézd meg a felújított, garanciás laptopjainkat a vitechcompkft.hu-n.";
 
-  // POSZTOLÁS ELOTTI KÖTELEZO tartalmi ellenorzés (tört ár + kitalált garancia) — azonnali, kód-alapú.
-  const guard = textGuard(product.name, qc.headline, qc.sub, qc.caption);
+  // POSZTOLÁS ELOTTI KÖTELEZO tartalmi ellenorzés (tört ár + kitalált garancia) — a caption-re is.
+  const guard = textGuard(product.name, headline, sub, caption);
 
   // A VALÓDI termékfotó háttér-kivágása (remove.bg) → átlátszó PNG a designolt plakátra.
   // Ha nincs kulcs / hiba → a sima fotót fehér kártyára tesszük (a fehér háttér így szándékosnak tunik).
@@ -173,8 +208,8 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   const poster = await renderCleanProductPosterPng({
     cutoutUrl,
     onWhiteCard: !cutout,
-    headline: qc.headline,
-    sub: qc.sub,
+    headline,
+    sub,
     priceHuf: price ?? undefined,
     badges: buildBadges(product.name),
     ribbon: theme.label,
@@ -190,9 +225,9 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
     product: product.name,
     productUrl: product.url || "https://vitechcompkft.hu",
     priceHuf: price,
-    headline: qc.headline,
-    sub: qc.sub,
-    caption: qc.caption,
+    headline,
+    sub,
+    caption,
     poster,
     realProduct: usedRealProduct,
     qcOk: guard.ok,
