@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renderLifestylePosterPng, getLastLifestyleRenderError } from "@/lib/poster";
+import { addPremiumPoster } from "@/lib/premium";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,15 @@ async function handle(req: NextRequest) {
   const sub = body.sub || q.get("sub") || "";
   if (!bg) return NextResponse.json({ ok: false, error: "hiányzó bg kép-URL" }, { status: 400 });
   const url = await renderLifestylePosterPng({ bgUrl: bg, headline, sub });
-  return NextResponse.json({ ok: !!url, url, error: url ? undefined : getLastLifestyleRenderError() });
+  if (!url) return NextResponse.json({ ok: false, error: getLastLifestyleRenderError() });
+  // A kész, rámárkázott plakát felkerül JÓVÁHAGYÁSRA a /plakatok oldalra (kivéve, ha addToApproval=false).
+  let added: string | undefined;
+  if (body.addToApproval !== false && q.get("addToApproval") !== "0") {
+    const caption = body.caption || q.get("caption") || "";
+    const p = await addPremiumPoster({ url, headline, sub, caption }).catch(() => null);
+    added = p?.id;
+  }
+  return NextResponse.json({ ok: true, url, added });
 }
 
 export const GET = handle;
