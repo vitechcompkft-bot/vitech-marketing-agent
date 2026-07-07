@@ -20,9 +20,11 @@ function cleanBlogBody(text: string): string {
     const tail = t.slice(lastGt + 1).trim();
     if (tail && tail.length < 200 && !/[<>]/.test(tail)) t = t.slice(0, lastGt + 1);
   }
-  // 3) Végi „Nem csak … hanem …" típusú zárószlogen levágása — CSAK a cikk legvégén (blokk-tagba csomagolva vagy sima szövegként).
-  t = t.replace(/<(p|div|h[1-6])[^>]*>\s*(?:<[^>]+>\s*)*Nem csak [\s\S]{0,160}?<\/\1>\s*$/i, "").trim();
-  t = t.replace(/\s*Nem csak [^\n<]{0,160}?\.\s*$/i, "").trim();
+  // 3) Végi „Nem csak …, hanem …." zárószlogen levágása — akár ÖNÁLLÓ bekezdés, akár az utolsó bekezdés
+  //    UTOLSÓ mondata (a bekezdés többi része marad). Csak a cikk legvégén hat, máshoz nem nyúl.
+  t = t.replace(/\s*Nem csak [^<]*?hanem [^<.]*?\.\s*(<\/(?:p|div|h[1-6])>)?\s*$/i, "$1").trim();
+  // ha ettol üres blokk maradna a végén, azt is takarítjuk
+  t = t.replace(/<(p|div|h[1-6])>\s*<\/\1>\s*$/i, "").trim();
   // ismételt üres-tag / szóköz takarítás a végén
   lastGt = t.lastIndexOf(">");
   if (lastGt !== -1) {
