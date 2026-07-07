@@ -60,6 +60,7 @@ async function handle(req: NextRequest) {
         updated,
         msg,
         removed: changed ? original.slice(cleaned.length).trim().slice(0, 240) : "",
+        tail: original.slice(-400),
       });
     }
     return NextResponse.json({ ok: true, apply, count: blogs.length, changed: results.filter((r) => r.changed).length, results });
