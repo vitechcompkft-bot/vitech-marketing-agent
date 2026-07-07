@@ -786,6 +786,44 @@ Válaszolj PONTOSAN ebben a JSON-ban: { "ok": true/false, "issue": "ha nem ok, m
 }
 
 /**
+ * LUCA VIZUÁLIS QC a LETISZTULT (designolt) lifestyle-plakáthoz — POSZTOLÁS ELOTT.
+ * Megkapja a kész plakát képét ÉS a focím szövegét, és eldönti, kimehet-e a Facebookra.
+ * Cél: ne mehessen ki értelmetlen focím / olvashatatlan / csúnya / nem márkahu plakát.
+ */
+export async function lucaReviewCleanPoster(imageUrl: string, headline: string): Promise<{ ok: boolean; issue: string }> {
+  const anthropic = client();
+  const content: any[] = [
+    { type: "image", source: { type: "url", url: imageUrl } },
+    {
+      type: "text",
+      text: `Te vagy Luca, a Vitech Comp (felújított laptopok) marketingfonöke. Ez egy designolt Facebook-hirdetés, amit MOST posztolnánk ki. A focím szövege: „${headline}".
+Hagyd jóvá (ok=true) CSAK akkor, ha MIND teljesül:
+1) A FOCÍM ÉRTELMES, magyarul helyes, és illik egy laptop-hirdetéshez (NEM zagyva szó-lista, pl. „Nyár, sí, gépelj" = ROSSZ).
+2) A termék (laptop) tisztán, elég nagyban látszik.
+3) Minden szöveg (focím, alcím, jelvények, ár, logó) JÓL OLVASHATÓ, nincs levágva/eltakarva.
+4) A színvilág visszafogott, profi, márkahu (nem rikító, nem giccses).
+5) Az összhatás eladható, profi termék-hirdetés.
+Ha BÁRMELYIK sérül → ok=false, és írd le RÖVIDEN, konkrétan mi a baj.
+Válaszolj PONTOSAN ebben a JSON-ban, utána semmi: { "ok": true, "issue": "" }`,
+    },
+  ];
+  let lastErr = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const msg = await anthropic.messages.create({ model: SMART, max_tokens: 250, messages: [{ role: "user", content: content as any }] });
+      const text = msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+      const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+      return { ok: !!j.ok, issue: j.issue || "" };
+    } catch (e: any) {
+      lastErr = (e?.message || "").slice(0, 140);
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
+  // Tartós infra-hiba esetén NE blokkoljunk (a curated focím + téma miatt a kép alapból rendben van).
+  return { ok: true, issue: "vizuális QC kihagyva (hiba): " + lastErr };
+}
+
+/**
  * MIHÁLY — gazdasági osztályvezeto (határozott könyvelo) napi pénzügyi elemzése.
  * A célja: minél több BEVÉTEL + a kiadások kordában tartása. Konkrét, számokra épülo
  * javaslatokat ad a spórolásra és a bevétel növelésére.

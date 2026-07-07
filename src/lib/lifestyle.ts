@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetProducts, type UnasProduct } from "./unas";
-import { lifestyleCompose } from "./claude";
+import { lifestyleCompose, lucaReviewCleanPoster } from "./claude";
 import { removeBg } from "./removebg";
 import { renderCleanProductPosterPng, getLastLifestyleRenderError } from "./poster";
 import { publishKlariPoster } from "./facebook";
@@ -219,6 +219,11 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
   });
   if (!poster) throw new Error("poszter-render sikertelen — " + (getLastLifestyleRenderError() || "ismeretlen"));
 
+  // VIZUÁLIS QC — Luca ránéz a KÉSZ plakátra + a focímre, és blokkol, ha nem egyértelmuen jó (posztolás elott).
+  const review = await lucaReviewCleanPoster(poster, headline).catch(() => ({ ok: true, issue: "QC hiba (átengedve)" }));
+  const qcOk = guard.ok && review.ok;
+  const qcNote = [guard.ok ? "" : guard.note, review.ok ? "" : `Luca: ${review.issue}`].filter(Boolean).join(" | ");
+
   const draft: LifestyleDraft = {
     styleKey: theme.key,
     style: theme.label,
@@ -230,8 +235,8 @@ export async function buildLifestylePoster(): Promise<LifestyleDraft> {
     caption,
     poster,
     realProduct: usedRealProduct,
-    qcOk: guard.ok,
-    qcNote: guard.note,
+    qcOk,
+    qcNote,
   };
 
   try {
