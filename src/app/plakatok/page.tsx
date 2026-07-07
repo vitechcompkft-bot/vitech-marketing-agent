@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listPremiumPosters } from "@/lib/premium";
 import PremiumActions from "@/components/PremiumActions";
+import ZoomImage from "@/components/ZoomImage";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export default async function PlakatokPage() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {pending.map((p) => (
               <div key={p.id} className="card">
-                <img src={p.url} alt={p.headline} className="w-full rounded-lg border border-white/10" />
+                <ZoomImage src={p.url} alt={p.headline} className="w-full rounded-lg border border-white/10" />
                 <div className="mt-2 font-semibold text-white/90">{p.headline}</div>
                 {p.sub && <div className="text-sm text-white/60">{p.sub}</div>}
                 <PremiumActions id={p.id} status={p.status} />
@@ -50,7 +51,7 @@ export default async function PlakatokPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {others.map((p) => (
               <div key={p.id} className="card">
-                <img src={p.url} alt={p.headline} className="w-full rounded-lg border border-white/10" />
+                <ZoomImage src={p.url} alt={p.headline} className="w-full rounded-lg border border-white/10" />
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <div className="truncate text-sm font-medium text-white/85" title={p.headline}>{p.headline}</div>
                   <span className="badge whitespace-nowrap bg-white/10 text-white/60">{STATUS_LABEL[p.status] || p.status}</span>
