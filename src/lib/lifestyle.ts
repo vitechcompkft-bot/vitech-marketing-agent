@@ -7,6 +7,7 @@ import { publishKlariPoster } from "./facebook";
 import { setAgentStatus } from "./team";
 import { sendTelegram } from "./telegram";
 import { isLive } from "./productLive";
+import { pickApprovedPremium, publishPremiumPoster } from "./premium";
 
 const STATE_KEY = "lifestyle_state";
 const PREVIEW_KEY = "lifestyle_preview";
@@ -306,8 +307,22 @@ export async function loadLifestylePreview(): Promise<LifestyleDraft | null> {
  * Éles futásnál CSAK akkor posztol, ha a QC rendben van; különben riaszt és NEM tesz ki semmit.
  */
 export async function runLifestyleDaily(opts?: { dryRun?: boolean }): Promise<{ ok: boolean; fbUrl?: string; error?: string; draft?: LifestyleDraft }> {
-  await setAgentStatus("klari", "working", "Napi lifestyle-plakát készítése (LAPTOP + QC)…");
+  await setAgentStatus("klari", "working", "Napi lifestyle-plakát…");
   try {
+    // ÉLES: elsoként a tulajdonos által JÓVÁHAGYOTT prémium plakátot posztoljuk (ha van ilyen).
+    if (!opts?.dryRun) {
+      const approved = await pickApprovedPremium().catch(() => null);
+      if (approved) {
+        const fb = await publishPremiumPoster(approved.id);
+        if (fb.ok) {
+          await setAgentStatus("klari", "done", `Prémium plakát kiposztolva: ${approved.headline}`);
+          await sendTelegram(`🌴 *Napi prémium plakát kint a Facebookon*\n\n📰 ${approved.headline}${fb.fbUrl ? `\n🔗 ${fb.fbUrl}` : ""}`).catch(() => {});
+          return { ok: true, fbUrl: fb.fbUrl };
+        }
+        // ha a prémium posztolás hibázott → átesünk az automata plakátra (safety net)
+      }
+    }
+
     const draft = await buildLifestylePoster();
 
     if (opts?.dryRun) {
