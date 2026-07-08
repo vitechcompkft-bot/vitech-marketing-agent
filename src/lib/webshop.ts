@@ -103,6 +103,7 @@ export interface WebshopOrderRow extends UnasOrderSummary {
   invoiceUrl?: string;
   paid: boolean | null; // true=kifizetve, false=fizetetlen (számla nyitott/lejárt), null=nincs adat (nincs számla)
   paymentStatus?: string; // Billingo payment_status (paid/outstanding/expired/…)
+  notPickedUp: boolean; // „nem vette át a terméket" (pirossal jelölve)
 }
 
 export interface WebshopCustomer {
@@ -138,18 +139,23 @@ const OVERRIDES_KEY = "webshop_overrides";
 interface Overrides {
   hidden: string[]; // dashboardról elrejtett (pl. próba) rendelések kulcsai
   paid: string[]; // kézzel fizetettre állított rendelések kulcsai (készpénz stb.)
+  notPickedUp: string[]; // „nem vette át a terméket" — pirossal jelöljük
 }
 async function loadOverrides(): Promise<Overrides> {
   try {
     const { data } = await supabaseAdmin().from("app_state").select("value").eq("key", OVERRIDES_KEY).maybeSingle();
     if (data?.value) {
       const j = JSON.parse(data.value);
-      return { hidden: Array.isArray(j.hidden) ? j.hidden : [], paid: Array.isArray(j.paid) ? j.paid : [] };
+      return {
+        hidden: Array.isArray(j.hidden) ? j.hidden : [],
+        paid: Array.isArray(j.paid) ? j.paid : [],
+        notPickedUp: Array.isArray(j.notPickedUp) ? j.notPickedUp : [],
+      };
     }
   } catch {
     /* nincs még felülírás */
   }
-  return { hidden: [], paid: [] };
+  return { hidden: [], paid: [], notPickedUp: [] };
 }
 async function saveOverrides(o: Overrides) {
   await supabaseAdmin().from("app_state").upsert({ key: OVERRIDES_KEY, value: JSON.stringify(o), updated_at: new Date().toISOString() });
@@ -175,6 +181,16 @@ export async function setOrderPaid(key: string, paid: boolean): Promise<{ ok: bo
   await saveOverrides(o);
   return { ok: true };
 }
+/** „Nem vette át a terméket" jelölés be/ki (pirossal jelöljük a sort). */
+export async function setOrderNotPickedUp(key: string, value: boolean): Promise<{ ok: boolean }> {
+  if (!key) return { ok: false };
+  const o = await loadOverrides();
+  const set = new Set(o.notPickedUp);
+  value ? set.add(key) : set.delete(key);
+  o.notPickedUp = [...set];
+  await saveOverrides(o);
+  return { ok: true };
+}
 
 const bpMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest", year: "numeric", month: "2-digit" }).format(new Date()); // "2026-07"
 
@@ -183,6 +199,7 @@ export async function getWebshopData(): Promise<WebshopData> {
   const [stored, invoiced, invoices, overrides] = await Promise.all([load(), getInvoicedOrders(), getAllBillingoInvoices(200), loadOverrides()]);
   const hiddenSet = new Set(overrides.hidden);
   const paidSet = new Set(overrides.paid);
+  const notPickedUpSet = new Set(overrides.notPickedUp);
 
   // Számlaszám → fizetettség (Billingo payment_status): a fizetve-állapot forrása.
   const invByNumber = new Map(invoices.map((i) => [i.number, i]));
@@ -198,17 +215,18 @@ export async function getWebshopData(): Promise<WebshopData> {
     .map((o) => {
       // 1) amit EZ az app állított ki (pontos rendelésszám-kötés), 2) tulaj saját/teszt, 3) Billingo-egyezés (név+összeg).
       const appInv = invoiced[o.key];
+      const np = notPickedUpSet.has(o.key);
       let row: WebshopOrderRow;
       if (appInv) {
         const num = appInv.invoiceNumber || undefined;
-        row = { ...o, invoiced: true, invoiceNumber: num, invoiceUrl: appInv.publicUrl || undefined, ...payOf(num) };
+        row = { ...o, invoiced: true, invoiceNumber: num, invoiceUrl: appInv.publicUrl || undefined, notPickedUp: np, ...payOf(num) };
       } else if (isOwnerOrder(o)) {
-        row = { ...o, invoiced: true, invoiceNumber: "saját", paid: null };
+        row = { ...o, invoiced: true, invoiceNumber: "saját", paid: null, notPickedUp: np };
       } else {
         const m = matchInvoice(o, invoices);
         row = m
-          ? { ...o, invoiced: true, invoiceNumber: m.number, invoiceUrl: undefined, paid: m.paymentStatus === "paid", paymentStatus: m.paymentStatus }
-          : { ...o, invoiced: false, paid: null };
+          ? { ...o, invoiced: true, invoiceNumber: m.number, invoiceUrl: undefined, paid: m.paymentStatus === "paid", paymentStatus: m.paymentStatus, notPickedUp: np }
+          : { ...o, invoiced: false, paid: null, notPickedUp: np };
       }
       // Kézi fizetettre állítás (pl. készpénz) — felülírja a Billingo-állapotot.
       if (paidSet.has(o.key)) {

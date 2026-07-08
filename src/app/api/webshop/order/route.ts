@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { setOrderHidden, setOrderPaid } from "@/lib/webshop";
+import { setOrderHidden, setOrderPaid, setOrderNotPickedUp } from "@/lib/webshop";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +31,8 @@ async function handle(req: NextRequest) {
     else if (action === "restore") await setOrderHidden(key, false);
     else if (action === "markPaid") await setOrderPaid(key, true);
     else if (action === "unmarkPaid") await setOrderPaid(key, false);
+    else if (action === "notPickedUp") await setOrderNotPickedUp(key, true);
+    else if (action === "pickedUp") await setOrderNotPickedUp(key, false);
     else return NextResponse.json({ ok: false, error: "Ismeretlen muvelet." }, { status: 400 });
     return NextResponse.json({ ok: true });
   } catch (e: any) {

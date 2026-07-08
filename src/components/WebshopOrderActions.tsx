@@ -8,10 +8,12 @@ export default function WebshopOrderActions({
   orderKey,
   paid,
   paymentStatus,
+  notPickedUp,
 }: {
   orderKey: string;
   paid: boolean | null;
   paymentStatus?: string;
+  notPickedUp?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState("");
@@ -53,6 +55,14 @@ export default function WebshopOrderActions({
           ↩︎
         </button>
       )}
+      <button
+        className={`rounded-md px-1.5 py-1 text-sm hover:bg-white/10 disabled:opacity-40 ${notPickedUp ? "bg-red-500/25" : ""}`}
+        title={notPickedUp ? "Mégis átvette — jelölés visszavonása" : "Nem vette át a terméket (pirossal jelöli)"}
+        disabled={!!busy}
+        onClick={() => act(notPickedUp ? "pickedUp" : "notPickedUp")}
+      >
+        📦❌
+      </button>
       <button
         className="rounded-md px-1.5 py-1 text-sm hover:bg-white/10 disabled:opacity-40"
         title="Törlés a dashboardról (pl. próba rendelés) — a valódi Unas-rendelést NEM törli"

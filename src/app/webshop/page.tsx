@@ -80,6 +80,7 @@ export default async function WebshopPage() {
         <div className="mb-2 flex items-center gap-3 text-xs text-white/45">
           <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded bg-green-500/30 ring-1 ring-green-400/40" /> számlázva</span>
           <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded bg-amber-500/20 ring-1 ring-amber-400/30" /> még nincs számlázva</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded bg-red-500/30 ring-1 ring-red-400/40" /> nem vette át (📦❌ gomb)</span>
         </div>
         {d.orders.length ? (
           <div className="overflow-x-auto rounded-xl border border-white/10">
@@ -112,7 +113,7 @@ export default async function WebshopPage() {
                 {d.orders.slice(0, 200).map((o) => (
                   <tr
                     key={o.key}
-                    className={`border-t border-white/10 ${o.invoiced ? "bg-green-500/10" : "bg-amber-500/[0.04]"}`}
+                    className={`border-t border-white/10 ${o.notPickedUp ? "bg-red-500/25" : o.invoiced ? "bg-green-500/10" : "bg-amber-500/[0.04]"}`}
                   >
                     <td className="whitespace-nowrap p-1.5 text-white/70" title={o.date}>{shortDT(o.date)}</td>
                     <td className="whitespace-nowrap p-1.5 font-mono text-white/85" title={o.key}>{shortKey(o.key)}</td>
@@ -128,7 +129,11 @@ export default async function WebshopPage() {
                     </td>
                     <td className="whitespace-nowrap p-1.5 text-right font-semibold">{ft(o.sumGross)}</td>
                     <td className="overflow-hidden p-1.5">
-                      <span className="text-white/60" title={o.status || ""}>{shortStatus(o)}</span>
+                      {o.notPickedUp ? (
+                        <span className="badge bg-red-500/30 text-red-100" title="Nem vette át a terméket">⚠ nem vette át</span>
+                      ) : (
+                        <span className="text-white/60" title={o.status || ""}>{shortStatus(o)}</span>
+                      )}
                     </td>
                     <td className="overflow-hidden p-1.5">
                       {o.invoiced ? (
@@ -153,7 +158,7 @@ export default async function WebshopPage() {
                       )}
                     </td>
                     <td className="p-1.5 text-right">
-                      <WebshopOrderActions orderKey={o.key} paid={o.paid} paymentStatus={o.paymentStatus} />
+                      <WebshopOrderActions orderKey={o.key} paid={o.paid} paymentStatus={o.paymentStatus} notPickedUp={o.notPickedUp} />
                     </td>
                   </tr>
                 ))}
