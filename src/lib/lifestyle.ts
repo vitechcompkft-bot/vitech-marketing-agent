@@ -28,7 +28,7 @@ const THEMES: Theme[] = [
 /** BEVÁLT, ÉRTELMES focímek — nem az AI találja ki (folyton kockázatos), hanem ezekbol forgatunk. */
 const HEADLINES: string[] = [
   "Nyári laptop-akció",
-  "Eros laptop, baráti ár",
+  "Erős laptop, baráti ár",
   "Felújított laptop, garanciával",
   "Válts gépet még nyáron!",
   "Megbízható laptop, jó áron",
