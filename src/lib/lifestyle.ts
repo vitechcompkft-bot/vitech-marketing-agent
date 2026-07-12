@@ -303,6 +303,23 @@ export async function loadLifestylePreview(): Promise<LifestyleDraft | null> {
 }
 
 /**
+ * Hiba-riasztás Telegramon NAPONTA LEGFELJEBB EGYSZER (dedupe) — hogy az újrapróbálkozások ne spammeljenek.
+ * A konkrét okot is tartalmazza. app_state „lifestyle_alert" { date, reason }.
+ */
+async function alertPosterFailureOncePerDay(message: string): Promise<void> {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest" }).format(new Date());
+  try {
+    const { data } = await supabaseAdmin().from("app_state").select("value").eq("key", "lifestyle_alert").maybeSingle();
+    const prev = data?.value ? JSON.parse(data.value) : null;
+    if (prev?.date === today) return; // ma már küldtünk hibajelzést — NE spammeljünk tovább
+    await supabaseAdmin().from("app_state").upsert({ key: "lifestyle_alert", value: JSON.stringify({ date: today, reason: message.slice(0, 300) }), updated_at: new Date().toISOString() });
+  } catch {
+    /* ha nem tudjuk ellenorizni, inkább menjen egyszer */
+  }
+  await sendTelegram(message).catch(() => {});
+}
+
+/**
  * Napi lifestyle-plakát. dryRun=true → csak elokészít + QC (NEM posztol; visszaadja az elonézetet).
  * Éles futásnál CSAK akkor posztol, ha a QC rendben van; különben riaszt és NEM tesz ki semmit.
  */
@@ -331,10 +348,10 @@ export async function runLifestyleDaily(opts?: { dryRun?: boolean }): Promise<{ 
     }
 
     if (!draft.qcOk) {
-      await setAgentStatus("klari", "error", `Lifestyle-plakát VISSZATARTVA (QC): ${draft.qcNote || "nyelvi/tartalmi hiba"}`);
-      await sendTelegram(
-        `⚠️ *Lifestyle-plakát VISSZATARTVA* — nem ment ki, mert a QC hibát talált:\n${draft.qcNote || "nyelvi/tartalmi hiba"}\n(termék: ${draft.product})`
-      ).catch(() => {});
+      await setAgentStatus("klari", "error", `Lifestyle-plakát VISSZATARTVA (QC): ${draft.qcNote || "?"}`);
+      await alertPosterFailureOncePerDay(
+        `⚠️ *A mai plakát nem ment ki* (a minoség-ellenor visszatartotta).\n*Konkrét ok:* ${draft.qcNote || "nyelvi/tartalmi hiba"}\n*Termék:* ${draft.product}\n\n👉 Tipp: hagyj jóvá egy prémium plakátot a *Plakátok* oldalon — azt a rendszer automatikusan kiteszi.`
+      );
       return { ok: false, error: "QC nem OK: " + draft.qcNote, draft };
     }
 
@@ -346,13 +363,15 @@ export async function runLifestyleDaily(opts?: { dryRun?: boolean }): Promise<{ 
       ).catch(() => {});
     } else {
       await setAgentStatus("klari", "error", `Lifestyle FB-hiba: ${fb.error || "?"}`);
-      await sendTelegram(`⚠️ A lifestyle-plakát elkészült és átment a QC-n, de a Facebook-poszt nem ment ki: ${fb.error || "?"}`).catch(() => {});
+      await alertPosterFailureOncePerDay(`⚠️ *A mai plakát elkészült, de a Facebook-poszt hibázott.*\n*Konkrét ok:* ${fb.error || "ismeretlen"}`);
     }
     return { ok: fb.ok, fbUrl: fb.url, error: fb.error, draft };
   } catch (e: any) {
     const msg = String(e?.message || e);
     await setAgentStatus("klari", "error", `Lifestyle-plakát hiba: ${msg}`);
-    await sendTelegram(`❌ Napi lifestyle-plakát hiba: ${msg}`).catch(() => {});
+    await alertPosterFailureOncePerDay(
+      `❌ *A mai plakát nem készült el.*\n*Konkrét ok:* ${msg}\n\n👉 Tipp: hagyj jóvá egy prémium plakátot a *Plakátok* oldalon — azt a rendszer automatikusan kiteszi.`
+    );
     return { ok: false, error: msg };
   }
 }

@@ -40,6 +40,7 @@ export const SCHEDULE: SchedTask[] = [
 ];
 export const SUMMARY_TIME = "18:00";
 const GRACE_MIN = 6; // a feladat idopontja UTÁN ennyi perccel nógat Erika, ha nincs kész
+const MAX_NUDGES = 3; // egy feladatot naponta LEGFELJEBB ennyiszer nógat/indít újra (nincs végtelen pörgetés)
 
 async function loadDay(date: string): Promise<any> {
   try {
@@ -150,12 +151,15 @@ export async function runErikaTick(): Promise<any> {
         await triggerTask(t);
         e.triggeredAt = nowHM;
         e.status = "working";
-      } else if (nowMin >= taskMin + GRACE_MIN && !working) {
+      } else if (nowMin >= taskMin + GRACE_MIN && !working && (e.nudges || 0) < MAX_NUDGES) {
+        // Csak PÁRSZOR nógat/újraindít (MAX_NUDGES) — utána békén hagyja aznapra (nincs végtelen pörgetés/spam).
         await sendAgentMessage("erika", t.key, "kérés", `A mai feladatod ("${t.label}", ${t.time}) még nincs kész — kérlek, csináld meg most.`).catch(() => {});
         await triggerTask(t);
         e.nudges = (e.nudges || 0) + 1;
         e.status = "late";
         nudged.push(t.label);
+      } else if (nowMin >= taskMin + GRACE_MIN && !working) {
+        e.status = "late"; // már MAX_NUDGES-ször próbáltuk ma — nem pörgetjük tovább
       } else {
         e.status = "working";
       }
