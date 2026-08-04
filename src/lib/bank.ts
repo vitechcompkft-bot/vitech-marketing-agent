@@ -265,6 +265,11 @@ export async function getMonthStatement(month?: string): Promise<MonthStatement>
     from = now.toISOString().slice(0, 7) + "-01";
     to = now.toISOString().slice(0, 10);
   }
+  return getStatementForRange(from, to);
+}
+
+/** TETSZoLEGES idoszak ÖSSZES banki tétele (pl. fél év) — from/to = "YYYY-MM-DD". */
+export async function getStatementForRange(from: string, to: string): Promise<MonthStatement> {
   const base: MonthStatement = { ok: false, periodFrom: from, periodTo: to, currency: "HUF", totalIn: 0, totalOut: 0, transactions: [] };
   if (!bankEnabled()) return { ...base, note: "Nincs banki kulcs." };
   const sb = supabaseAdmin();

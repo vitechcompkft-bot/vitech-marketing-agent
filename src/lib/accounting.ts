@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "./supabase";
-import { getMonthStatement } from "./bank";
+import { getMonthStatement, getStatementForRange } from "./bank";
 import { buildStatementPdf, buildStatementXlsx } from "./bankExport";
 import { sendMail } from "./mailer";
 import { sendTelegram } from "./telegram";
@@ -85,4 +85,52 @@ export async function runAccountantEmail(opts?: { force?: boolean }): Promise<{ 
   await sendAgentMessage("mihaly", "erika", "info", `Elküldtem a könyvelonek a ${month} havi számlatörténetet (Excel) és számlakivonatot (PDF). Bevétel ${ft(stmt.totalIn)}, kiadás ${ft(stmt.totalOut)}, ${stmt.transactions.length} tétel.`).catch(() => {});
   await sendTelegram(`📑 *Mihály — havi könyvelési anyag elküldve*\nHónap: ${month} · ${stmt.transactions.length} tétel\nCímzett: ${to}\nBevétel ${ft(stmt.totalIn)} · Kiadás ${ft(stmt.totalOut)}`).catch(() => {});
   return { ok: true, month, to };
+}
+
+/**
+ * EGYEDI IDoSZAK számlatörténete a könyvelonek (pl. fél év: 2026-01-01 – 2026-06-30).
+ * send=false → csak összegzés (ellenorzéshez: hány tétel, milyen dátumtól-ig — a bank a PSD2 miatt korlátozhat).
+ * send=true → Excel (+PDF) emailben a könyvelonek.
+ */
+export async function runAccountantRange(
+  from: string,
+  to: string,
+  opts?: { send?: boolean; toOverride?: string }
+): Promise<{ ok: boolean; reason?: string; summary?: any; to?: string; sent?: boolean }> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return { ok: false, reason: "Hibás dátum (YYYY-MM-DD kell)." };
+  const stmt = await getStatementForRange(from, to);
+  if (!stmt.ok) return { ok: false, reason: stmt.note || "Nem sikerült a kivonat lekérése." };
+  const txs = stmt.transactions;
+  const summary = {
+    periodFrom: stmt.periodFrom,
+    periodTo: stmt.periodTo,
+    transactions: txs.length,
+    firstDate: txs[0]?.date || null,
+    lastDate: txs[txs.length - 1]?.date || null,
+    totalIn: stmt.totalIn,
+    totalOut: stmt.totalOut,
+  };
+  if (!opts?.send) return { ok: true, summary, sent: false };
+
+  const to_ = (opts.toOverride || (await accountantEmail()) || "").trim();
+  if (!to_) return { ok: false, reason: "Nincs könyvelo email cím beállítva.", summary };
+  const [pdf, xlsx] = await Promise.all([buildStatementPdf(stmt), buildStatementXlsx(stmt)]);
+  const r = await sendMail({
+    to: to_,
+    subject: `Vitech Comp Kft. — ${from} – ${to} számlatörténet (könyveléshez)`,
+    text:
+      `Tisztelt Könyvelő!\n\n` +
+      `Kérésére csatolva küldöm a ${from} – ${to} idoszak banki számlatörténetét:\n` +
+      `- Számlatörténet (Excel) — tételes\n- Számlakivonat (PDF)\n\n` +
+      `Időszak: ${stmt.periodFrom} – ${stmt.periodTo}\n` +
+      `Összes bevétel: ${ft(stmt.totalIn)}\nÖsszes kiadás: ${ft(stmt.totalOut)}\nTételek száma: ${txs.length}\n\n` +
+      `Üdvözlettel,\nVitech Comp Kft. (Mihály – Gazdasági osztály)`,
+    attachments: [
+      { filename: `vitech-szamlatortenet-${from}_${to}.xlsx`, content: xlsx, mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      { filename: `vitech-kivonat-${from}_${to}.pdf`, content: pdf, mime: "application/pdf" },
+    ],
+  });
+  if (!r.ok) return { ok: false, reason: `Email hiba: ${r.error}`, summary, to: to_ };
+  await sendTelegram(`📑 *Mihály — egyedi idoszak könyvelési anyag elküldve*\nIdoszak: ${from} – ${to} · ${txs.length} tétel\nCímzett: ${to_}`).catch(() => {});
+  return { ok: true, summary, to: to_, sent: true };
 }
