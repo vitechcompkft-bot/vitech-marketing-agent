@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./supabase";
 import { unasLogin, unasGetOrdersFull, type UnasOrderSummary } from "./unas";
 import { getInvoicedOrders, getAllBillingoInvoices, type BillingoInvoiceLite } from "./billingo";
+import { notifyNewOrders } from "./orderEmail";
 
 /** Névtokenek: kisbetu, ékezet nélkül, rendezve (a szórend/ékezet ne számítson: „Robert Shell" ↔ „Shell Róbert"). */
 function nameTokens(s?: string): string[] {
@@ -94,6 +95,15 @@ export async function syncWebshopOrders(force = false): Promise<{ synced: boolea
   }
   const orders = [...map.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, MAX_STORE);
   await save({ orders, lastSyncAt: new Date().toISOString() });
+
+  // Vevoi visszaigazoló levél az ÚJ rendelésekre (elso futáskor csak aktivál, historikusra nem küld).
+  // A levélküldés hibája SOHA ne törje meg a szinkront.
+  try {
+    await notifyNewOrders(token, fetched);
+  } catch {
+    /* email hiba nem kritikus a szinkron szempontjából */
+  }
+
   return { synced: true, added, total: orders.length };
 }
 

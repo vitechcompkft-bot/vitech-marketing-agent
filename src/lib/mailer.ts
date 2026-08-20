@@ -12,6 +12,9 @@ export async function sendMail(opts: {
   to?: string;
   subject: string;
   text: string;
+  html?: string; // ha meg van adva, szép HTML levél megy (a text a sima-szöveges fallback)
+  fromName?: string; // feladó megjelenített neve (alap: "Vitech AI csapat"); pl. vevoi levélnél "Vitech Comp Kft."
+  replyTo?: string;
   filename?: string;
   content?: Buffer;
   mime?: string;
@@ -28,10 +31,12 @@ export async function sendMail(opts: {
       ? [{ filename: opts.filename, content: opts.content, contentType: opts.mime }]
       : undefined;
     await transporter.sendMail({
-      from: `Vitech AI csapat <${user}>`,
+      from: `${opts.fromName || "Vitech AI csapat"} <${user}>`,
       to: opts.to || ownerEmail(),
+      replyTo: opts.replyTo,
       subject: opts.subject,
       text: opts.text,
+      html: opts.html,
       attachments: atts,
     });
     return { ok: true };
