@@ -1,5 +1,9 @@
-/** Telegram bot — kimenő üzenet küldése. */
+/** Telegram bot — kimenő üzenet küldése.
+ *  A tulajdonos kérésére (2026-09) a Telegram-értesítések ALAPBÓL KI vannak kapcsolva — helyettük
+ *  REGGELI E-MAIL megy az előző napi beszámolókkal (lásd agent.ts → sendDailyReport).
+ *  Visszakapcsolható: a Vercel env-ben TELEGRAM_ENABLED=true beállításával. */
 export async function sendTelegram(text: string, chatIdOverride?: string): Promise<boolean> {
+  if (process.env.TELEGRAM_ENABLED !== "true") return false; // Telegram kikapcsolva → e-mailben jelentünk
   const token = process.env.TELEGRAM_BOT_TOKEN;
   let chatId = chatIdOverride || process.env.TELEGRAM_CHAT_ID;
   // Ha nincs env CHAT_ID, essünk vissza az agent_config-ban tárolt értékre (a bot a tulajdonos

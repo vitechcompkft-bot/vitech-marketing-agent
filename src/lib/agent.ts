@@ -3,8 +3,14 @@ import { getCampaignMetrics, applyBudgetChange, setCampaignStatus } from "./goog
 import { analyzeMetrics } from "./claude";
 import { enforceGuardrails } from "./guardrails";
 import { sendTelegram } from "./telegram";
+import { sendMail, ownerEmail } from "./mailer";
 import { setAgentStatus, getAgentStatuses } from "./team";
 import type { AgentConfig, AgentDecision, CampaignMetric } from "./types";
+
+/** HTML-escape a dinamikus szövegekhez az e-mail-jelentésben. */
+function esc(s: string): string {
+  return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 export async function getConfig(): Promise<AgentConfig> {
   const sb = supabaseAdmin();
@@ -172,8 +178,8 @@ export async function runMonitorCycle(opts?: { sendReport?: boolean }): Promise<
     }
   }
 
-  // 5) Telegram napi összegzo — CSAK a dedikált napi cron kéri (sendReport).
-  //    Az óránkénti adatküldés (szkript) NEM küld jelentést, csak figyel + cselekszik csendben.
+  // 5) Reggeli napi beszámoló E-MAIL — CSAK a dedikált reggeli cron kéri (sendReport).
+  //    (Telegram helyett e-mail megy a tulajdonosnak; az óránkénti adatküldés NEM küld jelentést.)
   await setAgentStatus(
     "luca",
     "done",
@@ -187,10 +193,11 @@ export async function runMonitorCycle(opts?: { sendReport?: boolean }): Promise<
   return { ran: true, summary, executed, queued, proposed, blocked };
 }
 
-/** Napi összegzo Telegram-üzenet: az elmúlt 24 óra eseményei + aktuális helyzet. */
+/** REGGELI E-MAIL az ELŐZŐ NAPI beszámolókkal (a Telegram helyett). A monitor cron reggel hívja.
+ *  Tartalma: csapat-státuszok, marketing-összegzés, a beérkezett e-mailek triázsa, jóváhagyásra várók. */
 async function sendDailyReport(
   sb: ReturnType<typeof supabaseAdmin>,
-  config: AgentConfig,
+  _config: AgentConfig,
   analysisSummary: string
 ): Promise<void> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -201,49 +208,100 @@ async function sendDailyReport(
     .order("id", { ascending: false });
 
   const all = acts || [];
-  // Az autonóm lépések: már végrehajtva (executed) VAGY sorban a szkriptnél (approved/executing).
   const done = all.filter((a) => ["executed", "approved", "executing"].includes(a.status));
   const proposed = all.filter((a) => a.status === "proposed");
   const blocked = all.filter((a) => a.status === "blocked");
 
-  // Csapat napi státuszai (Erika gyujti össze).
+  // Csapat napi státuszai.
   const statuses = await getAgentStatuses();
-  const NAMES: Record<string, string> = { luca: "Luca", klari: "Klári", gyula: "Gyula", mihaly: "Mihály", erika: "Erika" };
+  const NAMES: Record<string, string> = { luca: "Luca", klari: "Klári", judit: "Judit", gyula: "Gyula", mihaly: "Mihály", erika: "Erika" };
   const ICON: Record<string, string> = { working: "⏳", done: "✅", waiting: "⏸️", error: "⚠️", idle: "⚪" };
-  const order = ["luca", "klari", "gyula", "mihaly"];
-  const teamLines = order
-    .map((k) => statuses.find((s) => s.key === k))
-    .filter(Boolean)
-    .map((s) => `${ICON[s!.status] || "•"} <b>${NAMES[s!.key] || s!.key}</b>: ${s!.status_note || s!.daily_task || "—"}`);
+  const order = ["luca", "klari", "judit", "gyula", "mihaly"];
+  const teamSel = order.map((k) => statuses.find((s) => s.key === k)).filter(Boolean) as NonNullable<(typeof statuses)[number]>[];
+  const teamRows = teamSel
+    .map((s) => `<tr><td style="padding:7px 12px;border-bottom:1px solid #eef1f4;white-space:nowrap;">${ICON[s.status] || "•"} <b>${esc(NAMES[s.key] || s.key)}</b></td><td style="padding:7px 12px;border-bottom:1px solid #eef1f4;color:#3a4a5a;">${esc(s.status_note || s.daily_task || "—")}</td></tr>`)
+    .join("");
 
   // Beérkezett e-mailek (Erika postaláda-triázsa) az elmúlt 24 órában.
-  const { data: em } = await sb.from("emails").select("urgency").gte("created_at", since);
-  const emailCount = (em || []).length;
-  const emailUrgent = (em || []).filter((e) => e.urgency === "magas").length;
-  const emailLine = emailCount
-    ? `📨 ${emailCount} új e-mail rendezve${emailUrgent ? ` (ebbol ${emailUrgent} sürgos!)` : ""} — részletek a dashboardon.`
-    : "";
+  const { data: em } = await sb.from("emails").select("*").gte("created_at", since).order("created_at", { ascending: false });
+  const emails = (em || []) as any[];
+  const emailCount = emails.length;
+  const urgent = emails.filter((e) => e.urgency === "magas");
+  const urgentRows = urgent
+    .slice(0, 10)
+    .map((e) => {
+      const subj = String(e.subject || e.targy || e.title || "(nincs tárgy)");
+      const from = e.sender || e.from_email || e.felado || e.from || "";
+      return `<li style="margin:4px 0;color:#233;">${esc(subj)}${from ? ` — <span style="color:#889;">${esc(String(from))}</span>` : ""}</li>`;
+    })
+    .join("");
 
-  const lines: string[] = [
-    "🗂️ <b>Erika — napi jelentés</b>",
-    "",
-    "<b>Csapat ma:</b>",
-    ...teamLines,
-    ...(emailLine ? ["", emailLine] : []),
-    "",
-    "<b>Marketing (Luca):</b>",
-    analysisSummary,
-    `Elmúlt 24 óra: 🤖 ${done.length} autonóm lépés · 💡 ${proposed.length} jóváhagyásra vár · 🚫 ${blocked.length} korlátozva.`,
-  ];
+  const dateStr = new Intl.DateTimeFormat("hu-HU", { timeZone: "Europe/Budapest", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const dash = process.env.PUBLIC_BASE_URL || "https://vitech-marketing-agent.vercel.app";
+  const BRAND = "#1a6dc4";
+  const propRows = proposed.slice(0, 10).map((a) => `<li style="margin:5px 0;color:#233;">${esc(humanize(a.type, a.params || {}))}</li>`).join("");
 
-  if (proposed.length) {
-    lines.push("", "<b>Vezetői döntést kérünk (jóváhagyás):</b>");
-    for (const a of proposed.slice(0, 8)) lines.push(`• ${humanize(a.type, a.params || {})} — /approve_${a.id}`);
-  }
-  lines.push("", "Részletek a dashboardon. Bármit kérdezhetsz tolem (Titkárság)! 💬");
+  const html = `<!doctype html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:22px 12px;"><tr><td align="center">
+    <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(20,40,80,.06);">
+      <tr><td style="background:${BRAND};padding:20px 26px;">
+        <div style="color:#fff;font-size:20px;font-weight:bold;">🗂️ Vitech Marketing — napi beszámoló</div>
+        <div style="color:#dbe9fb;font-size:14px;margin-top:2px;">Előző napi összegzés · ${dateStr}</div>
+      </td></tr>
+      <tr><td style="padding:22px 26px 6px;">
+        <div style="font-size:15px;font-weight:bold;color:#16324f;margin-bottom:6px;">Csapat</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eef1f4;border-radius:10px;overflow:hidden;font-size:14px;">${teamRows || '<tr><td style="padding:8px 12px;color:#889;">Nincs státusz.</td></tr>'}</table>
+      </td></tr>
+      <tr><td style="padding:14px 26px 0;">
+        <div style="font-size:15px;font-weight:bold;color:#16324f;margin-bottom:6px;">Marketing (Luca)</div>
+        <div style="font-size:14px;color:#3a4a5a;line-height:1.55;background:#f7f9fb;border:1px solid #eef1f4;border-radius:10px;padding:12px 14px;">${esc(analysisSummary)}</div>
+        <div style="font-size:14px;color:#3a4a5a;margin-top:8px;">Elmúlt 24 óra: 🤖 <b>${done.length}</b> autonóm lépés · 💡 <b>${proposed.length}</b> jóváhagyásra vár · 🚫 <b>${blocked.length}</b> korlátozva.</div>
+      </td></tr>
+      <tr><td style="padding:14px 26px 0;">
+        <div style="font-size:15px;font-weight:bold;color:#16324f;margin-bottom:6px;">Beérkezett e-mailek</div>
+        <div style="font-size:14px;color:#3a4a5a;">📨 <b>${emailCount}</b> új levél rendezve${urgent.length ? ` · ebből <b style="color:#c0392b;">${urgent.length} sürgős</b>` : ""}.</div>
+        ${urgentRows ? `<ul style="margin:8px 0 0;padding-left:20px;font-size:14px;">${urgentRows}</ul>` : ""}
+      </td></tr>
+      ${propRows ? `<tr><td style="padding:14px 26px 0;">
+        <div style="font-size:15px;font-weight:bold;color:#16324f;margin-bottom:6px;">Vezetői döntést kér (jóváhagyás)</div>
+        <ul style="margin:0;padding-left:20px;font-size:14px;">${propRows}</ul>
+        <div style="margin-top:8px;"><a href="${dash}" style="color:${BRAND};font-weight:bold;text-decoration:none;">Jóváhagyás a dashboardon →</a></div>
+      </td></tr>` : ""}
+      <tr><td style="padding:20px 26px 24px;">
+        <div style="border-top:1px solid #eef1f4;padding-top:14px;font-size:13px;color:#9aa7b3;">Részletek: <a href="${dash}" style="color:${BRAND};text-decoration:none;">${esc(dash.replace(/^https?:\/\//, ""))}</a><br>Vitech Marketing csapat (Erika – Titkárság)</div>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`;
 
-  await sendTelegram(lines.join("\n"), config.telegram_chat_id || undefined);
-  await setAgentStatus("erika", "done", `Napi jelentés elküldve · ${done.length} lépés, ${proposed.length} jóváhagyásra vár`);
+  const text = [
+    `Vitech Marketing — napi beszámoló (${dateStr})`,
+    ``,
+    `CSAPAT:`,
+    ...teamSel.map((s) => `- ${NAMES[s.key] || s.key}: ${s.status_note || s.daily_task || "—"}`),
+    ``,
+    `MARKETING (Luca): ${analysisSummary}`,
+    `Elmúlt 24 óra: ${done.length} autonóm lépés, ${proposed.length} jóváhagyásra vár, ${blocked.length} korlátozva.`,
+    ``,
+    `BEÉRKEZETT E-MAILEK: ${emailCount} rendezve${urgent.length ? `, ebből ${urgent.length} sürgős` : ""}.`,
+    ...(proposed.length ? [``, `JÓVÁHAGYÁSRA VÁR:`, ...proposed.slice(0, 10).map((a) => `- ${humanize(a.type, a.params || {})}`)] : []),
+    ``,
+    `Részletek: ${dash}`,
+  ].join("\n");
+
+  const r = await sendMail({
+    to: ownerEmail(),
+    fromName: "Vitech Marketing – Erika",
+    subject: `🗂️ Vitech Marketing — napi beszámoló (${dateStr})`,
+    text,
+    html,
+  });
+  await setAgentStatus(
+    "erika",
+    r.ok ? "done" : "error",
+    r.ok ? `Reggeli beszámoló e-mail elküldve · ${done.length} lépés, ${proposed.length} jóváhagyásra vár` : `Beszámoló e-mail hiba: ${r.error}`
+  );
 }
 
 /** Egy konkrét akció tényleges végrehajtása a Google Ads-ben (vagy mockban). */
