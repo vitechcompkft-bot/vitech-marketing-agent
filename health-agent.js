@@ -1,11 +1,13 @@
 /**
  * Vitech – Belso oldal-figyelo agent (Gyula keze).
- * A HUNOR LAN-on futó gepen fut (pl. 10.49.8.2 vagy .43), mert a felho (Vercel) NEM eri el
- * a 10.49.8.x cimeket. Pingeli a belso oldalakat es jelent a felhobe (/api/health/report).
+ * TENYLEGESEN a sajat munkaallomason fut (C:\Projects\vitech-marketing-agent), a "Vitech-Health-Agent"
+ * nevu Windows utemezett feladatbol (run-health-agent.vbs -> node health-agent.js), 2 percenkent.
+ * Azert itt es nem a felhoben, mert a Vercel NEM eri el a belso 10.49.8.x cimeket; ez a gep a LAN-on van.
+ * Pingeli a belso oldalakat es jelent a felhobe (/api/health/report).
  *
  * Futtatas:  node health-agent.js          (egyszer lefut)
  *            node health-agent.js --loop    (folyamatosan, INTERVAL_MS szerint)
- * Windows Utemezo (Task Scheduler): allitsd be 5-10 percenkent a "node health-agent.js"-t.
+ * Az utemezett feladat az egyszeri valtozatot hivja, 2 percenkent ismetelve.
  *
  * Node 18+ kell (beepitett fetch).
  */
