@@ -17,6 +17,18 @@ export const config = {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // MARKETINGES / IRODAI AI-ÜGYNÖKÖK LEÁLLÍTVA (2026-10-29, user kérésére).
+  // A Vercel Fluid Active CPU keret (havi 4 óra) 97%-on állt — ez a projekt vitte a 62%-át,
+  // mert a LAN-os health-agent.js 2 percenként hívta az /api/erika/audit + /api/webshop/sync
+  // végpontokat (a drága Fluid-függvények lefutottak, AI-hívásokkal).
+  // Ezért MINDEN /api/* végpontot az EDGE-en 204-gyel rövidre zárunk (a Fluid-függvény EL SEM
+  // INDUL → ~0 Active CPU), KIVÉVE a bolti LAN-app figyelést: /api/health/* (ide jelent az agent,
+  // ez tárol + e-mailben riaszt). Visszakapcsolás: töröld ezt a blokkot.
+  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/health")) {
+    return new NextResponse(null, { status: 204 });
+  }
+
   // Automatizált végpontok kihagyása — saját titkos kulcsuk védi őket.
   if (
     pathname.startsWith("/api/cron") ||
