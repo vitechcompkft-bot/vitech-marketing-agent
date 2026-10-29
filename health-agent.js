@@ -82,25 +82,10 @@ async function runOnce() {
     console.error("Nem sikerult jelenteni:", e && e.message);
   }
 
-  // ERIKA menetrend-tick: a feladatok idopontja utan par perccel ellenoriz + nogat (ezt a gyakori,
-  // 2 perces futas vezerli). A felho egyedul nem tud ilyen surun futni (Vercel Hobby cron limit).
-  try {
-    const er = await fetch(`${BASE}/api/erika/audit`, { method: "POST", headers: { authorization: `Bearer ${KEY}` } });
-    const ej = await er.json().catch(() => ({}));
-    console.log("Erika tick:", er.status, ej && ej.doneCount !== undefined ? `${ej.doneCount}/${ej.total} kesz` : "");
-  } catch (e) {
-    console.error("Erika tick hiba:", e && e.message);
-  }
-
-  // WEBSHOP: rendelesek frissitese az Unasbol. A vegpont 30 percre throttle-oli, igy a 2 perces
-  // hivas ellenere csak felorankent kerdez le tenylegesen (uj rendeleseket betolti a Webshop-oldalra).
-  try {
-    const ws = await fetch(`${BASE}/api/webshop/sync`, { method: "POST", headers: { authorization: `Bearer ${KEY}` } });
-    const wj = await ws.json().catch(() => ({}));
-    console.log("Webshop sync:", ws.status, wj && wj.synced ? `+${wj.added} uj (${wj.total})` : (wj && wj.skipped) || "");
-  } catch (e) {
-    console.error("Webshop sync hiba:", e && e.message);
-  }
+  // MARKETINGES ÜGYNÖKÖK LEÁLLÍTVA (2026-10-29): a korábbi Erika-tick (/api/erika/audit) és a
+  // Webshop-sync (/api/webshop/sync) hívásokat KIVETTÜK — ezek 2 percenként lefuttatták a drága
+  // (AI-s) Vercel Fluid-függvényeket, és ez vitte a havi CPU-keret ~62%-át. Ez az agent mostantól
+  // CSAK a bolti LAN-oldalakat figyeli és jelent a /api/health/report-ra (az marad élő).
 }
 
 (async () => {
